@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+/* Tokens de diseño: todos los colores salen de acá. */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-fondo: #09090b;
+  --color-superficie: #111114;
+  --color-elevada: #18181d;
+  --color-hover: #1f1f26;
+  --color-borde: #26262e;
+  --color-borde-fuerte: #34343e;
+
+  --color-texto: #ededf0;
+  --color-suave: #a1a1aa;
+  --color-tenue: #6b6b76;
+
+  --color-acento: #a78bfa;
+  --color-acento-fuerte: #8b5cf6;
+  --color-acento-tenue: rgb(167 139 250 / 0.12);
+
+  --color-ok: #34d399;
+  --color-aviso: #fbbf24;
+  --color-peligro: #f87171;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--color-fondo);
+    color: var(--color-texto);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    color-scheme: dark;
+  }
+  ::selection {
+    background: var(--color-acento-tenue);
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+  }
+}
+
+/* Scrollbars discretas */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-borde-fuerte) transparent;
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-aparecer {
+  animation: aparecer 0.18s ease-out both;
+}

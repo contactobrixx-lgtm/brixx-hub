@@ -12,11 +12,12 @@ Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay regi
 
 | Capa | Tecnología |
 |---|---|
-| Frontend | React 18 + Vite + TypeScript |
-| Estilos | Tailwind CSS (tema oscuro único) |
+| Frontend | React 19 + Vite + TypeScript |
+| Estilos | Tailwind CSS v4 (tema oscuro único, tokens en `src/index.css` → `@theme`) |
 | Ruteo | React Router |
-| Datos / Auth | Supabase (Postgres + Auth + Row Level Security) |
-| Kanban | @dnd-kit (drag & drop) |
+| Datos / Auth | Supabase (Postgres + Auth con email/contraseña + Row Level Security + Storage) |
+| Kanban | @dnd-kit/core (drag & drop) |
+| Íconos | lucide-react |
 | Deploy | Vercel (build automático desde GitHub) |
 
 No hay backend propio: el frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend.
@@ -37,20 +38,23 @@ Nunca usar ni commitear la `service_role` / secret key en este repo.
 ```
 src/
   lib/supabase.ts        # cliente único de Supabase
-  auth/                  # AuthProvider, ruta protegida, pantalla de login
-  components/ui/         # botones, inputs, modal, badge... (reutilizables)
+  lib/format.ts          # etiquetas, montos, fechas
+  auth/                  # AuthProvider (sesión + miembro), RequireAuth
+  components/ui/         # Button, Field/Input/Select, Modal, Badge... (reutilizables)
+  components/layout/     # AppLayout (sidebar + nav móvil), PageHeader, Logo
   features/
-    fichas/              # tarjetas, grilla, formulario, visor iframe (sistemas + demos)
-    pipeline/            # tablero kanban, columna, tarjeta, formulario de prospecto
+    fichas/              # useFichas, FichaCard, FichaForm, ImagenPicker (sistemas + demos)
+    pipeline/            # useProspectos, Tablero (kanban), ProspectoCard, ProspectoForm
   pages/                 # una página por ruta
-  types/                 # tipos de las tablas de la base
+  types/db.ts            # tipos de las tablas de la base
 supabase/
   migrations/            # SQL versionado: esquema, RLS, seeds
 ```
 
 ## Rutas
 
-- `/login` — única ruta pública.
+- `/login` — única ruta pública (incluye "olvidé mi contraseña").
+- `/nueva-clave` — cambiar contraseña (también destino del link de recuperación).
 - `/sistemas`, `/demos` — grilla de fichas filtrada por `seccion`.
 - `/ver/:id` — ficha abierta embebida en iframe (con botón "abrir en pestaña nueva").
 - `/pipeline` — kanban de prospectos.
@@ -59,10 +63,12 @@ supabase/
 
 - **Idioma**: UI, nombres de tablas/columnas y textos en **español**. Código (variables, funciones, componentes) en inglés o español, pero consistente dentro de cada archivo; nombres de tablas/columnas siempre como están en la base.
 - **Datos, no código**: todo contenido (fichas, prospectos) vive en Supabase y se edita desde formularios del hub. Nunca hardcodear fichas en el código.
+- **Pipeline**: el orden dentro de cada columna es `prospectos.orden` (número decimal); al soltar una tarjeta entre dos se usa el promedio, así se actualiza una sola fila.
 - **Esquema versionado**: cualquier cambio de base va como archivo nuevo en `supabase/migrations/` (`NNNN_descripcion.sql`), idempotente cuando sea posible. Mantener `src/types/` en sincronía.
-- **RLS siempre activo** en todas las tablas. Acceso solo para usuarios autenticados cuyo email esté en la tabla `miembros`.
+- **RLS siempre activo** en todas las tablas y en el bucket. Acceso solo para usuarios autenticados cuyo email esté en la tabla `miembros` (función `es_miembro()`). La tabla `miembros` se edita solo desde el panel de Supabase.
+- **Imágenes**: bucket privado `capturas` de Supabase Storage. En la base se guarda solo la ruta (`fichas.imagen_path`); para mostrarlas se generan URLs firmadas temporales. Al reemplazar o borrar una ficha se borra también el archivo.
 - **Iframes**: muchas apps bloquean ser embebidas (`X-Frame-Options` / `frame-ancestors`). Cada ficha tiene `modo_apertura` (`iframe` | `pestana`); el visor siempre ofrece "abrir en pestaña nueva" como salida.
-- **Estética**: oscura premium. Fondo casi negro, superficies con leve elevación y bordes sutiles, un solo color de acento, tipografía limpia (Inter), mucho aire, animaciones cortas y discretas. Definir colores como tokens en la config de Tailwind; no colores sueltos en componentes.
+- **Estética**: oscura premium. Fondo casi negro, superficies con leve elevación y bordes sutiles, un solo color de acento, tipografía limpia (Inter), mucho aire, animaciones cortas y discretas. Los colores son tokens en `@theme` de `src/index.css` (`bg-superficie`, `text-acento`, etc.); no usar colores sueltos en componentes.
 - **Componentes**: funcionales con hooks. Acceso a datos encapsulado en hooks por feature (`useFichas`, `useProspectos`), no llamadas a Supabase sueltas en componentes de UI.
 - **Responsive**: tiene que poder usarse desde el celular (consultar el pipeline en una reunión).
 - **Sin dependencias innecesarias**: antes de sumar una librería, preferir lo que ya está en el stack.
@@ -74,5 +80,5 @@ supabase/
 npm install
 npm run dev       # desarrollo local
 npm run build     # build de producción
-npm run lint
+npm run typecheck # chequeo de tipos
 ```
