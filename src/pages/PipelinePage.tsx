@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { ETAPAS, type Etapa, type Moneda, type Prospecto } from '../types/db'
+import { ETAPAS, ETAPAS_ABIERTAS, ETAPAS_GANADAS, type Etapa, type Moneda, type Prospecto } from '../types/db'
 import { useMiembros, useProspectos } from '../features/pipeline/useProspectos'
 import { useDemosParaSelector } from '../features/fichas/useFichas'
 import { Tablero } from '../features/pipeline/Tablero'
@@ -15,7 +15,6 @@ import { ErrorBox } from '../components/ui/ErrorBox'
 import { PantallaCarga } from '../components/ui/Spinner'
 import { ETAPA_LABEL, formatMonto } from '../lib/format'
 
-const ABIERTAS: Etapa[] = ['contacto', 'reunion', 'demo', 'propuesta']
 
 function sumar(lista: Prospecto[]) {
   const suma: Partial<Record<Moneda, number>> = {}
@@ -43,10 +42,10 @@ export function PipelinePage() {
     [prospectos, responsable],
   )
 
-  const abiertos = visibles.filter((p) => ABIERTAS.includes(p.etapa))
-  const cerrados = visibles.filter((p) => p.etapa === 'cerrado')
-  const finalizados = visibles.filter((p) => p.etapa === 'cerrado' || p.etapa === 'perdido').length
-  const tasa = finalizados ? Math.round((cerrados.length / finalizados) * 100) : null
+  const abiertos = visibles.filter((p) => ETAPAS_ABIERTAS.includes(p.etapa))
+  const ganados = visibles.filter((p) => ETAPAS_GANADAS.includes(p.etapa)).length
+  const perdidos = visibles.filter((p) => p.etapa === 'perdido').length
+  const tasa = ganados + perdidos ? Math.round((ganados / (ganados + perdidos)) * 100) : null
 
   const nuevo = (etapa: Etapa) => {
     setEditando(null)
@@ -79,7 +78,7 @@ export function PipelinePage() {
           }
         />
 
-        <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-6 md:overflow-visible md:px-0">
+        <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 xl:mx-0 xl:grid xl:grid-cols-8 xl:overflow-visible xl:px-0">
           {ETAPAS.map((etapa) => {
             const items = visibles.filter((p) => p.etapa === etapa)
             const est = ESTILO_ETAPA[etapa]

@@ -1,8 +1,8 @@
 /** Isotipo de brixx: tres bloques (blanco, azul, lavanda). */
-export function LogoMark({ className = 'size-5' }: { className?: string }) {
+export function LogoMark({ className = 'size-5', sobreClaro = false }: { className?: string; sobreClaro?: boolean }) {
   return (
     <svg viewBox="0 0 176 168" className={className} aria-hidden>
-      <rect x="97" y="0" width="79" height="74" rx="17" fill="#fff" />
+      <rect x="97" y="0" width="79" height="74" rx="17" fill={sobreClaro ? 'var(--color-tinta)' : '#fff'} />
       <rect x="0" y="90" width="79" height="78" rx="17" fill="var(--color-acento)" />
       <rect x="97" y="90" width="79" height="78" rx="17" fill="var(--color-acento-claro)" />
     </svg>

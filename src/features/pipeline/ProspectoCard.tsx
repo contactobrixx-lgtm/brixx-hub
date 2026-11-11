@@ -13,7 +13,7 @@ interface Props {
 
 export function ProspectoCard({ prospecto: p, miembros, tieneDemo, arrastrando, overlay }: Props) {
   const responsable = miembros.find((m) => m.email.toLowerCase() === p.responsable?.toLowerCase())
-  const abierto = p.etapa !== 'cerrado' && p.etapa !== 'perdido'
+  const abierto = p.etapa !== 'perdido'
   const vencida = abierto && !!p.fecha_proxima_accion && p.fecha_proxima_accion < hoyISO()
   const esHoy = abierto && p.fecha_proxima_accion === hoyISO()
 

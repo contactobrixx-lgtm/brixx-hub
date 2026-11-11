@@ -1,0 +1,74 @@
+# Aplica en Supabase las migraciones nuevas de supabase/migrations.
+#
+# - Al mergear a main: aplica las pendientes (supabase db push).
+# - En cada Pull request: simula y lista cuáles se aplicarían, sin tocar la base.
+# - A mano: pestaña Actions → "Migraciones de Supabase" → Run workflow.
+#
+# Necesita el secret SUPABASE_DB_URL (connection string del Session pooler).
+# El detalle de la 0001 (corrida a mano) está en .github/scripts/aplicar-migraciones.sh.
+
+name: Migraciones de Supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/migraciones.yml'
+      - '.github/scripts/aplicar-migraciones.sh'
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/migraciones.yml'
+      - '.github/scripts/aplicar-migraciones.sh'
+  workflow_dispatch:
+
+# Nunca dos corridas a la vez contra la misma base.
+concurrency:
+  group: supabase-migraciones
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash # = bash -eo pipefail: si el script falla, el paso falla aunque use tee
+
+jobs:
+  migraciones:
+    name: ${{ github.event_name == 'pull_request' && 'Simular migraciones' || 'Aplicar migraciones' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PGSSLMODE: require
+      PGCONNECT_TIMEOUT: '15'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar el secret
+        id: secret
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "::warning::Falta el secret SUPABASE_DB_URL: no se puede simular. Ver README → 'Migraciones automáticas'."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Falta el secret SUPABASE_DB_URL en Settings → Secrets and variables → Actions. Ver README → 'Migraciones automáticas'."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        if: steps.secret.outputs.ok == 'true'
+        with:
+          version: 3.1.0
+
+      - name: Simular (Pull request)
+        if: steps.secret.outputs.ok == 'true' && github.event_name == 'pull_request'
+        run: .github/scripts/aplicar-migraciones.sh --dry-run | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Aplicar en Supabase
+        if: steps.secret.outputs.ok == 'true' && github.event_name != 'pull_request'
+        run: .github/scripts/aplicar-migraciones.sh | tee -a "$GITHUB_STEP_SUMMARY"

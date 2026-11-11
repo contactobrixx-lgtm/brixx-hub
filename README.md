@@ -7,6 +7,48 @@ Detalles del proyecto y convenciones en [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
+## Migraciones automáticas (GitHub Action)
+
+Los cambios de base de datos **ya no se corren a mano**. El workflow [`.github/workflows/migraciones.yml`](./.github/workflows/migraciones.yml) hace esto:
+
+| Cuándo | Qué hace |
+|---|---|
+| Se abre o actualiza un **Pull request** que toca `supabase/migrations/` | **Simula**: lista qué migraciones se aplicarían, sin tocar la base (check "Simular migraciones") |
+| Se **mergea a `main`** | **Aplica** en Supabase las migraciones pendientes (`supabase db push`) |
+| A mano: **Actions → Migraciones de Supabase → Run workflow** | Aplica las pendientes (útil para reintentar) |
+
+La 0001 se corrió a mano en el SQL Editor, así que no figura en el historial de la CLI. El script lo detecta (las tablas existen pero no está registrada) y la **marca como aplicada sin volver a correrla**. Después aplica solo lo que falta (hoy, la 0002).
+
+### Configurar el secret (una sola vez, desde la web)
+
+Hace falta **un solo secret**: `SUPABASE_DB_URL`, la dirección de conexión a la base.
+
+**1. Sacar el valor en Supabase**
+
+1. Entrá a tu proyecto en [supabase.com](https://supabase.com/dashboard).
+2. Tocá el botón **Connect**, arriba de todo.
+3. En **Connection String** elegí el método **Session pooler**. *No* uses "Direct connection": GitHub no la alcanza (es solo IPv6).
+4. Copiá la URI. Tiene esta forma:
+   `postgresql://postgres.abcdefghijkl:[YOUR-PASSWORD]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres`
+5. Reemplazá `[YOUR-PASSWORD]` (con los corchetes) por la **contraseña de la base**, la que elegiste al crear el proyecto.
+   - ¿No la recordás? **Project Settings → Database → Reset database password**. No afecta al hub, que entra con la clave pública.
+   - Usá una contraseña con **solo letras y números**: los símbolos como `@ # / ?` rompen la URI.
+
+**2. Cargarlo en GitHub**
+
+1. Abrí el repo `brixx-hub` → **Settings** → **Secrets and variables** → **Actions**.
+2. **New repository secret**.
+3. Name: `SUPABASE_DB_URL`. Secret: la URI completa del paso anterior, con la contraseña.
+4. **Add secret**.
+
+**3. Probar**
+
+En el Pull request abierto, entrá a **Checks → Migraciones de Supabase → Re-run jobs**. En el resumen tiene que aparecer la lista de migraciones que se aplicarían. Si da error de conexión, revisá la contraseña y que sea la URI del *Session pooler*.
+
+> Las versiones de preview de Vercel usan la **misma base** que producción. Si un PR trae una migración nueva, su preview puede mostrar errores en lo que dependa de las tablas nuevas hasta que se mergee.
+
+---
+
 ## Puesta en marcha (todo desde la web, sin terminal)
 
 ### 1. Supabase: crear el proyecto
@@ -17,11 +59,15 @@ Detalles del proyecto y convenciones en [`CLAUDE.md`](./CLAUDE.md).
 
 ### 2. Supabase: crear las tablas
 
-1. Abrí el archivo [`supabase/migrations/0001_esquema_inicial.sql`](./supabase/migrations/0001_esquema_inicial.sql) acá en GitHub y copiá todo el contenido.
+> Si ya configuraste las [migraciones automáticas](#migraciones-automáticas-github-action), alcanza con correr a mano **solo la 0001** (tiene los emails de los socios). El Action registra la 0001 y aplica las demás.
+
+Hay que correr **los archivos de `supabase/migrations/` en orden** (0001, después 0002…). Para cada uno:
+
+1. Abrí el archivo acá en GitHub (por ejemplo [`supabase/migrations/0001_esquema_inicial.sql`](./supabase/migrations/0001_esquema_inicial.sql)) y copiá todo el contenido.
 2. En Supabase: menú izquierdo → **SQL Editor** → **New query** → pegalo.
-3. **Antes de ejecutar**, bajá hasta el final (sección 7) y reemplazá los dos emails y nombres por los tuyos y los de tu socio.
+3. **Solo en la 0001, antes de ejecutar**: bajá hasta el final (sección 7) y reemplazá los dos emails y nombres por los tuyos y los de tu socio.
 4. Tocá **Run**. Tiene que decir *Success. No rows returned*.
-5. Verificá en **Table Editor** que estén las tablas `miembros`, `fichas` y `prospectos`, y en **Storage** el bucket `capturas`.
+5. Verificá en **Table Editor** que estén las tablas (`miembros`, `fichas`, `prospectos`, `servicios`, `cotizaciones`, `cobros`, `costos`, `reuniones`…) y en **Storage** el bucket `capturas`.
 
 > Para sumar a alguien más en el futuro: **Table Editor → miembros → Insert row** con su email, y después creale el usuario (paso 4).
 
