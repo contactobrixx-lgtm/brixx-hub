@@ -8,6 +8,7 @@ import {
   KeyRound,
   LayoutGrid,
   LogOut,
+  Mic,
   MonitorSmartphone,
   MoreHorizontal,
   Wallet,
@@ -28,6 +29,7 @@ interface Item {
 const ESTUDIO: Item[] = [
   { to: '/inicio', label: 'Inicio', icono: Home },
   { to: '/calendario', label: 'Calendario', icono: CalendarDays },
+  { to: '/grabaciones', label: 'Grabaciones', icono: Mic },
   { to: '/pipeline', label: 'Pipeline', icono: KanbanSquare },
   { to: '/cotizador', label: 'Cotizador', icono: Calculator },
   { to: '/finanzas', label: 'Finanzas', icono: Wallet },
@@ -39,7 +41,7 @@ const PROYECTOS: Item[] = [
 ]
 
 /** En el celular, la barra inferior muestra estas y el resto va a "Más". */
-const MOVIL = ['/inicio', '/calendario', '/pipeline', '/cotizador']
+const MOVIL = ['/inicio', '/calendario', '/grabaciones', '/pipeline']
 
 function LinkNav({ item }: { item: Item }) {
   const Icono = item.icono
@@ -66,7 +68,7 @@ export function AppLayout() {
 
   useEffect(() => setMasAbierto(false), [pathname])
 
-  const enMas = ![...MOVIL].some((r) => pathname.startsWith(r))
+  const enMas = ![...MOVIL, '/grabar'].some((r) => pathname.startsWith(r))
   const resto = [...ESTUDIO, ...PROYECTOS].filter((i) => !MOVIL.includes(i.to))
 
   return (

@@ -130,3 +130,12 @@ export function parseNumero(texto: string): number | null {
   const n = Number(normal)
   return Number.isNaN(n) ? null : n
 }
+
+/** 3725 → "1:02:05", 125 → "2:05" */
+export function formatDuracion(segundos: number): string {
+  const s = Math.max(0, Math.floor(segundos))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = String(s % 60).padStart(2, '0')
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`
+}

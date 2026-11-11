@@ -159,3 +159,49 @@ export interface Reunion {
   notas: string | null
 }
 export type ReunionInput = Omit<Reunion, 'id'>
+
+export type EstadoGrabacion = 'pendiente' | 'transcribiendo' | 'analizando' | 'lista' | 'error'
+
+export interface Segmento {
+  hablante: string
+  inicio_ms: number
+  fin_ms: number
+  texto: string
+}
+
+export type TipoPuntoClave = 'necesidad' | 'dolor' | 'presupuesto' | 'plazo' | 'objecion' | 'oportunidad' | 'decision' | 'otro'
+
+/** Respuesta de Claude. Mantener en sincronía con ESQUEMA en supabase/functions/grabaciones/analisis.ts. */
+export interface Analisis {
+  resumen: string
+  puntos_clave: { titulo: string; detalle: string; tipo: TipoPuntoClave; cita: string; segundo: number | null }[]
+  decisiones: string[]
+  proximos_pasos: { accion: string; responsable: string | null; fecha: string | null }[]
+  propuesta: {
+    enfoque: string
+    servicios: { servicio_id: string | null; nombre: string; motivo: string; etapa: 1 | 2 | 3 }[]
+    riesgos: string[]
+  }
+  preguntas_pendientes: string[]
+}
+
+export interface Grabacion {
+  id: string
+  titulo: string
+  reunion_id: string | null
+  prospecto_id: string | null
+  audio_path: string | null
+  audio_mime: string | null
+  duracion_seg: number | null
+  estado: EstadoGrabacion
+  error: string | null
+  proveedor: string
+  proveedor_id: string | null
+  segmentos: Segmento[] | null
+  hablantes: Record<string, string>
+  analisis: Analisis | null
+  modelo: string | null
+  grabado_por: string | null
+  created_at: string
+  updated_at: string
+}
