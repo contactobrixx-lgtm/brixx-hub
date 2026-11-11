@@ -26,6 +26,23 @@ Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay regi
 
 No hay backend propio: el frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend.
 
+## Flujo de trabajo (regla fija)
+
+Cada cambio, sin excepción:
+
+1. Se trabaja en una rama y se **abre un Pull request** contra `main`.
+2. Se le pasa al usuario el **link del PR** y el **link de preview de Vercel**. El bot de Vercel lo deja en un comentario del PR o en el check "Vercel".
+3. **No se mergea hasta que el usuario diga "ok".** Con el "ok", Claude mergea el PR (merge commit). Después confirma que el workflow "Migraciones de Supabase" terminó bien si el PR traía migraciones.
+4. Si el PR se mergea, el trabajo siguiente sale de una rama nueva desde `main` actualizado.
+
+## Migraciones automáticas
+
+- `.github/workflows/migraciones.yml` + `.github/scripts/aplicar-migraciones.sh`: en cada PR **simula** (lista las pendientes); al mergear a `main` **aplica** con `supabase db push` (Supabase CLI fijada en 3.1.0). También se puede correr a mano desde Actions.
+- Usa el secret `SUPABASE_DB_URL`: URI del **Session pooler**, porque GitHub es solo IPv4.
+- La 0001 se corrió a mano: si sus tablas existen y no está en `supabase_migrations.schema_migrations`, el script la marca como aplicada (`migration repair`) sin volver a correrla.
+- **Nunca** pedirle al usuario que corra SQL a mano ni editar una migración ya aplicada. Todo cambio de base es un archivo nuevo `NNNN_descripcion.sql` (siguiente número), idempotente, probado antes contra un Postgres local.
+- Las previews de Vercel usan la base de producción. Un PR con migración nueva puede fallar en preview en lo que dependa de esas tablas hasta mergearlo; avisarle al usuario.
+
 ## Variables de entorno
 
 Definidas en `.env.local` (local, no se commitea) y en Vercel → Settings → Environment Variables:
@@ -84,7 +101,7 @@ supabase/
 - **Costos**: `mensual` cuenta cada mes entre `desde` y `hasta`; `anual` cuenta 1/12 por mes; `unico` solo en el mes de `desde`. Categoría `adquisicion` alimenta el ROAS.
 - **Gráficos**: un solo eje, series con tokens `serie-ingreso` / `serie-costo` (validados para daltonismo), leyenda, tooltip al pasar y vista de tabla.
 - **Pipeline**: el orden dentro de cada columna es `prospectos.orden` (número decimal); al soltar una tarjeta entre dos se usa el promedio, así se actualiza una sola fila.
-- **Esquema versionado**: cualquier cambio de base va como archivo nuevo en `supabase/migrations/` (`NNNN_descripcion.sql`), idempotente cuando sea posible. Mantener `src/types/` en sincronía.
+- **Esquema versionado**: cualquier cambio de base va como archivo nuevo en `supabase/migrations/` (`NNNN_descripcion.sql`), idempotente cuando sea posible. Lo aplica el Action al mergear (ver "Migraciones automáticas"). Mantener `src/types/` en sincronía.
 - **RLS siempre activo** en todas las tablas y en el bucket. Acceso solo para usuarios autenticados cuyo email esté en la tabla `miembros` (función `es_miembro()`). La tabla `miembros` se edita solo desde el panel de Supabase.
 - **Imágenes**: bucket privado `capturas` de Supabase Storage. En la base se guarda solo la ruta (`fichas.imagen_path`); para mostrarlas se generan URLs firmadas temporales. Al reemplazar o borrar una ficha se borra también el archivo.
 - **Iframes**: muchas apps bloquean ser embebidas (`X-Frame-Options` / `frame-ancestors`). Cada ficha tiene `modo_apertura` (`iframe` | `pestana`); el visor siempre ofrece "abrir en pestaña nueva" como salida.
@@ -92,7 +109,7 @@ supabase/
 - **Componentes**: funcionales con hooks. Acceso a datos encapsulado en hooks por feature (`useFichas`, `useProspectos`, `useCobros`…, la mayoría sobre `useTabla`), no llamadas a Supabase sueltas en componentes de UI.
 - **Responsive**: tiene que poder usarse desde el celular (consultar el pipeline en una reunión).
 - **Sin dependencias innecesarias**: antes de sumar una librería, preferir lo que ya está en el stack.
-- **Deploy**: `main` se despliega a producción en Vercel. SPA con rewrite de todas las rutas a `index.html` (`vercel.json`).
+- **Deploy**: `main` se despliega a producción en Vercel y dispara las migraciones. SPA con rewrite de todas las rutas a `index.html` (`vercel.json`).
 
 ## Comandos
 
