@@ -1,16 +1,24 @@
-export function Logo({ className = '' }: { className?: string }) {
+/** Isotipo de brixx: tres bloques (blanco, azul, lavanda). */
+export function LogoMark({ className = 'size-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 176 168" className={className} aria-hidden>
+      <rect x="97" y="0" width="79" height="74" rx="17" fill="#fff" />
+      <rect x="0" y="90" width="79" height="78" rx="17" fill="var(--color-acento)" />
+      <rect x="97" y="90" width="79" height="78" rx="17" fill="var(--color-acento-claro)" />
+    </svg>
+  )
+}
+
+export function Logo({ className = '', subtitulo = true }: { className?: string; subtitulo?: boolean }) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      <svg viewBox="0 0 32 32" className="size-7" aria-hidden>
-        <rect width="32" height="32" rx="8" fill="#18181d" />
-        <rect x="7" y="7" width="8" height="8" rx="2" fill="#a78bfa" />
-        <rect x="17" y="7" width="8" height="8" rx="2" fill="#a78bfa" opacity=".55" />
-        <rect x="7" y="17" width="8" height="8" rx="2" fill="#a78bfa" opacity=".55" />
-        <rect x="17" y="17" width="8" height="8" rx="2" fill="#a78bfa" opacity=".3" />
-      </svg>
-      <span className="text-[15px] font-semibold tracking-tight">
-        brixx <span className="font-normal text-tenue">hub</span>
-      </span>
+      <div className="grid size-[34px] shrink-0 place-items-center rounded-[9px] bg-black ring-1 ring-borde">
+        <LogoMark className="size-[18px]" />
+      </div>
+      <div className="leading-tight">
+        <b className="block text-lg font-bold tracking-tight">brixx</b>
+        {subtitulo && <span className="block text-xs text-tenue">Hub interno</span>}
+      </div>
     </div>
   )
 }

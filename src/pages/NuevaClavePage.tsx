@@ -30,11 +30,11 @@ export function NuevaClavePage() {
     <div className="flex min-h-full items-center justify-center p-6">
       <div className="w-full max-w-sm animate-aparecer">
         <Logo className="mb-10 justify-center" />
-        <div className="rounded-2xl border border-borde bg-superficie p-6">
-          <Link to="/sistemas" className="mb-4 inline-flex items-center gap-1 text-xs text-tenue hover:text-suave">
+        <div className="rounded-2xl border border-borde bg-superficie p-6 sm:p-7">
+          <Link to="/sistemas" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-acento-texto hover:underline">
             <ArrowLeft className="size-3.5" /> Volver al hub
           </Link>
-          <h1 className="text-lg font-semibold">Nueva contraseña</h1>
+          <h1 className="text-2xl font-bold">Nueva contraseña</h1>
           <form onSubmit={guardar} className="mt-6 space-y-4">
             <Field label="Contraseña nueva" ayuda="Mínimo 8 caracteres.">
               <Input type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} />

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { LayoutGrid, Plus, Search, Sparkles } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import type { Ficha, Seccion } from '../types/db'
 import { useFichas } from '../features/fichas/useFichas'
 import { FichaCard } from '../features/fichas/FichaCard'
@@ -10,7 +10,7 @@ import { Input } from '../components/ui/Field'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorBox } from '../components/ui/ErrorBox'
 import { PantallaCarga } from '../components/ui/Spinner'
-import { cn } from '../components/ui/cn'
+import { Chip, Segmentado } from '../components/ui/Badge'
 
 type Filtro = 'vigentes' | 'archivados' | 'todos'
 
@@ -67,7 +67,7 @@ function Contenido({ seccion }: { seccion: Seccion }) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">
+    <div className="mx-auto w-full max-w-[1240px] px-4 pt-6 pb-16 md:px-10 md:pt-8">
       <PageHeader
         titulo={t.titulo}
         subtitulo={t.subtitulo}
@@ -80,7 +80,7 @@ function Contenido({ seccion }: { seccion: Seccion }) {
 
       {fichas.length > 0 && (
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative sm:w-72">
+          <div className="relative sm:w-80">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-tenue" />
             <Input
               value={busqueda}
@@ -89,36 +89,33 @@ function Contenido({ seccion }: { seccion: Seccion }) {
               className="pl-9"
             />
           </div>
-          <div className="flex rounded-lg border border-borde bg-superficie p-0.5">
-            {(['vigentes', 'archivados', 'todos'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFiltro(f)}
-                className={cn(
-                  'flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs capitalize transition-colors',
-                  filtro === f ? 'bg-elevada text-texto' : 'text-tenue hover:text-suave',
-                )}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          {categorias.length > 1 && (
-            <div className="flex flex-wrap gap-1.5">
-              {categorias.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCategoria(categoria === c ? null : c)}
-                  className={cn(
-                    'cursor-pointer rounded-full border px-3 py-1 text-xs transition-colors',
-                    categoria === c ? 'border-acento/50 bg-acento-tenue text-acento' : 'border-borde text-suave hover:border-borde-fuerte',
-                  )}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
+          <Segmentado
+            valor={filtro}
+            onChange={setFiltro}
+            opciones={[
+              { valor: 'vigentes', label: 'Vigentes' },
+              { valor: 'archivados', label: 'Archivados' },
+              { valor: 'todos', label: 'Todos' },
+            ]}
+          />
+        </div>
+      )}
+
+      {categorias.length > 1 && (
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Chip activo={categoria === null} onClick={() => setCategoria(null)} cantidad={fichas.length}>
+            Todas
+          </Chip>
+          {categorias.map((c) => (
+            <Chip
+              key={c}
+              activo={categoria === c}
+              onClick={() => setCategoria(categoria === c ? null : c)}
+              cantidad={fichas.filter((f) => f.categoria === c).length}
+            >
+              {c}
+            </Chip>
+          ))}
         </div>
       )}
 
@@ -128,7 +125,6 @@ function Contenido({ seccion }: { seccion: Seccion }) {
         <PantallaCarga />
       ) : fichas.length === 0 ? (
         <EmptyState
-          icono={seccion === 'sistema' ? <LayoutGrid className="size-5" /> : <Sparkles className="size-5" />}
           titulo="Todavía no hay nada acá"
           texto={t.vacio}
           accion={
@@ -138,9 +134,9 @@ function Contenido({ seccion }: { seccion: Seccion }) {
           }
         />
       ) : visibles.length === 0 ? (
-        <p className="py-16 text-center text-sm text-tenue">Ninguna ficha coincide con los filtros.</p>
+        <p className="py-16 text-center text-tenue">Ninguna ficha coincide con los filtros.</p>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visibles.map((f) => (
             <FichaCard
               key={f.id}

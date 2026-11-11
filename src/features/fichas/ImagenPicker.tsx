@@ -47,7 +47,7 @@ export function ImagenPicker({ actualUrl, archivo, quitada, onArchivo, onQuitar 
 
   return (
     <div>
-      <span className="mb-1.5 block text-xs font-medium text-suave">Captura / imagen de portada</span>
+      <span className="mb-1.5 block text-sm font-semibold">Captura / imagen de portada</span>
       <div
         onDragOver={(e) => {
           e.preventDefault()
@@ -68,14 +68,14 @@ export function ImagenPicker({ actualUrl, archivo, quitada, onArchivo, onQuitar 
               <button
                 type="button"
                 onClick={() => input.current?.click()}
-                className="cursor-pointer rounded-lg border border-borde bg-fondo/90 px-2.5 py-1.5 text-xs text-texto backdrop-blur hover:bg-hover"
+                className="cursor-pointer rounded-lg border border-borde-fuerte bg-fondo/90 px-2.5 py-1.5 text-xs text-texto backdrop-blur hover:bg-hover"
               >
                 Cambiar
               </button>
               <button
                 type="button"
                 onClick={() => (archivo ? onArchivo(null) : onQuitar())}
-                className="cursor-pointer rounded-lg border border-borde bg-fondo/90 p-1.5 text-peligro backdrop-blur hover:bg-hover"
+                className="cursor-pointer rounded-lg border border-borde-fuerte bg-fondo/90 p-1.5 text-peligro backdrop-blur hover:bg-hover"
                 aria-label="Quitar imagen"
               >
                 <Trash2 className="size-3.5" />
@@ -88,7 +88,7 @@ export function ImagenPicker({ actualUrl, archivo, quitada, onArchivo, onQuitar 
             onClick={() => input.current?.click()}
             className="flex size-full cursor-pointer flex-col items-center justify-center gap-2 text-sm text-suave hover:text-texto"
           >
-            <ImagePlus className="size-6 text-acento" />
+            <ImagePlus className="size-6 text-acento-texto" />
             <span>Subir, arrastrar o pegar (Ctrl+V)</span>
             <span className="text-xs text-tenue">PNG, JPG o WebP · máx. 5 MB</span>
           </button>

@@ -154,7 +154,7 @@ function FormInterno({
                   href={wa}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-borde text-ok hover:bg-hover"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-[10px] border border-borde-fuerte text-ok hover:bg-elevada"
                   title="Abrir WhatsApp"
                 >
                   <MessageCircle className="size-4" />

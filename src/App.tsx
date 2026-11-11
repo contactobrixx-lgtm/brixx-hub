@@ -15,8 +15,8 @@ export default function App() {
         <div className="max-w-md">
           <h1 className="text-lg font-semibold">Falta configurar Supabase</h1>
           <p className="mt-2 text-sm text-suave">
-            Definí <code className="text-acento">VITE_SUPABASE_URL</code> y{' '}
-            <code className="text-acento">VITE_SUPABASE_ANON_KEY</code> en las variables de entorno (en Vercel:
+            Definí <code className="text-acento-texto">VITE_SUPABASE_URL</code> y{' '}
+            <code className="text-acento-texto">VITE_SUPABASE_ANON_KEY</code> en las variables de entorno (en Vercel:
             Settings → Environment Variables) y volvé a desplegar.
           </p>
         </div>
