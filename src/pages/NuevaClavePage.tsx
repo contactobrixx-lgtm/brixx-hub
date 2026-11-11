@@ -23,7 +23,7 @@ export function NuevaClavePage() {
     const { error } = await supabase.auth.updateUser({ password: clave })
     setGuardando(false)
     if (error) setError(error.message)
-    else navigate('/sistemas', { replace: true })
+    else navigate('/inicio', { replace: true })
   }
 
   return (
@@ -31,7 +31,7 @@ export function NuevaClavePage() {
       <div className="w-full max-w-sm animate-aparecer">
         <Logo className="mb-10 justify-center" />
         <div className="rounded-2xl border border-borde bg-superficie p-6 sm:p-7">
-          <Link to="/sistemas" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-acento-texto hover:underline">
+          <Link to="/inicio" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-acento-texto hover:underline">
             <ArrowLeft className="size-3.5" /> Volver al hub
           </Link>
           <h1 className="text-2xl font-bold">Nueva contraseña</h1>

@@ -20,7 +20,7 @@ export function LoginPage() {
   if (cargando) return <PantallaCarga />
   if (session) {
     const desde = (location.state as { desde?: string } | null)?.desde
-    return <Navigate to={desde && desde !== '/login' ? desde : '/sistemas'} replace />
+    return <Navigate to={desde && desde !== '/login' ? desde : '/inicio'} replace />
   }
 
   const entrar = async (e: FormEvent) => {

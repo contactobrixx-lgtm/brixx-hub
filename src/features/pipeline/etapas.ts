@@ -6,6 +6,8 @@ export const ESTILO_ETAPA: Record<Etapa, { fondo: string; texto: string; punto: 
   reunion: { fondo: 'bg-acento-tenue', texto: 'text-acento-texto', punto: 'bg-acento-texto' },
   demo: { fondo: 'bg-violeta-tenue', texto: 'text-violeta', punto: 'bg-violeta' },
   propuesta: { fondo: 'bg-aviso-tenue', texto: 'text-aviso', punto: 'bg-aviso' },
-  cerrado: { fondo: 'bg-ok-tenue', texto: 'text-ok', punto: 'bg-ok' },
+  cerrado: { fondo: 'bg-turquesa-tenue', texto: 'text-turquesa', punto: 'bg-turquesa' },
+  implementacion: { fondo: 'bg-naranja-tenue', texto: 'text-naranja', punto: 'bg-naranja' },
+  mantenimiento: { fondo: 'bg-ok-tenue', texto: 'text-ok', punto: 'bg-ok' },
   perdido: { fondo: 'bg-peligro-tenue', texto: 'text-peligro', punto: 'bg-peligro' },
 }

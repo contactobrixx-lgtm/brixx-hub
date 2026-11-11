@@ -6,6 +6,11 @@ import { NuevaClavePage } from './pages/NuevaClavePage'
 import { FichasPage } from './pages/FichasPage'
 import { VisorPage } from './pages/VisorPage'
 import { PipelinePage } from './pages/PipelinePage'
+import { InicioPage } from './pages/InicioPage'
+import { CalendarioPage } from './pages/CalendarioPage'
+import { CotizadorPage } from './pages/CotizadorPage'
+import { FinanzasPage } from './pages/FinanzasPage'
+import { CotizacionImprimiblePage } from './pages/CotizacionImprimiblePage'
 import { supabaseConfigurado } from './lib/supabase'
 
 export default function App() {
@@ -44,17 +49,29 @@ export default function App() {
         }
       />
       <Route
+        path="/cotizaciones/:id/imprimir"
+        element={
+          <RequireAuth>
+            <CotizacionImprimiblePage />
+          </RequireAuth>
+        }
+      />
+      <Route
         element={
           <RequireAuth>
             <AppLayout />
           </RequireAuth>
         }
       >
+        <Route path="/inicio" element={<InicioPage />} />
+        <Route path="/calendario" element={<CalendarioPage />} />
+        <Route path="/cotizador" element={<CotizadorPage />} />
+        <Route path="/finanzas" element={<FinanzasPage />} />
         <Route path="/sistemas" element={<FichasPage seccion="sistema" />} />
         <Route path="/demos" element={<FichasPage seccion="demo" />} />
         <Route path="/pipeline" element={<PipelinePage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/sistemas" replace />} />
+      <Route path="*" element={<Navigate to="/inicio" replace />} />
     </Routes>
   )
 }

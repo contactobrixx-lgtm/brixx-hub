@@ -7,6 +7,19 @@ Detalles del proyecto y convenciones en [`CLAUDE.md`](./CLAUDE.md).
 
 ---
 
+## Actualizar a la versión con Inicio, Calendario, Cotizador y Finanzas
+
+Si ya tenés el hub andando, solo hay que correr la migración nueva **una vez**:
+
+1. Abrí [`supabase/migrations/0002_dashboard_cotizador_calendario.sql`](./supabase/migrations/0002_dashboard_cotizador_calendario.sql) y copiá todo.
+2. Supabase → **SQL Editor → New query** → pegalo → **Run** (*Success*).
+3. Hacé merge del Pull request. Vercel publica solo.
+4. En el hub: **Finanzas** → cargá el tipo de cambio; **Cotizador → Servicios** → completá los precios.
+
+> Hacé primero el paso 2 y después el 3: si el código nuevo se publica antes que las tablas, Inicio y las secciones nuevas muestran error hasta que corras el SQL.
+
+---
+
 ## Puesta en marcha (todo desde la web, sin terminal)
 
 ### 1. Supabase: crear el proyecto
@@ -17,11 +30,13 @@ Detalles del proyecto y convenciones en [`CLAUDE.md`](./CLAUDE.md).
 
 ### 2. Supabase: crear las tablas
 
-1. Abrí el archivo [`supabase/migrations/0001_esquema_inicial.sql`](./supabase/migrations/0001_esquema_inicial.sql) acá en GitHub y copiá todo el contenido.
+Hay que correr **los archivos de `supabase/migrations/` en orden** (0001, después 0002). Para cada uno:
+
+1. Abrí el archivo acá en GitHub (por ejemplo [`supabase/migrations/0001_esquema_inicial.sql`](./supabase/migrations/0001_esquema_inicial.sql)) y copiá todo el contenido.
 2. En Supabase: menú izquierdo → **SQL Editor** → **New query** → pegalo.
-3. **Antes de ejecutar**, bajá hasta el final (sección 7) y reemplazá los dos emails y nombres por los tuyos y los de tu socio.
+3. **Solo en la 0001, antes de ejecutar**: bajá hasta el final (sección 7) y reemplazá los dos emails y nombres por los tuyos y los de tu socio.
 4. Tocá **Run**. Tiene que decir *Success. No rows returned*.
-5. Verificá en **Table Editor** que estén las tablas `miembros`, `fichas` y `prospectos`, y en **Storage** el bucket `capturas`.
+5. Verificá en **Table Editor** que estén las tablas (`miembros`, `fichas`, `prospectos`, `servicios`, `cotizaciones`, `cobros`, `costos`, `reuniones`…) y en **Storage** el bucket `capturas`.
 
 > Para sumar a alguien más en el futuro: **Table Editor → miembros → Insert row** con su email, y después creale el usuario (paso 4).
 

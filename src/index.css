@@ -32,6 +32,20 @@
   --color-peligro-tenue: #3a1a17;
   --color-violeta: #a68bff;
   --color-violeta-tenue: #2b2347;
+  --color-naranja: #f07a45;
+  --color-naranja-tenue: #3a2116;
+  --color-turquesa: #4fc9a6;
+  --color-turquesa-tenue: #12302a;
+
+  /* Series de gráficos (validadas para daltonismo sobre superficie) */
+  --color-serie-ingreso: #5b84ff;
+  --color-serie-costo: #e2683a;
+
+  /* Papel para documentos imprimibles (cotización) */
+  --color-papel: #ffffff;
+  --color-tinta: #16181d;
+  --color-tinta-suave: #5b5e66;
+  --color-linea: #e2ded3;
 }
 
 @layer base {
@@ -104,4 +118,18 @@
 }
 .animate-hoja {
   animation: hoja 0.2s ease-out both;
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print {
+    display: none !important;
+  }
 }
