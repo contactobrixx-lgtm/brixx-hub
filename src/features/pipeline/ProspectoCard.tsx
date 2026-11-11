@@ -20,20 +20,20 @@ export function ProspectoCard({ prospecto: p, miembros, tieneDemo, arrastrando, 
   return (
     <div
       className={cn(
-        'rounded-xl border border-borde bg-elevada p-3 text-left transition-[border-color,opacity,box-shadow]',
+        'rounded-xl border border-transparent bg-elevada p-3 text-left transition-[border-color,opacity]',
         'hover:border-borde-fuerte',
         arrastrando && 'opacity-30',
-        overlay && 'rotate-[1.5deg] border-acento/40 shadow-[0_20px_40px_-12px_rgb(0_0_0/0.9)]',
+        overlay && 'rotate-[1.5deg] border-acento shadow-2xl',
       )}
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{p.empresa || p.nombre}</div>
-          {p.empresa && <div className="truncate text-xs text-tenue">{p.nombre}</div>}
+          <div className="truncate text-[15px] font-semibold">{p.empresa || p.nombre}</div>
+          {p.empresa && <div className="truncate text-[13px] text-tenue">{p.nombre}</div>}
         </div>
         {responsable && (
           <div
-            className="flex size-6 shrink-0 items-center justify-center rounded-full bg-acento-tenue text-[10px] font-semibold text-acento"
+            className="grid size-7 shrink-0 place-items-center rounded-full bg-acento-tenue text-[11px] font-semibold text-acento-texto"
             title={responsable.nombre}
           >
             {iniciales(responsable.nombre)}
@@ -42,20 +42,20 @@ export function ProspectoCard({ prospecto: p, miembros, tieneDemo, arrastrando, 
       </div>
 
       {(p.valor_estimado != null || p.rubro || tieneDemo) && (
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
           {p.valor_estimado != null && (
-            <span className="font-medium text-texto">{formatMonto(p.valor_estimado, p.moneda)}</span>
+            <span className="tabular font-semibold text-texto">{formatMonto(p.valor_estimado, p.moneda)}</span>
           )}
           {p.rubro && <span className="text-tenue">{p.rubro}</span>}
-          {tieneDemo && <Presentation className="size-3.5 text-acento" aria-label="Tiene demo vinculada" />}
+          {tieneDemo && <Presentation className="size-3.5 text-acento-texto" aria-label="Tiene demo vinculada" />}
         </div>
       )}
 
       {abierto && p.proxima_accion && (
         <div
           className={cn(
-            'mt-2.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px]',
-            vencida ? 'bg-peligro/10 text-peligro' : esHoy ? 'bg-aviso/10 text-aviso' : 'bg-fondo text-suave',
+            'mt-2.5 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium',
+            vencida ? 'bg-peligro-tenue text-peligro' : esHoy ? 'bg-aviso-tenue text-aviso' : 'bg-superficie text-suave',
           )}
         >
           <CalendarClock className="size-3 shrink-0" />
@@ -67,7 +67,7 @@ export function ProspectoCard({ prospecto: p, miembros, tieneDemo, arrastrando, 
       )}
 
       {p.etapa === 'perdido' && p.motivo_perdida && (
-        <div className="mt-2 truncate text-[11px] text-tenue">✕ {p.motivo_perdida}</div>
+        <div className="mt-2 truncate text-xs text-tenue">✕ {p.motivo_perdida}</div>
       )}
     </div>
   )

@@ -20,15 +20,8 @@ import { ETAPAS, type Etapa, type Miembro, type Moneda, type Prospecto } from '.
 import { ETAPA_LABEL, formatMonto } from '../../lib/format'
 import { cn } from '../../components/ui/cn'
 import { ProspectoCard } from './ProspectoCard'
+import { ESTILO_ETAPA } from './etapas'
 
-const COLOR_ETAPA: Record<Etapa, string> = {
-  contacto: 'bg-zinc-400',
-  reunion: 'bg-sky-400',
-  demo: 'bg-violet-400',
-  propuesta: 'bg-amber-400',
-  cerrado: 'bg-emerald-400',
-  perdido: 'bg-red-400',
-}
 
 const COL = 'col:'
 const CARD = 'card:'
@@ -109,7 +102,7 @@ export function Tablero({ prospectos, miembros, onMover, onAbrir, onNuevo }: Pro
       onDragEnd={onDragEnd}
       onDragCancel={() => setActivo(null)}
     >
-      <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-6 md:snap-none md:px-8">
+      <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-6 md:snap-none md:px-10">
         {ETAPAS.map((etapa) => (
           <Columna
             key={etapa}
@@ -151,24 +144,24 @@ function Columna({ etapa, items, miembros, onAbrir, onNuevo }: ColumnaProps) {
   return (
     <section
       className={cn(
-        'flex w-[85vw] max-w-[300px] shrink-0 snap-center flex-col rounded-2xl border bg-superficie/70 transition-colors sm:w-[280px]',
-        isOver ? 'border-acento/40 bg-acento-tenue' : 'border-borde',
+        'flex w-[85vw] max-w-[300px] shrink-0 snap-center flex-col rounded-2xl border bg-superficie transition-colors sm:w-[280px]',
+        isOver ? 'border-acento' : 'border-borde',
       )}
     >
-      <header className="flex items-center gap-2 px-3.5 pt-3.5 pb-2">
-        <span className={cn('size-2 rounded-full', COLOR_ETAPA[etapa])} />
-        <h2 className="text-sm font-medium">{ETAPA_LABEL[etapa]}</h2>
-        <span className="rounded-md bg-elevada px-1.5 text-[11px] text-tenue">{items.length}</span>
+      <header className="flex items-center gap-2 px-4 pt-4 pb-1">
+        <span className={cn('size-2 rounded-full', ESTILO_ETAPA[etapa].punto)} />
+        <h2 className="text-base font-bold">{ETAPA_LABEL[etapa]}</h2>
+        <span className="tabular text-sm text-tenue">{items.length}</span>
         <button
           onClick={onNuevo}
-          className="ml-auto cursor-pointer rounded-md p-1 text-tenue hover:bg-hover hover:text-texto"
+          className="ml-auto grid size-8 cursor-pointer place-items-center rounded-lg text-tenue hover:bg-elevada hover:text-texto"
           aria-label={`Agregar prospecto en ${ETAPA_LABEL[etapa]}`}
         >
           <Plus className="size-4" />
         </button>
       </header>
-      {montos.length > 0 && <div className="px-3.5 pb-2 text-xs text-tenue">{montos.join(' · ')}</div>}
-      <div ref={setNodeRef} className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-2.5 pb-2.5">
+      <div className="tabular min-h-5 px-4 pb-3 text-[13px] text-tenue">{montos.join(' · ')}</div>
+      <div ref={setNodeRef} className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3">
         {items.map((p) => (
           <TarjetaArrastrable
             key={p.id}
@@ -211,8 +204,8 @@ function TarjetaArrastrable({
         else drag.listeners?.onKeyDown?.(e)
       }}
       className={cn(
-        'cursor-grab touch-manipulation rounded-xl outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-acento/50',
-        drop.isOver && !drag.isDragging && 'ring-1 ring-acento/40',
+        'cursor-grab touch-manipulation rounded-xl outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-acento',
+        drop.isOver && !drag.isDragging && 'ring-1 ring-acento',
       )}
     >
       <ProspectoCard prospecto={prospecto} miembros={miembros} tieneDemo={tieneDemo} arrastrando={drag.isDragging} />

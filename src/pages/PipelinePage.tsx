@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
-import type { Etapa, Moneda, Prospecto } from '../types/db'
+import { ETAPAS, type Etapa, type Moneda, type Prospecto } from '../types/db'
 import { useMiembros, useProspectos } from '../features/pipeline/useProspectos'
 import { useDemosParaSelector } from '../features/fichas/useFichas'
 import { Tablero } from '../features/pipeline/Tablero'
@@ -8,10 +8,12 @@ import { ProspectoForm } from '../features/pipeline/ProspectoForm'
 import { useAuth } from '../auth/AuthProvider'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/Button'
-import { Select } from '../components/ui/Field'
+import { Segmentado } from '../components/ui/Badge'
+import { cn } from '../components/ui/cn'
+import { ESTILO_ETAPA } from '../features/pipeline/etapas'
 import { ErrorBox } from '../components/ui/ErrorBox'
 import { PantallaCarga } from '../components/ui/Spinner'
-import { formatMonto } from '../lib/format'
+import { ETAPA_LABEL, formatMonto } from '../lib/format'
 
 const ABIERTAS: Etapa[] = ['contacto', 'reunion', 'demo', 'propuesta']
 
@@ -19,7 +21,7 @@ function sumar(lista: Prospecto[]) {
   const suma: Partial<Record<Moneda, number>> = {}
   for (const p of lista) if (p.valor_estimado != null) suma[p.moneda] = (suma[p.moneda] ?? 0) + Number(p.valor_estimado)
   const partes = Object.entries(suma).map(([m, v]) => formatMonto(v, m as Moneda))
-  return partes.length ? partes.join(' · ') : '—'
+  return partes.join(' · ')
 }
 
 export function PipelinePage() {
@@ -43,6 +45,8 @@ export function PipelinePage() {
 
   const abiertos = visibles.filter((p) => ABIERTAS.includes(p.etapa))
   const cerrados = visibles.filter((p) => p.etapa === 'cerrado')
+  const finalizados = visibles.filter((p) => p.etapa === 'cerrado' || p.etapa === 'perdido').length
+  const tasa = finalizados ? Math.round((cerrados.length / finalizados) * 100) : null
 
   const nuevo = (etapa: Etapa) => {
     setEditando(null)
@@ -62,41 +66,44 @@ export function PipelinePage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-4 pt-6 md:px-8 md:pt-10">
+      <div className="px-4 pt-6 md:px-10 md:pt-8">
         <PageHeader
           titulo="Pipeline"
-          subtitulo="Arrastrá las tarjetas entre etapas. En el celular, mantené apretado para arrastrar."
+          subtitulo={`${abiertos.length} prospectos en curso${sumar(abiertos) ? ` · ${sumar(abiertos)}` : ''}${
+            tasa != null ? ` · tasa de cierre ${tasa}%` : ''
+          }. Arrastrá las tarjetas entre etapas.`}
           acciones={
-            <>
-              <div className="w-40">
-                <Select value={responsable} onChange={(e) => setResponsable(e.target.value)} aria-label="Filtrar por responsable">
-                  <option value="">Todos</option>
-                  {miembros.map((m) => (
-                    <option key={m.email} value={m.email}>
-                      {m.nombre}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <Button onClick={() => nuevo('contacto')}>
-                <Plus className="size-4" /> Prospecto
-              </Button>
-            </>
+            <Button onClick={() => nuevo('contacto')}>
+              <Plus className="size-[18px]" /> Agregar prospecto
+            </Button>
           }
         />
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:max-w-2xl">
-          <Metrica titulo="En curso" valor={String(abiertos.length)} detalle={sumar(abiertos)} />
-          <Metrica titulo="Cerrados" valor={String(cerrados.length)} detalle={sumar(cerrados)} />
-          <Metrica
-            titulo="Tasa de cierre"
-            valor={(() => {
-              const fin = visibles.filter((p) => p.etapa === 'cerrado' || p.etapa === 'perdido').length
-              return fin ? `${Math.round((cerrados.length / fin) * 100)}%` : '—'
-            })()}
-            detalle="cerrados / (cerrados + perdidos)"
-            className="hidden sm:block"
-          />
+
+        <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-6 md:overflow-visible md:px-0">
+          {ETAPAS.map((etapa) => {
+            const items = visibles.filter((p) => p.etapa === etapa)
+            const est = ESTILO_ETAPA[etapa]
+            return (
+              <div key={etapa} className={cn('min-w-[118px] rounded-xl px-3.5 py-3', est.fondo)}>
+                <small className={cn('block text-xs font-semibold', est.texto)}>{ETAPA_LABEL[etapa]}</small>
+                <strong className={cn('tabular block font-display text-[26px] leading-tight font-bold', est.texto)}>
+                  {items.length}
+                </strong>
+                <span className="tabular block truncate text-xs text-tenue">{sumar(items) || '\u00a0'}</span>
+              </div>
+            )
+          })}
         </div>
+
+        {miembros.length > 1 && (
+          <div className="mb-5">
+            <Segmentado
+              valor={responsable}
+              onChange={setResponsable}
+              opciones={[{ valor: '', label: 'Todos' }, ...miembros.map((m) => ({ valor: m.email, label: m.nombre }))]}
+            />
+          </div>
+        )}
         {error && (
           <div className="mb-4">
             <ErrorBox mensaje={error} />
@@ -131,16 +138,6 @@ export function PipelinePage() {
         onGuardar={guardar}
         onEliminar={eliminar}
       />
-    </div>
-  )
-}
-
-function Metrica({ titulo, valor, detalle, className = '' }: { titulo: string; valor: string; detalle: string; className?: string }) {
-  return (
-    <div className={`rounded-xl border border-borde bg-superficie px-4 py-3 ${className}`}>
-      <div className="text-xs text-tenue">{titulo}</div>
-      <div className="mt-1 text-xl font-semibold tracking-tight">{valor}</div>
-      <div className="mt-0.5 truncate text-xs text-suave">{detalle}</div>
     </div>
   )
 }

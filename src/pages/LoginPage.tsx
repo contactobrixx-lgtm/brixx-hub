@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
-import { Logo } from '../components/layout/Logo'
+import { LogoMark } from '../components/layout/Logo'
 import { Button } from '../components/ui/Button'
 import { Field, Input } from '../components/ui/Field'
 import { ErrorBox } from '../components/ui/ErrorBox'
@@ -48,15 +48,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-full items-center justify-center overflow-hidden p-6">
-      {/* Halo de fondo */}
-      <div className="pointer-events-none absolute top-[-20%] left-1/2 size-[600px] -translate-x-1/2 rounded-full bg-acento/10 blur-[120px]" />
+    <div className="flex min-h-full items-center justify-center p-6">
 
-      <div className="relative w-full max-w-sm animate-aparecer">
-        <Logo className="mb-10 justify-center" />
-        <div className="rounded-2xl border border-borde bg-superficie/80 p-6 shadow-2xl backdrop-blur">
-          <h1 className="text-lg font-semibold">Ingresar</h1>
-          <p className="mt-1 text-sm text-suave">Panel interno de brixx.</p>
+      <div className="w-full max-w-sm animate-aparecer">
+        <LogoMark className="mx-auto mb-4 h-10 w-auto" />
+        <p className="mb-10 text-center text-3xl font-bold tracking-tight">brixx</p>
+        <div className="rounded-2xl border border-borde bg-superficie p-6 sm:p-7">
+          <h1 className="text-2xl font-bold">Ingresar</h1>
+          <p className="mt-1 text-tenue">Hub interno del estudio.</p>
 
           <form onSubmit={entrar} className="mt-6 space-y-4">
             <Field label="Email">
@@ -72,7 +71,7 @@ export function LoginPage() {
               />
             </Field>
             {error && <ErrorBox mensaje={error} />}
-            {aviso && <p className="rounded-lg bg-ok/10 px-3 py-2.5 text-sm text-ok">{aviso}</p>}
+            {aviso && <p className="rounded-[10px] bg-ok-tenue px-3.5 py-3 text-sm text-ok">{aviso}</p>}
             <Button type="submit" className="w-full justify-center" disabled={enviando}>
               {enviando ? 'Ingresando…' : 'Ingresar'}
             </Button>
@@ -80,7 +79,7 @@ export function LoginPage() {
           <button
             type="button"
             onClick={recuperar}
-            className="mt-4 w-full cursor-pointer text-center text-xs text-tenue hover:text-suave"
+            className="mt-4 w-full cursor-pointer text-center text-sm font-semibold text-acento-texto hover:underline"
           >
             ¿Olvidaste tu contraseña?
           </button>

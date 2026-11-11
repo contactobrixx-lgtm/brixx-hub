@@ -17,7 +17,7 @@ export function VisorPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 text-sm text-suave">
         No se encontró la ficha.
-        <Link to="/sistemas" className="text-acento hover:underline">
+        <Link to="/sistemas" className="font-semibold text-acento-texto hover:underline">
           Volver al hub
         </Link>
       </div>
@@ -31,15 +31,15 @@ export function VisorPage() {
       <header className="flex items-center gap-2 border-b border-borde bg-superficie px-3 py-2">
         <Link
           to={volver}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-suave hover:bg-hover hover:text-texto"
+          className="flex min-h-10 items-center gap-1.5 rounded-[10px] px-2.5 font-medium text-suave hover:bg-elevada hover:text-texto"
         >
           <ArrowLeft className="size-4" />
           <span className="hidden sm:inline">Hub</span>
         </Link>
         <div className="mx-1 h-5 w-px bg-borde" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{ficha.nombre}</div>
-          <div className="hidden truncate text-[11px] text-tenue sm:block">
+          <div className="truncate font-semibold">{ficha.nombre}</div>
+          <div className="hidden truncate text-xs text-tenue sm:block">
             ¿No carga? Algunas apps bloquean verse embebidas: abrila en pestaña nueva.
           </div>
         </div>

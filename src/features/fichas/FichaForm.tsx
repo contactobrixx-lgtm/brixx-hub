@@ -173,7 +173,7 @@ function FormInterno({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-xs font-medium text-suave">Cómo se abre</span>
+          <span className="mb-1.5 block text-sm font-semibold">Cómo se abre</span>
           <div className="grid grid-cols-2 gap-2">
             {(
               [
@@ -186,16 +186,16 @@ function FormInterno({
                 type="button"
                 onClick={() => setModo(valor)}
                 className={cn(
-                  'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors',
-                  modo === valor ? 'border-acento/60 bg-acento-tenue text-texto' : 'border-borde text-suave hover:border-borde-fuerte',
+                  'flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border px-3 text-[15px] font-medium transition-colors',
+                  modo === valor ? 'border-acento bg-acento-tenue text-texto' : 'border-borde-fuerte text-suave hover:border-tenue',
                 )}
               >
-                <Icono className={cn('size-4', modo === valor && 'text-acento')} />
+                <Icono className={cn('size-4', modo === valor && 'text-acento-texto')} />
                 {label}
               </button>
             ))}
           </div>
-          <p className="mt-1 text-xs text-tenue">Si la app no carga dentro del hub, elegí "Pestaña nueva".</p>
+          <p className="mt-1.5 text-[13px] text-tenue">Si la app no carga dentro del hub, elegí "Pestaña nueva".</p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">

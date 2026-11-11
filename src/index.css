@@ -2,26 +2,36 @@
 
 /* Tokens de diseño: todos los colores salen de acá. */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Figtree', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Figtree', Georgia, serif;
 
-  --color-fondo: #09090b;
-  --color-superficie: #111114;
-  --color-elevada: #18181d;
-  --color-hover: #1f1f26;
-  --color-borde: #26262e;
-  --color-borde-fuerte: #34343e;
+  /* Neutros (gris carbón) */
+  --color-fondo: #121316;
+  --color-superficie: #1b1d22;
+  --color-elevada: #24262c;
+  --color-hover: #2a2d33;
+  --color-borde: #33363e;
+  --color-borde-fuerte: #454952;
 
-  --color-texto: #ededf0;
-  --color-suave: #a1a1aa;
-  --color-tenue: #6b6b76;
+  --color-texto: #edebe5;
+  --color-suave: #c4c7ce;
+  --color-tenue: #a2a6af;
 
-  --color-acento: #a78bfa;
-  --color-acento-fuerte: #8b5cf6;
-  --color-acento-tenue: rgb(167 139 250 / 0.12);
+  /* Marca brixx */
+  --color-acento: #2d61fe;
+  --color-acento-fuerte: #4a77ff;
+  --color-acento-texto: #9db2ff;
+  --color-acento-claro: #c4cffe;
+  --color-acento-tenue: #1a2547;
 
-  --color-ok: #34d399;
-  --color-aviso: #fbbf24;
-  --color-peligro: #f87171;
+  --color-ok: #5bc48d;
+  --color-ok-tenue: #173326;
+  --color-aviso: #e8b44f;
+  --color-aviso-tenue: #352812;
+  --color-peligro: #f2867b;
+  --color-peligro-tenue: #3a1a17;
+  --color-violeta: #a68bff;
+  --color-violeta-tenue: #2b2347;
 }
 
 @layer base {
@@ -34,11 +44,24 @@
     background: var(--color-fondo);
     color: var(--color-texto);
     font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     color-scheme: dark;
   }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
   ::selection {
     background: var(--color-acento-tenue);
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-acento);
+    outline-offset: 2px;
   }
   input[type='date']::-webkit-calendar-picker-indicator {
     filter: invert(0.7);
@@ -63,4 +86,22 @@
 }
 .animate-aparecer {
   animation: aparecer 0.18s ease-out both;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes hoja {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.animate-hoja {
+  animation: hoja 0.2s ease-out both;
 }
