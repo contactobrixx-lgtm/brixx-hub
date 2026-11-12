@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import type { Miembro, Prospecto, Reunion, ReunionInput } from '../../types/db'
+import { Link } from 'react-router-dom'
+import { Mic } from 'lucide-react'
+import type { Grabacion, Miembro, Prospecto, Reunion, ReunionInput } from '../../types/db'
+import { ESTADO_GRABACION } from '../grabaciones/estados'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select, Textarea } from '../../components/ui/Field'
@@ -17,6 +20,7 @@ interface Props {
   abierto: boolean
   reunion: Reunion | null
   borrador: BorradorReunion | null
+  grabaciones?: Grabacion[]
   prospectos: Prospecto[]
   miembros: Miembro[]
   emailActual: string
@@ -39,7 +43,7 @@ export function ReunionForm(props: Props) {
   return <FormInterno key={props.reunion?.id ?? `nueva-${props.borrador?.fecha}`} {...props} />
 }
 
-function FormInterno({ reunion: r, borrador, prospectos, miembros, emailActual, onCerrar, onGuardar, onEliminar }: Props) {
+function FormInterno({ reunion: r, borrador, grabaciones = [], prospectos, miembros, emailActual, onCerrar, onGuardar, onEliminar }: Props) {
   const inicio = r ? new Date(r.inicio) : null
   const [titulo, setTitulo] = useState(r?.titulo ?? borrador?.titulo ?? '')
   const [fecha, setFecha] = useState(inicio ? isoLocal(inicio) : (borrador?.fecha ?? isoLocal(new Date())))
@@ -119,6 +123,31 @@ function FormInterno({ reunion: r, borrador, prospectos, miembros, emailActual, 
         </>
       }
     >
+      {r && (
+        <section className="mb-5 rounded-xl bg-elevada p-3.5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="min-w-0 flex-1 text-sm text-suave">Grabala con el celular: se transcribe y se resume sola.</span>
+            <Link
+              to={`/grabar?reunion=${r.id}`}
+              className="inline-flex min-h-10 items-center gap-2 rounded-[11px] bg-acento px-4 text-sm font-semibold text-white hover:bg-acento-fuerte"
+            >
+              <Mic className="size-4" /> Grabar esta reunión
+            </Link>
+          </div>
+          {grabaciones.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1.5 border-t border-borde pt-3">
+              {grabaciones.map((g) => (
+                <li key={g.id}>
+                  <Link to={`/grabaciones/${g.id}`} className="flex items-center justify-between gap-2 text-sm hover:text-acento-texto">
+                    <span className="truncate">{g.titulo}</span>
+                    <span className="shrink-0 text-xs text-tenue">{ESTADO_GRABACION[g.estado].label}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       <form id="form-reunion" onSubmit={guardar} className="space-y-4">
         <Field label="Título *">
           <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Demo del menú digital" autoFocus={!r} />

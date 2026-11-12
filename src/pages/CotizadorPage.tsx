@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import type { Cotizacion, EstadoCotizacion, Servicio } from '../types/db'
@@ -37,6 +37,17 @@ export function CotizadorPage() {
   const [srvEditando, setSrvEditando] = useState<Servicio | null>(null)
 
   const porId = useMemo(() => new Map(prospectos.map((p) => [p.id, p])), [prospectos])
+
+  // ?abrir=<id>: abrir una cotización (por ejemplo, la que se acaba de crear desde una grabación)
+  const abrirId = params.get('abrir')
+  useEffect(() => {
+    if (!abrirId) return
+    const c = cotizaciones.filas.find((x) => x.id === abrirId)
+    if (!c) return
+    setCotEditando(c)
+    setCotAbierta(true)
+    setParams({}, { replace: true })
+  }, [abrirId, cotizaciones.filas, setParams])
   const visibles = cotizaciones.filas.filter((c) => !filtro || c.estado === filtro)
   const sinPrecio = servicios.filas.filter((s) => s.activo && !Number(s.precio_implementacion) && !Number(s.precio_mensual)).length
 

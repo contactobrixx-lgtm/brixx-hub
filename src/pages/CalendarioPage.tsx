@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import type { Reunion } from '../types/db'
 import { useReuniones } from '../features/calendario/useReuniones'
+import { useGrabaciones } from '../features/grabaciones/useGrabaciones'
 import { useMiembros, useProspectos } from '../features/pipeline/useProspectos'
 import { armarEventos, type Evento } from '../features/calendario/eventos'
 import { MesGrid } from '../features/calendario/MesGrid'
@@ -19,6 +21,7 @@ export function CalendarioPage() {
   const reuniones = useReuniones()
   const { prospectos } = useProspectos()
   const miembros = useMiembros()
+  const { filas: grabaciones } = useGrabaciones()
 
   const [mes, setMes] = useState(() => {
     const h = new Date()
@@ -27,6 +30,14 @@ export function CalendarioPage() {
   const [formAbierto, setFormAbierto] = useState(false)
   const [editando, setEditando] = useState<Reunion | null>(null)
   const [borrador, setBorrador] = useState<BorradorReunion | null>(null)
+
+  // ?agendar=1&titulo=…&fecha=…&prospecto=…: abrir el formulario prellenado (desde una grabación)
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    if (!params.get('agendar')) return
+    nueva({ fecha: params.get('fecha') || hoyISO(), titulo: params.get('titulo') ?? undefined, prospecto_id: params.get('prospecto') })
+    setParams({}, { replace: true })
+  }, [params, setParams])
 
   const eventos = useMemo(() => armarEventos(reuniones.filas, prospectos), [reuniones.filas, prospectos])
   const proximos = useMemo(() => {
@@ -117,6 +128,7 @@ export function CalendarioPage() {
         abierto={formAbierto}
         reunion={editando}
         borrador={borrador}
+        grabaciones={editando ? grabaciones.filter((g) => g.reunion_id === editando.id) : []}
         prospectos={prospectos}
         miembros={miembros}
         emailActual={miembro?.email ?? ''}

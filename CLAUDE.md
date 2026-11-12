@@ -7,7 +7,8 @@ Panel interno de **brixx**, agencia de IA de dos socios. Centraliza en un solo l
 3. **Pipeline**: kanban de prospectos y clientes (de contacto a mantenimiento).
 4. **Cotizador**: catálogo de servicios con precio de implementación y abono mensual, y cotizaciones por cliente con versión imprimible/PDF.
 5. **Finanzas**: cobros, costos del estudio y tipo de cambio.
-6. **Sistemas de gestión** y **Demos web**: fichas de las apps entregadas y de las demos (cada una con su URL; el hub las lista y las abre).
+6. **Grabaciones**: reuniones grabadas con el celular → transcripción (AssemblyAI) + análisis con Claude (puntos clave, próximos pasos, propuesta con el catálogo).
+7. **Sistemas de gestión** y **Demos web**: fichas de las apps entregadas y de las demos (cada una con su URL; el hub las lista y las abre).
 
 Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay registro público.
 
@@ -24,7 +25,7 @@ Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay regi
 | Marca | `components/layout/Logo.tsx` (isotipo SVG) · `public/brixx-logo.png` (original) |
 | Deploy | Vercel (build automático desde GitHub) |
 
-No hay backend propio: el frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend.
+El frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend. La única parte de servidor es la **Edge Function `grabaciones`** (Deno, en `supabase/functions/`), que guarda las claves de terceros (AssemblyAI, Anthropic) como *secrets* de Supabase: **nunca van al frontend, al repo ni a Vercel**.
 
 ## Flujo de trabajo (regla fija)
 
@@ -41,6 +42,7 @@ Cada cambio, sin excepción:
 - Usa el secret `SUPABASE_DB_URL`: URI del **Session pooler**, porque GitHub es solo IPv4.
 - La 0001 se corrió a mano: si sus tablas existen y no está en `supabase_migrations.schema_migrations`, el script la marca como aplicada (`migration repair`) sin volver a correrla.
 - **Nunca** pedirle al usuario que corra SQL a mano ni editar una migración ya aplicada. Todo cambio de base es un archivo nuevo `NNNN_descripcion.sql` (siguiente número), idempotente, probado antes contra un Postgres local.
+- Las Edge Functions se publican con `.github/workflows/funciones.yml` al mergear cambios en `supabase/functions/` (secret `SUPABASE_ACCESS_TOKEN`; el id del proyecto sale de `SUPABASE_DB_URL`). Se publican con `--no-verify-jwt`: la función valida ella misma la sesión (`es_miembro()`) y el aviso firmado (HMAC) del proveedor de transcripción.
 - Las previews de Vercel usan la base de producción. Un PR con migración nueva puede fallar en preview en lo que dependa de esas tablas hasta mergearlo; avisarle al usuario.
 
 ## Variables de entorno
@@ -71,10 +73,12 @@ src/
     finanzas/            # useCobros, useCostos, useAjustes, calculos.ts, CobroForm, CostoForm, TipoCambio
     fichas/              # useFichas, FichaCard, FichaForm, ImagenPicker (sistemas + demos)
     pipeline/            # useProspectos, Tablero (kanban), ProspectoCard, ProspectoForm, etapas.ts
+    grabaciones/         # useGrabadora (MediaRecorder + copia en IndexedDB), useGrabaciones, VistaAnalisis, VistaTranscripcion
   pages/                 # una página por ruta
   types/db.ts            # tipos de las tablas de la base
 supabase/
   migrations/            # SQL versionado: esquema, RLS, seeds
+  functions/grabaciones/ # Edge Function: index.ts (rutas), transcripcion.ts (AssemblyAI), analisis.ts (Claude)
 ```
 
 ## Rutas
@@ -86,6 +90,7 @@ supabase/
 - `/cotizador` (`?vista=servicios`) — cotizaciones y catálogo de servicios.
 - `/cotizaciones/:id/imprimir` — cotización en papel blanco para imprimir o guardar PDF (fuera del layout).
 - `/finanzas` (`?vista=costos`) — cobros, costos y tipo de cambio.
+- `/grabar` (`?reunion=<id>`) — grabadora; `/grabaciones` — lista; `/grabaciones/:id` — "Lo importante" + transcripción.
 - `/sistemas`, `/demos` — grilla de fichas filtrada por `seccion`.
 - `/ver/:id` — ficha abierta embebida en iframe (con botón "abrir en pestaña nueva").
 - `/pipeline` — kanban de prospectos.
@@ -93,12 +98,13 @@ supabase/
 ## Convenciones
 
 - **Idioma**: UI, nombres de tablas/columnas y textos en **español**. Código (variables, funciones, componentes) en inglés o español, pero consistente dentro de cada archivo; nombres de tablas/columnas siempre como están en la base.
-- **Datos, no código**: todo contenido (fichas, prospectos, servicios, cotizaciones, cobros, costos, reuniones) vive en Supabase y se edita desde formularios del hub. Nunca hardcodear fichas en el código.
+- **Datos, no código**: todo contenido (fichas, prospectos, servicios, cotizaciones, cobros, costos, reuniones, grabaciones) vive en Supabase y se edita desde formularios del hub. Nunca hardcodear fichas en el código.
 - **Etapas**: `contacto → reunion → demo → propuesta` (abiertas) → `cerrado → implementacion → mantenimiento` (ganadas) / `perdido`. Un **cliente** es un prospecto en etapa ganada; no hay tabla aparte. Constantes `ETAPAS_ABIERTAS`, `ETAPAS_GANADAS`, `ETAPAS_ACTIVAS` en `types/db.ts`.
 - **Dinero**: cada monto se guarda con su `moneda` (ARS | USD). El dashboard muestra **todo en USD**, convirtiendo ARS con `ajustes.tipo_cambio_usd` (ARS por 1 USD) vía `aUSD()`. Si falta el tipo de cambio, lo ARS no se suma y aparece un pendiente.
 - **Cotizaciones**: los precios del catálogo (`servicios`) están en USD. Cada ítem copia el precio al agregarse (snapshot): cambiar el catálogo no altera cotizaciones viejas. El descuento aplica solo a la implementación. Al guardar una cotización como `aceptada`, el prospecto pasa a `cerrado` (si estaba abierto) y su `valor_estimado` toma el total.
 - **Por cobrar** = implementación de cotizaciones aceptadas − cobros no-abono del cliente. **Ingreso recurrente** = abonos de cotizaciones aceptadas de clientes activos.
 - **Costos**: `mensual` cuenta cada mes entre `desde` y `hasta`; `anual` cuenta 1/12 por mes; `unico` solo en el mes de `desde`. Categoría `adquisicion` alimenta el ROAS.
+- **Grabaciones**: estados `pendiente → transcribiendo → analizando → lista` (o `error` con motivo). Sin claves cargadas, todo queda `pendiente` y se procesa después con el botón de la grabación: la app tiene que funcionar sin las claves. El aviso del proveedor llega por webhook; si no llega, el hub consulta (`actualizar`) mientras la página está abierta. Audio en bucket privado `grabaciones`, se borra a los 90 días (el hub lo limpia al listar). El análisis usa `claude-opus-5-5` con `output_config.format` (JSON schema `ESQUEMA` en `analisis.ts`, en sincronía con `Analisis` en `types/db.ts`), effort `medium` y `fallbacks: "default"`. Para cambiar de proveedor de transcripción, reemplazar solo `transcripcion.ts`.
 - **Gráficos**: un solo eje, series con tokens `serie-ingreso` / `serie-costo` (validados para daltonismo), leyenda, tooltip al pasar y vista de tabla.
 - **Pipeline**: el orden dentro de cada columna es `prospectos.orden` (número decimal); al soltar una tarjeta entre dos se usa el promedio, así se actualiza una sola fila.
 - **Esquema versionado**: cualquier cambio de base va como archivo nuevo en `supabase/migrations/` (`NNNN_descripcion.sql`), idempotente cuando sea posible. Lo aplica el Action al mergear (ver "Migraciones automáticas"). Mantener `src/types/` en sincronía.

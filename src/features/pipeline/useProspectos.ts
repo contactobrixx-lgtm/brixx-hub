@@ -2,6 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { Etapa, Miembro, Prospecto, ProspectoInput } from '../../types/db'
 
+/** Cambia solo algunos campos de un prospecto (desde otras secciones, ej. grabaciones). */
+export async function actualizarProspecto(id: string, cambios: Partial<ProspectoInput>) {
+  const { error } = await supabase.from('prospectos').update(cambios).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 export function useProspectos() {
   const [prospectos, setProspectos] = useState<Prospecto[]>([])
   const [cargando, setCargando] = useState(true)

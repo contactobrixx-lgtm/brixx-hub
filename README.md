@@ -49,6 +49,45 @@ En el Pull request abierto, entrá a **Checks → Migraciones de Supabase → Re
 
 ---
 
+## Grabaciones de reuniones
+
+Desde el celular se graba una reunión (**Grabaciones → Grabar**, o "Grabar esta reunión" en el Calendario). El audio se guarda en Supabase y la función `grabaciones` hace dos cosas:
+
+1. Lo **transcribe** con AssemblyAI: texto en español, separado por quién habla.
+2. Lo **analiza** con Claude: resumen, puntos clave con su cita, decisiones, próximos pasos y una propuesta de trabajo con los servicios y precios del catálogo.
+
+**Se puede grabar antes de configurar nada.** Las grabaciones quedan "Pendientes de transcribir". Cuando estén las claves, se procesan con el botón **Transcribir y analizar** de cada una. Los audios se borran solos a los 90 días; la transcripción y el análisis quedan.
+
+### Configuración (una sola vez, desde la web)
+
+**1. Publicar la función (GitHub)**
+
+1. En Supabase, tocá tu avatar (arriba a la derecha) → **Account preferences → Access Tokens → Generate new token**. Ponele un nombre (`github-actions`) y copiá el token: empieza con `sbp_`.
+2. En GitHub, en el repo: **Settings → Secrets and variables → Actions → New repository secret**. Name: `SUPABASE_ACCESS_TOKEN`; Secret: el token.
+3. **Actions → Funciones de Supabase → Run workflow**. Esto la publica ahora; después se publica sola con cada cambio. Tiene que terminar en verde.
+
+**2. Transcripción: AssemblyAI**
+
+1. Creá la cuenta en [assemblyai.com](https://www.assemblyai.com). Al crearla dan **USD 50 de crédito gratis**, sin tarjeta, unas 200 horas de audio.
+2. En el panel, copiá tu **API key**.
+3. En Supabase: **Edge Functions → Secrets → Add new secret**. Name: `ASSEMBLYAI_API_KEY`; Value: la clave.
+
+**3. Análisis: Anthropic (Claude)**
+
+1. Creá la cuenta en [console.anthropic.com](https://console.anthropic.com) y cargá saldo en **Billing**. Cada reunión de una hora cuesta unos centavos de dólar.
+2. **API Keys → Create Key** y copiala.
+3. En Supabase: **Edge Functions → Secrets → Add new secret**. Name: `ANTHROPIC_API_KEY`; Value: la clave.
+
+Las claves se aplican al instante, sin volver a publicar nada. Viven solo en Supabase: nunca en el código ni en Vercel.
+
+**4. Probar**
+
+En el hub, entrá a **Grabaciones**, abrí una pendiente y tocá **Transcribir y analizar**. La transcripción tarda unos minutos y el análisis, uno o dos más. La página se actualiza sola.
+
+> **Al grabar con el celular:** dejá la pantalla prendida y el hub abierto. El celular corta el micrófono si se bloquea o cambiás de app. Lo grabado hasta ese momento se guarda en el teléfono y se puede recuperar.
+
+---
+
 ## Puesta en marcha (todo desde la web, sin terminal)
 
 ### 1. Supabase: crear el proyecto

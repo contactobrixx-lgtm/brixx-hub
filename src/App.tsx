@@ -11,6 +11,9 @@ import { CalendarioPage } from './pages/CalendarioPage'
 import { CotizadorPage } from './pages/CotizadorPage'
 import { FinanzasPage } from './pages/FinanzasPage'
 import { CotizacionImprimiblePage } from './pages/CotizacionImprimiblePage'
+import { GrabarPage } from './pages/GrabarPage'
+import { GrabacionesPage } from './pages/GrabacionesPage'
+import { GrabacionPage } from './pages/GrabacionPage'
 import { supabaseConfigurado } from './lib/supabase'
 
 export default function App() {
@@ -65,6 +68,9 @@ export default function App() {
       >
         <Route path="/inicio" element={<InicioPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
+        <Route path="/grabar" element={<GrabarPage />} />
+        <Route path="/grabaciones" element={<GrabacionesPage />} />
+        <Route path="/grabaciones/:id" element={<GrabacionPage />} />
         <Route path="/cotizador" element={<CotizadorPage />} />
         <Route path="/finanzas" element={<FinanzasPage />} />
         <Route path="/sistemas" element={<FichasPage seccion="sistema" />} />
