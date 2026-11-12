@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, Info, OctagonAlert } from 'lucide-react'
 import { useDashboard, type Pendiente, type Periodo } from '../features/inicio/useDashboard'
 import { GraficoMensual } from '../features/inicio/GraficoMensual'
+import { MetasPanel } from '../features/inicio/MetasPanel'
+import { MetasForm } from '../features/inicio/MetasForm'
 import { armarEventos } from '../features/calendario/eventos'
 import { Agenda } from '../features/calendario/Agenda'
 import { useAuth } from '../auth/AuthProvider'
@@ -52,6 +54,7 @@ export function InicioPage() {
   const navigate = useNavigate()
   const [periodo, setPeriodo] = useState<Periodo>('mes')
   const d = useDashboard(periodo)
+  const [editarMetas, setEditarMetas] = useState(false)
 
   const etiquetaPeriodo =
     periodo === 'mes' ? `en ${MESES[new Date().getMonth()]}` : periodo === '6m' ? 'en los últimos 6 meses' : 'en lo que va del año'
@@ -70,6 +73,8 @@ export function InicioPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex min-w-0 flex-col gap-4">
+            <MetasPanel mes={d.metasMes} trimestre={d.metasTrimestre} onEditar={() => setEditarMetas(true)} />
+
             {/* Clientes */}
             <Panel className="grid gap-5 sm:grid-cols-[auto_1fr]">
               <div>
@@ -201,6 +206,17 @@ export function InicioPage() {
           </div>
         </div>
       )}
+
+      <MetasForm
+        abierto={editarMetas}
+        metas={d.metas.filas}
+        tasas={d.tasasIniciales}
+        onCerrar={() => setEditarMetas(false)}
+        onGuardar={async (metas, t) => {
+          await d.metas.guardarVarias(metas)
+          await d.guardarTasas(t)
+        }}
+      />
     </div>
   )
 }

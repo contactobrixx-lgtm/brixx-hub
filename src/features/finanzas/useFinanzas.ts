@@ -17,7 +17,7 @@ export function useAjustes() {
 
   const recargar = useCallback(async () => {
     const { data } = await supabase.from('ajustes').select('*').maybeSingle()
-    setAjustes((data as Ajustes | null) ?? { id: true, tipo_cambio_usd: null })
+    setAjustes((data as Ajustes | null) ?? { id: true, tipo_cambio_usd: null, tasa_reunion_propuesta: 0.5, tasa_propuesta_cierre: 0.33 })
   }, [])
 
   useEffect(() => {
@@ -30,5 +30,20 @@ export function useAjustes() {
     await recargar()
   }
 
-  return { tipoCambio: ajustes?.tipo_cambio_usd ?? null, cargado: ajustes !== null, guardarTipoCambio }
+  const guardarTasas = async (tasas: Pick<Ajustes, 'tasa_reunion_propuesta' | 'tasa_propuesta_cierre'>) => {
+    const { error } = await supabase.from('ajustes').upsert({ id: true, ...tasas })
+    if (error) throw new Error(error.message)
+    await recargar()
+  }
+
+  return {
+    tipoCambio: ajustes?.tipo_cambio_usd ?? null,
+    tasas: {
+      reunionPropuesta: Number(ajustes?.tasa_reunion_propuesta ?? 0.5),
+      propuestaCierre: Number(ajustes?.tasa_propuesta_cierre ?? 0.33),
+    },
+    cargado: ajustes !== null,
+    guardarTipoCambio,
+    guardarTasas,
+  }
 }

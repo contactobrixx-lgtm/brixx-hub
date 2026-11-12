@@ -2,7 +2,7 @@
 
 Panel interno de **brixx**, agencia de IA de dos socios. Centraliza en un solo lugar:
 
-1. **Inicio**: dashboard del estudio en USD (cobrado, costos, margen, ingreso recurrente, por cobrar, ROAS, pendientes, próximas reuniones).
+1. **Inicio**: metas del mes y del trimestre (cuenta regresiva, ritmo, embudo al revés) + dashboard del estudio en USD (cobrado, costos, margen, ingreso recurrente, por cobrar, ROAS, pendientes, próximas reuniones).
 2. **Calendario**: reuniones agendadas + próximas acciones del pipeline.
 3. **Pipeline**: kanban de prospectos y clientes (de contacto a mantenimiento).
 4. **Cotizador**: catálogo de servicios con precio de implementación y abono mensual, y cotizaciones por cliente con versión imprimible/PDF.
@@ -67,7 +67,7 @@ src/
   components/ui/         # Button, Field/Input/Select, Modal, Badge... (reutilizables)
   components/layout/     # AppLayout (sidebar + nav móvil), PageHeader, Logo
   features/
-    inicio/              # useDashboard (todos los cálculos del dashboard), GraficoMensual
+    inicio/              # useDashboard (todos los cálculos del dashboard), GraficoMensual, metas.ts (cálculo puro de metas), MetasPanel, MetasForm
     calendario/          # useReuniones, MesGrid, Agenda, ReunionForm, eventos (reuniones + acciones)
     cotizador/           # useServicios, useCotizaciones, CotizacionForm, ServicioForm
     finanzas/            # useCobros, useCostos, useAjustes, calculos.ts, CobroForm, CostoForm, TipoCambio
@@ -102,6 +102,8 @@ supabase/
 - **Etapas**: `contacto → reunion → demo → propuesta` (abiertas) → `cerrado → implementacion → mantenimiento` (ganadas) / `perdido`. Un **cliente** es un prospecto en etapa ganada; no hay tabla aparte. Constantes `ETAPAS_ABIERTAS`, `ETAPAS_GANADAS`, `ETAPAS_ACTIVAS` en `types/db.ts`.
 - **Dinero**: cada monto se guarda con su `moneda` (ARS | USD). El dashboard muestra **todo en USD**, convirtiendo ARS con `ajustes.tipo_cambio_usd` (ARS por 1 USD) vía `aUSD()`. Si falta el tipo de cambio, lo ARS no se suma y aparece un pendiente.
 - **Cotizaciones**: los precios del catálogo (`servicios`) están en USD. Cada ítem copia el precio al agregarse (snapshot): cambiar el catálogo no altera cotizaciones viejas. El descuento aplica solo a la implementación. Al guardar una cotización como `aceptada`, el prospecto pasa a `cerrado` (si estaba abierto) y su `valor_estimado` toma el total.
+- **Metas** (tabla `metas`, una fila por `tipo` mes|trimestre + `periodo` = primer día): `clientes_nuevos` cuenta prospectos ganados con `fecha_cierre` dentro del período (`fecha_cierre` la pone/saca un trigger al entrar/salir de etapas ganadas); `ingreso_recurrente` compara el ingreso recurrente de hoy contra la meta al cierre. Ritmo = proyección lineal de cierres. Embudo al revés: faltan clientes ÷ tasa propuesta→cierre = propuestas; ÷ tasa reunión→propuesta = reuniones; repartido por semanas restantes. Tasas reales con ≥5 casos, si no las de `ajustes` (editables en el formulario de metas). Todo el cálculo está en `features/inicio/metas.ts`.
+- **Abonos esperados**: cada cliente en `mantenimiento` con cotización aceptada con abono espera un cobro `abono` por mes; si falta, aparece en Pendientes y abre el cobro prellenado (`/finanzas?registrar=abono&prospecto=…&monto=…&moneda=…`).
 - **Por cobrar** = implementación de cotizaciones aceptadas − cobros no-abono del cliente. **Ingreso recurrente** = abonos de cotizaciones aceptadas de clientes activos.
 - **Costos**: `mensual` cuenta cada mes entre `desde` y `hasta`; `anual` cuenta 1/12 por mes; `unico` solo en el mes de `desde`. Categoría `adquisicion` alimenta el ROAS.
 - **Grabaciones**: estados `pendiente → transcribiendo → analizando → lista` (o `error` con motivo). Sin claves cargadas, todo queda `pendiente` y se procesa después con el botón de la grabación: la app tiene que funcionar sin las claves. El aviso del proveedor llega por webhook; si no llega, el hub consulta (`actualizar`) mientras la página está abierta. Audio en bucket privado `grabaciones`, se borra a los 90 días (el hub lo limpia al listar). El análisis usa `claude-opus-5-5` con `output_config.format` (JSON schema `ESQUEMA` en `analisis.ts`, en sincronía con `Analisis` en `types/db.ts`), effort `medium` y `fallbacks: "default"`. Para cambiar de proveedor de transcripción, reemplazar solo `transcripcion.ts`.

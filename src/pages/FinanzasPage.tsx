@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
-import type { CategoriaCosto, Cobro, Costo } from '../types/db'
+import type { CategoriaCosto, Cobro, CobroInput, Costo, Moneda } from '../types/db'
 import { useAjustes, useCobros, useCostos } from '../features/finanzas/useFinanzas'
 import { CobroForm } from '../features/finanzas/CobroForm'
 import { CostoForm } from '../features/finanzas/CostoForm'
@@ -46,10 +46,25 @@ export function FinanzasPage() {
   const costos = useCostos()
   const { tipoCambio, guardarTipoCambio } = useAjustes()
   const { prospectos } = useProspectos()
-  const { filas: cotizaciones } = useCotizaciones()
+  const { filas: cotizaciones, cargando: cargandoCot } = useCotizaciones()
 
   const [cobroAbierto, setCobroAbierto] = useState(false)
   const [cobroEditando, setCobroEditando] = useState<Cobro | null>(null)
+  const [cobroInicial, setCobroInicial] = useState<Partial<CobroInput> | null>(null)
+
+  // ?registrar=abono&prospecto=…&monto=…&moneda=…: abrir el formulario prellenado (desde Pendientes)
+  useEffect(() => {
+    if (params.get('registrar') !== 'abono' || cargandoCot) return
+    setCobroEditando(null)
+    setCobroInicial({
+      concepto: 'abono',
+      prospecto_id: params.get('prospecto'),
+      monto: Number(params.get('monto')) || undefined,
+      moneda: (params.get('moneda') as Moneda) || 'USD',
+    })
+    setCobroAbierto(true)
+    setParams({}, { replace: true })
+  }, [params, setParams, cargandoCot])
   const [costoAbierto, setCostoAbierto] = useState(false)
   const [costoEditando, setCostoEditando] = useState<Costo | null>(null)
 
@@ -280,9 +295,13 @@ export function FinanzasPage() {
       <CobroForm
         abierto={cobroAbierto}
         cobro={cobroEditando}
+        inicial={cobroInicial}
         prospectos={prospectos}
         cotizaciones={cotizaciones}
-        onCerrar={() => setCobroAbierto(false)}
+        onCerrar={() => {
+          setCobroAbierto(false)
+          setCobroInicial(null)
+        }}
         onGuardar={cobros.guardar}
         onEliminar={cobros.eliminar}
       />

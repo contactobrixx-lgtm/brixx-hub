@@ -60,11 +60,13 @@ export interface Prospecto {
   motivo_perdida: string | null
   notas: string | null
   orden: number
+  /** Cuándo pasó a cliente (lo completa la base al entrar en una etapa ganada). */
+  fecha_cierre: string | null
   created_at: string
   updated_at: string
 }
 
-export type ProspectoInput = Omit<Prospecto, 'id' | 'created_at' | 'updated_at'>
+export type ProspectoInput = Omit<Prospecto, 'id' | 'created_at' | 'updated_at' | 'fecha_cierre'>
 
 export interface Miembro {
   email: string
@@ -74,7 +76,21 @@ export interface Miembro {
 export interface Ajustes {
   id: boolean
   tipo_cambio_usd: number | null
+  /** Tasas iniciales del embudo (se usan hasta tener datos reales). */
+  tasa_reunion_propuesta: number
+  tasa_propuesta_cierre: number
 }
+
+export type TipoMeta = 'mes' | 'trimestre'
+
+export interface Meta {
+  id: string
+  tipo: TipoMeta
+  periodo: string // YYYY-MM-DD, primer día del período
+  clientes_nuevos: number | null
+  ingreso_recurrente: number | null
+}
+export type MetaInput = Omit<Meta, 'id'>
 
 export interface Servicio {
   id: string

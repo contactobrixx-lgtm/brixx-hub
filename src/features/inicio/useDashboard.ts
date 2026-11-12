@@ -6,6 +6,8 @@ import { useReuniones } from '../calendario/useReuniones'
 import { costoDelMes, totalesCotizacion, ultimosMeses } from '../finanzas/calculos'
 import { aUSD, hoyISO, mesISO } from '../../lib/format'
 import { ETAPAS_ABIERTAS, ETAPAS_ACTIVAS, ETAPAS_GANADAS } from '../../types/db'
+import { useMetas } from './useMetas'
+import { progresoMeta, tasasEmbudo } from './metas'
 
 export type Periodo = 'mes' | '6m' | 'anio'
 
@@ -26,13 +28,14 @@ function mesesDelPeriodo(p: Periodo): string[] {
 export function useDashboard(periodo: Periodo) {
   const cobros = useCobros()
   const costos = useCostos()
-  const { tipoCambio } = useAjustes()
+  const { tipoCambio, tasas: tasasIniciales, guardarTasas } = useAjustes()
+  const metas = useMetas()
   const cot = useCotizaciones()
   const servicios = useServicios()
   const { prospectos, cargando: cargandoP } = useProspectos()
   const reuniones = useReuniones()
 
-  const cargando = cobros.cargando || costos.cargando || cot.cargando || cargandoP || reuniones.cargando
+  const cargando = cobros.cargando || costos.cargando || cot.cargando || cargandoP || reuniones.cargando || metas.cargando
 
   const datos = useMemo(() => {
     const tc = tipoCambio
@@ -117,6 +120,25 @@ export function useDashboard(periodo: Periodo) {
       const p = porId.get(id)
       pendientes.push({ tono: 'aviso', titulo: `${p ? p.empresa || p.nombre : 'Cliente'} debe USD ${Math.round(v)}`, detalle: 'Saldo de implementación sin cobrar', ir: '/finanzas' })
     }
+    // Abonos del mes: cada cliente en mantenimiento con abono aceptado espera un cobro "abono" este mes
+    const mesActual = mesISO(new Date())
+    const nombreMesActual = new Date().toLocaleDateString('es-AR', { month: 'long' })
+    for (const p of prospectos.filter((x) => x.etapa === 'mantenimiento')) {
+      const abonos = aceptadas.filter((q) => q.prospecto_id === p.id).map((q) => ({ q, mensual: totalesCotizacion(q).mensual })).filter((a) => a.mensual > 0)
+      if (!abonos.length) continue
+      const yaCobrado = cobros.filas.some((c) => c.prospecto_id === p.id && c.concepto === 'abono' && c.fecha.startsWith(mesActual))
+      if (yaCobrado) continue
+      const monto = abonos.reduce((t, a) => t + a.mensual, 0)
+      const moneda = abonos[0].q.moneda
+      const q = new URLSearchParams({ registrar: 'abono', prospecto: p.id, monto: String(monto), moneda })
+      pendientes.push({
+        tono: 'aviso',
+        titulo: `${p.empresa || p.nombre}: abono de ${nombreMesActual} sin cobrar`,
+        detalle: `${moneda} ${monto}/mes · tocá para registrarlo`,
+        ir: `/finanzas?${q}`,
+      })
+    }
+
     const sinPrecio = servicios.filas.filter((s) => s.activo && !Number(s.precio_implementacion) && !Number(s.precio_mensual)).length
     if (sinPrecio) pendientes.push({ tono: 'info', titulo: 'Cargá tus precios', detalle: `${sinPrecio} ${sinPrecio === 1 ? 'servicio sin precio' : 'servicios sin precio'}`, ir: '/cotizador?vista=servicios' })
     const hayArs = [...cobros.filas, ...costos.filas].some((x) => x.moneda === 'ARS')
@@ -129,7 +151,20 @@ export function useDashboard(periodo: Periodo) {
     const ahora = Date.now()
     const proximas = reuniones.filas.filter((r) => new Date(r.inicio).getTime() + r.duracion_min * 60000 >= ahora).slice(0, 5)
 
+    const conAbono = aceptadas.map((q) => usd(totalesCotizacion(q).mensual, q.moneda)).filter((v) => v > 0)
+    const datosMetas = {
+      prospectos,
+      reuniones: reuniones.filas,
+      cotizaciones: cot.filas,
+      metas: metas.filas,
+      ingresoRecurrente: mrr,
+      abonoPromedio: conAbono.length ? conAbono.reduce((a, b) => a + b, 0) / conAbono.length : 50,
+      tasas: tasasEmbudo(cot.filas, reuniones.filas, { reunionPropuesta: tasasIniciales.reunionPropuesta, propuestaCierre: tasasIniciales.propuestaCierre }),
+    }
+
     return {
+      metasMes: progresoMeta('mes', datosMetas),
+      metasTrimestre: progresoMeta('trimestre', datosMetas),
       cobrado,
       cobradoProyectos,
       cobradoAbonos,
@@ -152,7 +187,7 @@ export function useDashboard(periodo: Periodo) {
       proximas,
       appsActivas: costos.filas.filter((c) => c.categoria !== 'adquisicion' && costoDelMes(c, mesISO(new Date()), tc) !== 0).length,
     }
-  }, [periodo, cobros.filas, costos.filas, tipoCambio, cot.filas, servicios.filas, prospectos, reuniones.filas])
+  }, [periodo, cobros.filas, costos.filas, tipoCambio, cot.filas, servicios.filas, prospectos, reuniones.filas, metas.filas, tasasIniciales.reunionPropuesta, tasasIniciales.propuestaCierre])
 
-  return { ...datos, prospectos, cargando }
+  return { ...datos, prospectos, cargando, metas, tasasIniciales, guardarTasas }
 }
