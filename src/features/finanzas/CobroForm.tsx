@@ -10,6 +10,8 @@ import { CONCEPTO_LABEL, hoyISO, numeroCotizacion, parseNumero, vacioANull } fro
 interface Props {
   abierto: boolean
   cobro: Cobro | null
+  /** Valores para un cobro nuevo (ej. "registrar abono" desde Pendientes). */
+  inicial?: Partial<CobroInput> | null
   prospectos: Prospecto[]
   cotizaciones: Cotizacion[]
   onCerrar: () => void
@@ -22,13 +24,20 @@ export function CobroForm(props: Props) {
   return <FormInterno key={props.cobro?.id ?? 'nuevo'} {...props} />
 }
 
-function FormInterno({ cobro: c, prospectos, cotizaciones, onCerrar, onGuardar, onEliminar }: Props) {
+function FormInterno({ cobro: c, inicial, prospectos, cotizaciones, onCerrar, onGuardar, onEliminar }: Props) {
   const [fecha, setFecha] = useState(c?.fecha ?? hoyISO())
-  const [prospectoId, setProspectoId] = useState(c?.prospecto_id ?? '')
-  const [concepto, setConcepto] = useState<ConceptoCobro>(c?.concepto ?? 'anticipo')
-  const [monto, setMonto] = useState(c ? String(c.monto) : '')
-  const [moneda, setMoneda] = useState<Moneda>(c?.moneda ?? 'USD')
-  const [cotizacionId, setCotizacionId] = useState(c?.cotizacion_id ?? '')
+  const [prospectoId, setProspectoId] = useState(c?.prospecto_id ?? inicial?.prospecto_id ?? '')
+  const [concepto, setConcepto] = useState<ConceptoCobro>(c?.concepto ?? inicial?.concepto ?? 'anticipo')
+  const [monto, setMonto] = useState(c ? String(c.monto) : inicial?.monto != null ? String(inicial.monto) : '')
+  const [moneda, setMoneda] = useState<Moneda>(c?.moneda ?? inicial?.moneda ?? 'USD')
+  const [cotizacionId, setCotizacionId] = useState(
+    c?.cotizacion_id ??
+      inicial?.cotizacion_id ??
+      (() => {
+        const aceptadas = cotizaciones.filter((q) => q.prospecto_id === inicial?.prospecto_id && q.estado === 'aceptada')
+        return aceptadas.length === 1 ? aceptadas[0].id : ''
+      })(),
+  )
   const [notas, setNotas] = useState(c?.notas ?? '')
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
