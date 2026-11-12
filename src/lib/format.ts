@@ -89,7 +89,7 @@ export function vacioANull(v: string): string | null {
 export function iniciales(texto: string): string {
   return texto
     .split(/\s+/)
-    .filter(Boolean)
+    .filter((p) => /^[\p{L}\p{N}]/u.test(p)) // ignora guiones y símbolos sueltos
     .slice(0, 2)
     .map((p) => p[0]!.toUpperCase())
     .join('')

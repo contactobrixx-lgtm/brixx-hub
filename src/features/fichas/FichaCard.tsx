@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/Badge'
 import { ESTADO_LABEL, iniciales } from '../../lib/format'
 import { cn } from '../../components/ui/cn'
 import { abrirEnPestana, abrirFicha } from './abrirFicha'
+import { PreviewSitio } from './PreviewSitio'
 
 interface Props {
   ficha: Ficha
@@ -32,25 +33,27 @@ export function FichaCard({ ficha, imagenUrl, onEditar }: Props) {
         archivada && 'opacity-60',
       )}
     >
-      {/* Portada */}
-      <button
-        onClick={() => abrirFicha(ficha, navigate)}
-        className="relative m-2 mb-0 block aspect-[16/9] cursor-pointer overflow-hidden rounded-xl bg-elevada"
-        aria-label={`Abrir ${ficha.nombre}`}
-      >
+      {/* Portada: captura cargada > vista previa en vivo > iniciales */}
+      <div className="relative m-2 mb-0 aspect-[16/9] overflow-hidden rounded-xl bg-elevada">
+        <div className="flex size-full items-center justify-center bg-gradient-to-br from-acento-tenue to-elevada">
+          <span className="font-display text-4xl font-bold text-acento-claro/80">{iniciales(ficha.nombre)}</span>
+        </div>
         {imagenUrl ? (
           <img
             src={imagenUrl}
             alt=""
             loading="lazy"
-            className="size-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+            className="absolute inset-0 size-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex size-full items-center justify-center bg-gradient-to-br from-acento-tenue to-elevada">
-            <span className="font-display text-4xl font-bold text-acento-claro/80">{iniciales(ficha.nombre)}</span>
-          </div>
+          ficha.modo_apertura === 'iframe' && <PreviewSitio url={ficha.url} />
         )}
-        <div className="absolute top-3 left-3 flex gap-1.5">
+        <button
+          onClick={() => abrirFicha(ficha, navigate)}
+          className="absolute inset-0 cursor-pointer"
+          aria-label={`Abrir ${ficha.nombre}`}
+        />
+        <div className="pointer-events-none absolute top-3 left-3 flex gap-1.5">
           {ficha.categoria && <Badge className="bg-fondo/85 text-texto backdrop-blur">{ficha.categoria}</Badge>}
           {ficha.estado !== 'activo' && (
             <Badge tono={ficha.estado === 'en_desarrollo' ? 'aviso' : 'neutro'}>
@@ -58,7 +61,7 @@ export function FichaCard({ ficha, imagenUrl, onEditar }: Props) {
             </Badge>
           )}
         </div>
-      </button>
+      </div>
 
       {/* Acciones rápidas */}
       <div className="absolute top-5 right-5 flex gap-1.5 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
