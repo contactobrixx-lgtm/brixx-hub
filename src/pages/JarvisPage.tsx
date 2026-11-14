@@ -216,7 +216,11 @@ export function JarvisPage() {
                   valor={manos.activo ? 'Manos libres' : ptt.disponible ? 'Tocar para hablar' : 'Solo teclado'}
                   ok={manos.activo ? true : ptt.disponible ? null : false}
                 />
-                <FilaEstado label="Voz" valor={voz.disponible ? (vozActiva ? 'Activada' : 'Silenciada') : 'No disponible'} ok={voz.disponible ? vozActiva : false} />
+                <FilaEstado
+                  label="Voz"
+                  valor={!voz.disponible ? 'No disponible' : !vozActiva ? 'Silenciada' : voz.premium && voz.fuente !== 'dispositivo' ? 'Premium' : 'Del dispositivo'}
+                  ok={voz.disponible ? vozActiva : false}
+                />
                 <FilaEstado
                   label="Claude"
                   valor={config == null ? '…' : config.funcion && config.anthropic ? 'Conectado' : 'Sin clave'}

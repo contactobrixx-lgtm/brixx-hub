@@ -118,6 +118,22 @@ En el hub, entrá a **Grabaciones**, abrí una pendiente y tocá **Transcribir y
 
 **Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar.
 
+### Voz premium (ElevenLabs, opcional)
+
+Sin configurar nada, Jarvis lee con la voz del dispositivo (la más grave en español que encuentre). Con ElevenLabs habla con una voz natural, grave y sobria. Si ElevenLabs falla o se terminan los créditos, vuelve solo a la voz del dispositivo.
+
+1. Creá la cuenta en [elevenlabs.io](https://elevenlabs.io). El plan **Starter** (unos USD 5 por mes) alcanza para unas 60.000 letras con el modelo rápido: más de mil respuestas de Jarvis.
+2. Tocá tu perfil (abajo a la izquierda) → **API Keys** → **Create API Key**. Si te pide permisos, alcanza con **Text to Speech**. Copiala.
+3. En Supabase: **Edge Functions → Secrets → Add new secret**. Name: `ELEVENLABS_API_KEY`; Value: la clave.
+4. Listo: en Jarvis, la fila **Voz** del estado pasa a decir **Premium**.
+
+**Cambiar la voz (opcional).** Por defecto usa "Daniel", grave y de locutor. Para elegir otra:
+1. En ElevenLabs entrá a **Voices → Voice Library**. Filtrá por idioma **Spanish** y género **Male**, y probá las que te gusten.
+2. Agregala a **My Voices**, abrila y copiá su **Voice ID**.
+3. En Supabase, sumá el secret `ELEVENLABS_VOICE_ID` con ese valor. Se aplica en la siguiente respuesta.
+
+La clave vive solo en Supabase. Cada respuesta se genera una vez: "Escuchar de nuevo" no gasta créditos.
+
 ---
 
 ## Puesta en marcha (todo desde la web, sin terminal)

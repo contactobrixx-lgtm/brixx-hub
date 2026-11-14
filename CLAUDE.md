@@ -8,7 +8,7 @@ Panel interno de **brixx**, agencia de IA de dos socios. Centraliza en un solo l
 4. **Cotizador**: catálogo de servicios con precio de implementación y abono mensual, y cotizaciones por cliente con versión imprimible/PDF.
 5. **Finanzas**: cobros, costos del estudio y tipo de cambio.
 6. **Grabaciones**: reuniones grabadas con el celular → transcripción (AssemblyAI) + análisis con Claude (puntos clave, próximos pasos, propuesta con el catálogo).
-7. **Jarvis** (`/jarvis`): centro de comando con núcleo animado, estado, resumen, feed del día, agenda de hoy, comandos rápidos y modo manos libres ("Jarvis, …"). Más el **asistente de voz** como botón flotante en el resto de las pantallas. Dictado con la Web Speech API (es-AR), respuesta de Claude por la Edge Function `asistente` (con herramientas de solo lectura sobre todo el hub), lectura en voz alta con `speechSynthesis`.
+7. **Jarvis** (`/jarvis`): centro de comando con núcleo animado, estado, resumen, feed del día, agenda de hoy, comandos rápidos y modo manos libres ("Jarvis, …"). Más el **asistente de voz** como botón flotante en el resto de las pantallas. Dictado con la Web Speech API (es-AR), respuesta de Claude por la Edge Function `asistente` (con herramientas de solo lectura sobre todo el hub), lectura en voz alta con ElevenLabs (Edge Function `voz`) o, si no está, `speechSynthesis`.
 8. **Sistemas de gestión** y **Demos web**: fichas de las apps entregadas y de las demos (cada una con su URL; el hub las lista y las abre).
 
 Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay registro público.
@@ -26,7 +26,7 @@ Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay regi
 | Marca | `components/layout/Logo.tsx` (isotipo SVG) · `public/brixx-logo.png` (original) |
 | Deploy | Vercel (build automático desde GitHub) |
 
-El frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend. La única parte de servidor son las **Edge Functions `grabaciones` y `asistente`** (Deno, en `supabase/functions/`), que guardan las claves de terceros (AssemblyAI, Anthropic) como *secrets* de Supabase: **nunca van al frontend, al repo ni a Vercel**.
+El frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend. La única parte de servidor son las **Edge Functions `grabaciones`, `asistente` y `voz`** (Deno, en `supabase/functions/`), que guardan las claves de terceros (AssemblyAI, Anthropic, ElevenLabs) como *secrets* de Supabase: **nunca van al frontend, al repo ni a Vercel**.
 
 ## Flujo de trabajo (regla fija)
 
@@ -75,13 +75,14 @@ src/
     fichas/              # useFichas, FichaCard, FichaForm, ImagenPicker (sistemas + demos)
     pipeline/            # useProspectos, Tablero (kanban), ProspectoCard, ProspectoForm, etapas.ts
     grabaciones/         # useGrabadora (MediaRecorder + copia en IndexedDB), useGrabaciones, VistaAnalisis, VistaTranscripcion
-    asistente/           # Asistente (botón flotante + panel), useReconocimientoVoz (tocar para hablar), useManosLibres ("Jarvis…"), useVoz (speechSynthesis), useAsistente, Nucleo (orbe animado)
+    asistente/           # Asistente (botón flotante + panel), useReconocimientoVoz (tocar para hablar), useManosLibres ("Jarvis…"), useVoz (ElevenLabs o speechSynthesis), useAsistente, Nucleo (orbe animado)
   pages/                 # una página por ruta
   types/db.ts            # tipos de las tablas de la base
 supabase/
   migrations/            # SQL versionado: esquema, RLS, seeds
   functions/grabaciones/ # Edge Function: index.ts (rutas), transcripcion.ts (AssemblyAI), analisis.ts (Claude)
   functions/asistente/   # Edge Function: index.ts (auth + entrada), datos.ts (consultas de solo lectura + panorama de hoy), herramientas.ts (tools), cerebro.ts (bucle con Claude)
+  functions/voz/         # Edge Function: texto → audio con ElevenLabs (opcional)
 ```
 
 ## Rutas
@@ -111,7 +112,7 @@ supabase/
 - **Por cobrar** = implementación de cotizaciones aceptadas − cobros no-abono del cliente. **Ingreso recurrente** = abonos de cotizaciones aceptadas de clientes activos.
 - **Costos**: `mensual` cuenta cada mes entre `desde` y `hasta`; `anual` cuenta 1/12 por mes; `unico` solo en el mes de `desde`. Categoría `adquisicion` alimenta el ROAS.
 - **Grabaciones**: estados `pendiente → transcribiendo → analizando → lista` (o `error` con motivo). Sin claves cargadas, todo queda `pendiente` y se procesa después con el botón de la grabación: la app tiene que funcionar sin las claves. El aviso del proveedor llega por webhook; si no llega, el hub consulta (`actualizar`) mientras la página está abierta. Audio en bucket privado `grabaciones`, se borra a los 90 días (el hub lo limpia al listar). El análisis usa `claude-opus-5-5` con `output_config.format` (JSON schema `ESQUEMA` en `analisis.ts`, en sincronía con `Analisis` en `types/db.ts`), effort `medium` y `fallbacks: "default"`. Para cambiar de proveedor de transcripción, reemplazar solo `transcripcion.ts`.
-- **Asistente de voz / Jarvis**: fuera de `/jarvis`, solo push-to-talk (escucha mientras el micrófono está activo, nunca de fondo). En `/jarvis` hay **modo manos libres opt-in**: escucha continua solo con el modo prendido y la pestaña visible, se pausa mientras piensa o habla, se apaga al salir o cambiar de pestaña, y toma como pregunta lo que sigue a "Jarvis" (`useManosLibres`; en iOS no se ofrece). Al entrar hay que tocar "Activar Jarvis" (los navegadores no dejan hablar sin un toque): saluda con el briefing. Sin Web Speech API: aviso + teclado. Historial solo de la sesión (estado + `sessionStorage`). La Edge Function `asistente` valida `es_miembro()`, manda siempre un **panorama de hoy** (reuniones, acciones de hoy y vencidas, cotizaciones sin respuesta, grabaciones sin procesar, clientes activos) y le da a Claude **herramientas de solo lectura** (`herramientas.ts`: agenda, buscar/leer grabaciones, clientes y prospectos, cotizaciones, finanzas, metas, catálogo, sistemas y demos) con bucle de hasta 6 vueltas (la última con `tool_choice: none`). Nunca escribe en la base. Modelo `claude-sonnet-5-5`, effort `low`, `fallbacks: "default"`, tools `strict`. Respuesta en texto plano para voz (`limpiarParaVoz`).
+- **Asistente de voz / Jarvis**: fuera de `/jarvis`, solo push-to-talk (escucha mientras el micrófono está activo, nunca de fondo). En `/jarvis` hay **modo manos libres opt-in**: escucha continua solo con el modo prendido y la pestaña visible, se pausa mientras piensa o habla, se apaga al salir o cambiar de pestaña, y toma como pregunta lo que sigue a "Jarvis" (`useManosLibres`; en iOS no se ofrece). Al entrar hay que tocar "Activar Jarvis" (los navegadores no dejan hablar sin un toque): saluda con el briefing. Sin Web Speech API: aviso + teclado. Historial solo de la sesión (estado + `sessionStorage`). La Edge Function `asistente` valida `es_miembro()`, manda siempre un **panorama de hoy** (reuniones, acciones de hoy y vencidas, cotizaciones sin respuesta, grabaciones sin procesar, clientes activos) y le da a Claude **herramientas de solo lectura** (`herramientas.ts`: agenda, buscar/leer grabaciones, clientes y prospectos, cotizaciones, finanzas, metas, catálogo, sistemas y demos) con bucle de hasta 6 vueltas (la última con `tool_choice: none`). Nunca escribe en la base. Modelo `claude-sonnet-5-5`, effort `low`, `fallbacks: "default"`, tools `strict`. Respuesta en texto plano para voz (`limpiarParaVoz`). **Voz**: `useVoz` usa la función `voz` (ElevenLabs, secrets `ELEVENLABS_API_KEY` y opcional `ELEVENLABS_VOICE_ID`/`ELEVENLABS_MODEL`; por defecto voz "Daniel" y `eleven_flash_v2_5`; devuelve el MP3 como `application/octet-stream` para que `functions.invoke` lo entregue como Blob) y, si no está configurada o falla, `speechSynthesis` con la voz en español más grave disponible. Sin la clave, todo tiene que seguir funcionando.
 - **Gráficos**: un solo eje, series con tokens `serie-ingreso` / `serie-costo` (validados para daltonismo), leyenda, tooltip al pasar y vista de tabla.
 - **Pipeline**: el orden dentro de cada columna es `prospectos.orden` (número decimal); al soltar una tarjeta entre dos se usa el promedio, así se actualiza una sola fila.
 - **Esquema versionado**: cualquier cambio de base va como archivo nuevo en `supabase/migrations/` (`NNNN_descripcion.sql`), idempotente cuando sea posible. Lo aplica el Action al mergear (ver "Migraciones automáticas"). Mantener `src/types/` en sincronía.
