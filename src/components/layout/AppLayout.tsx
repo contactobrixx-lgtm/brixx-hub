@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../../auth/AuthProvider'
 import { cn } from '../ui/cn'
 import { Logo } from './Logo'
+import { Asistente } from '../../features/asistente/Asistente'
 import { iniciales } from '../../lib/format'
 
 interface Item {
@@ -115,6 +116,9 @@ export function AppLayout() {
         <main className="min-h-0 flex-1 overflow-y-auto pb-20 md:pb-0">
           <Outlet />
         </main>
+
+        {/* Asistente de voz: en todas las pantallas, menos en la grabadora (las dos usan el micrófono) */}
+        {!pathname.startsWith('/grabar') && <Asistente />}
 
         {/* Menú "Más" (móvil) */}
         {masAbierto && (
