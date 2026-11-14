@@ -122,7 +122,7 @@ En el hub, entrá a **Grabaciones**, abrí una pendiente y tocá **Transcribir y
 
 Sin configurar nada, Jarvis lee con la voz del dispositivo (la más grave en español que encuentre). Con ElevenLabs habla con una voz natural, grave y sobria. Si ElevenLabs falla o se terminan los créditos, vuelve solo a la voz del dispositivo.
 
-1. Creá la cuenta en [elevenlabs.io](https://elevenlabs.io). El plan **Starter** (unos USD 5 por mes) alcanza para unas 60.000 letras con el modelo rápido: más de mil respuestas de Jarvis.
+1. Creá la cuenta en [elevenlabs.io](https://elevenlabs.io). El plan **Free** da unos 10.000 créditos por mes; el **Starter** (unos USD 5) da 30.000.
 2. Tocá tu perfil (abajo a la izquierda) → **API Keys** → **Create API Key**. Si te pide permisos, alcanza con **Text to Speech**. Copiala.
 3. En Supabase: **Edge Functions → Secrets → Add new secret**. Name: `ELEVENLABS_API_KEY`; Value: la clave.
 4. Listo: en Jarvis, la fila **Voz** del estado pasa a decir **Premium**.
@@ -131,6 +131,18 @@ Sin configurar nada, Jarvis lee con la voz del dispositivo (la más grave en esp
 1. En ElevenLabs entrá a **Voices → Voice Library**. Filtrá por idioma **Spanish** y género **Male**, y probá las que te gusten.
 2. Agregala a **My Voices**, abrila y copiá su **Voice ID**.
 3. En Supabase, sumá el secret `ELEVENLABS_VOICE_ID` con ese valor. Se aplica en la siguiente respuesta.
+
+**Consumo.** Usa el modelo `eleven_multilingual_v2`, el más natural en español: 1 crédito por letra. Para cuidar los créditos:
+- En pantalla siempre aparece la respuesta completa. A ElevenLabs solo va la parte hablada.
+- Si la respuesta pasa los 600 caracteres, Claude arma un resumen hablado de dos o tres oraciones.
+- Una respuesta típica cuesta entre 150 y 400 créditos: con el plan Free alcanza para unas 30 a 60 respuestas por mes.
+- Para gastar la mitad, sumá el secret `ELEVENLABS_MODEL` = `eleven_flash_v2_5`. Suena un poco menos natural, pero responde más rápido.
+
+**¿Está usando ElevenLabs?** Mirá la fila **Voz** del estado de Jarvis:
+- **Premium**: la última respuesta sonó con ElevenLabs.
+- **Del dispositivo**: no hay clave, o ElevenLabs falló (sin créditos, error o tardó más de 12 segundos) y la leyó la voz del celular o la compu.
+
+El motivo del error queda en Supabase → **Edge Functions → voz → Logs**.
 
 La clave vive solo en Supabase. Cada respuesta se genera una vez: "Escuchar de nuevo" no gasta créditos.
 

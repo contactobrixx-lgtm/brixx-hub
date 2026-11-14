@@ -2,7 +2,8 @@
 //
 // Pedido (POST JSON, con la sesión del usuario):
 //   { pregunta: string, historial?: { rol: "usuario" | "asistente", texto: string }[] }
-// Respuesta: { respuesta: string, modelo: string, consultas: string[] }
+// Respuesta: { respuesta: string, respuesta_voz: string, modelo: string, consultas: string[] }
+//   respuesta: el texto completo para la pantalla; respuesta_voz: versión corta (≤600 caracteres) para leer en voz alta.
 //
 // Usa el secret ANTHROPIC_API_KEY (el mismo que la función "grabaciones").
 // La clave nunca llega al navegador: todo pasa por acá.
@@ -69,8 +70,8 @@ Deno.serve(async (req) => {
   try {
     const hub = new Hub(admin) // consultas de solo lectura
     const panorama = await hub.panorama(usuario.nombre)
-    const { respuesta, modelo, consultas } = await responder(hub, panorama, pregunta, historial)
-    return json({ respuesta, modelo, consultas })
+    const { respuesta, respuesta_voz, modelo, consultas } = await responder(hub, panorama, pregunta, historial)
+    return json({ respuesta, respuesta_voz, modelo, consultas })
   } catch (e) {
     console.error('Error del asistente:', e)
     if (e instanceof Anthropic.AuthenticationError) return json({ error: 'La clave de Anthropic no es válida.' }, 502)
