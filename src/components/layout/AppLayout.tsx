@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
+  AudioLines,
   Calculator,
   Home,
   KanbanSquare,
@@ -29,6 +30,7 @@ interface Item {
 
 const ESTUDIO: Item[] = [
   { to: '/inicio', label: 'Inicio', icono: Home },
+  { to: '/jarvis', label: 'Jarvis', icono: AudioLines },
   { to: '/calendario', label: 'Calendario', icono: CalendarDays },
   { to: '/grabaciones', label: 'Grabaciones', icono: Mic },
   { to: '/pipeline', label: 'Pipeline', icono: KanbanSquare },
@@ -117,8 +119,8 @@ export function AppLayout() {
           <Outlet />
         </main>
 
-        {/* Asistente de voz: en todas las pantallas, menos en la grabadora (las dos usan el micrófono) */}
-        {!pathname.startsWith('/grabar') && <Asistente />}
+        {/* Asistente de voz: en todas las pantallas, menos la grabadora (usan el micrófono) y Jarvis (tiene el suyo) */}
+        {!pathname.startsWith('/grabar') && !pathname.startsWith('/jarvis') && <Asistente />}
 
         {/* Menú "Más" (móvil) */}
         {masAbierto && (

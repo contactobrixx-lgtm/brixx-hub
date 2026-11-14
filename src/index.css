@@ -133,3 +133,56 @@
     display: none !important;
   }
 }
+
+/* Jarvis: núcleo animado */
+@keyframes giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes giro-inverso {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes latido {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+@keyframes onda {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.animate-giro {
+  animation: giro 24s linear infinite;
+}
+.animate-giro-inverso {
+  animation: giro-inverso 36s linear infinite;
+}
+.animate-latido {
+  animation: latido 2.4s ease-in-out infinite;
+}
+.animate-onda {
+  animation: onda 0.9s ease-in-out infinite;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-giro,
+  .animate-giro-inverso,
+  .animate-latido,
+  .animate-onda {
+    animation: none;
+  }
+}

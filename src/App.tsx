@@ -14,6 +14,7 @@ import { CotizacionImprimiblePage } from './pages/CotizacionImprimiblePage'
 import { GrabarPage } from './pages/GrabarPage'
 import { GrabacionesPage } from './pages/GrabacionesPage'
 import { GrabacionPage } from './pages/GrabacionPage'
+import { JarvisPage } from './pages/JarvisPage'
 import { supabaseConfigurado } from './lib/supabase'
 
 export default function App() {
@@ -67,6 +68,7 @@ export default function App() {
         }
       >
         <Route path="/inicio" element={<InicioPage />} />
+        <Route path="/jarvis" element={<JarvisPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
         <Route path="/grabar" element={<GrabarPage />} />
         <Route path="/grabaciones" element={<GrabacionesPage />} />
