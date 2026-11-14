@@ -88,21 +88,35 @@ En el hub, entrá a **Grabaciones**, abrí una pendiente y tocá **Transcribir y
 
 ---
 
-## Asistente de voz
+## Jarvis y el asistente de voz
 
-Botón redondo azul abajo a la derecha, en todas las pantallas menos la grabadora. Lo tocás, hablás, y te responde en voz y por escrito. Sabe de tus reuniones grabadas, clientes, pendientes, cotizaciones, cobros y metas.
+**Jarvis** (menú → Jarvis) es el centro de comando por voz. Muestra:
+- un núcleo animado;
+- el estado del sistema;
+- un resumen del estudio;
+- el feed del día;
+- la agenda de hoy;
+- comandos rápidos.
 
-- **Hablar:** tocá el botón y hablá. Cuando terminás, tocá el cuadrado rojo y manda la pregunta. Solo escucha mientras el micrófono está activo.
-- **Escribir:** si el navegador no permite dictar (por ejemplo, Firefox), aparece un aviso y podés escribir la pregunta.
-- **Voz:** el botón "Respuestas con voz" la prende y la apaga. "Frenar lectura" corta la que está sonando y "Escuchar" repite una respuesta.
-- **Conversación:** dura mientras está abierta la pestaña. No se guarda en la base.
+**Cómo se usa:**
+1. Tocá **Activar Jarvis**. Te saluda con el briefing del día.
+2. Queda en **manos libres**: decí "Jarvis" seguido de tu pregunta. Por ejemplo: "Jarvis, ¿qué hay para hoy?", "Jarvis, ¿qué se sabe de la reunión con Nova?" o "Jarvis, ¿cuánto cobramos este mes?".
 
-**Configuración:** usa la misma clave `ANTHROPIC_API_KEY` que ya está en Supabase para las grabaciones. Se publica sola al mergear, junto con las otras funciones (secret `SUPABASE_ACCESS_TOKEN` en GitHub).
+**Cuándo escucha:**
+- Solo con el modo manos libres prendido (botón de la oreja) y con la pestaña a la vista.
+- Mientras piensa o habla, deja de escuchar.
+- Se apaga al salir de la pantalla.
 
-**Para probar:**
-1. Abrí el hub en Chrome (computadora o Android) o Safari (iPhone).
-2. Tocá el botón azul y aceptá el permiso del micrófono.
-3. Preguntá "¿Qué tengo pendiente?" o "Resumime la última reunión".
+**En iPhone** el navegador no permite escuchar todo el tiempo: tocá el núcleo o el micrófono para hablar.
+
+**En el resto del hub** está el botón azul flotante. Lo tocás, hablás y tocás el cuadrado rojo para mandar. Ahí nunca escucha de fondo.
+
+**Qué puede responder:**
+- Siempre sabe lo de hoy.
+- Para lo demás consulta el hub: agenda, grabaciones (resumen, puntos clave, próximos pasos y, si hace falta, lo que se dijo textual), clientes y prospectos, cotizaciones, cobros y costos, metas, catálogo y sistemas.
+- **Solo consulta**: no agenda ni modifica nada.
+
+**Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar.
 
 ---
 

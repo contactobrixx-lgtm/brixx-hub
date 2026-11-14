@@ -7,6 +7,8 @@ export interface Mensaje {
   rol: 'usuario' | 'asistente'
   texto: string
   error?: boolean
+  /** Qué datos consultó para responder (agenda, grabaciones…) */
+  consultas?: string[]
 }
 
 const CLAVE = 'brixx-asistente-historial'
@@ -57,8 +59,9 @@ export function useAsistente() {
           }
           throw new Error(mensaje)
         }
-        const respuesta = String((data as { respuesta?: string }).respuesta ?? '')
-        setMensajes((m) => [...m, { id: crypto.randomUUID(), rol: 'asistente', texto: respuesta }])
+        const d = data as { respuesta?: string; consultas?: string[] }
+        const respuesta = String(d.respuesta ?? '')
+        setMensajes((m) => [...m, { id: crypto.randomUUID(), rol: 'asistente', texto: respuesta, consultas: d.consultas }])
         return respuesta
       } catch (e) {
         setMensajes((m) => [

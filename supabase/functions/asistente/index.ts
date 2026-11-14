@@ -2,13 +2,13 @@
 //
 // Pedido (POST JSON, con la sesión del usuario):
 //   { pregunta: string, historial?: { rol: "usuario" | "asistente", texto: string }[] }
-// Respuesta: { respuesta: string, modelo: string }
+// Respuesta: { respuesta: string, modelo: string, consultas: string[] }
 //
 // Usa el secret ANTHROPIC_API_KEY (el mismo que la función "grabaciones").
 // La clave nunca llega al navegador: todo pasa por acá.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
-import { armarContexto } from './contexto.ts'
+import { Hub } from './datos.ts'
 import { responder, type Turno } from './cerebro.ts'
 
 const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
@@ -67,10 +67,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const contexto = await armarContexto(admin, pregunta, usuario.nombre)
-
-    const { respuesta, modelo } = await responder(contexto, pregunta, historial)
-    return json({ respuesta, modelo })
+    const hub = new Hub(admin) // consultas de solo lectura
+    const panorama = await hub.panorama(usuario.nombre)
+    const { respuesta, modelo, consultas } = await responder(hub, panorama, pregunta, historial)
+    return json({ respuesta, modelo, consultas })
   } catch (e) {
     console.error('Error del asistente:', e)
     if (e instanceof Anthropic.AuthenticationError) return json({ error: 'La clave de Anthropic no es válida.' }, 502)
