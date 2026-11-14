@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Brixx Hub — 0009: prospecto Félix Café & Tapeo (San Miguel de Tucumán) y sus demos web
 -- Solo datos. Carta digital + panel del local armados como demo comercial
--- para publicar en Netlify (felixdigital); la propuesta de una página (PDF con QR) va al dueño.
+-- todavía sin publicar en Netlify (fichas "en desarrollo" hasta subirla como felixdigital); la propuesta de una página (PDF con QR) va al dueño.
 -- Idempotente: cada ficha se busca por URL y el prospecto por empresa;
 -- no duplica ni pisa lo que se haya editado en el hub.
 -- =====================================================================
@@ -18,7 +18,7 @@ begin
          'Carta digital con QR para Félix Café & Tapeo (San Miguel de Tucumán) con la identidad de la marca: '
          || 'favoritos de la casa, carrusel Keto Félix con platos sin fondo, carta completa (152 productos) con detalle y opciones, '
          || 'mi selección para mostrar al mozo, asistente con IA y reseñas de Google. Funciona sin JavaScript.',
-         'https://felixdigital.netlify.app/', 'iframe', 'activo',
+         'https://felixdigital.netlify.app/', 'iframe', 'en_desarrollo',
          array['carta digital', 'qr', 'gastronomía'],
          coalesce((select max(orden) from public.fichas where seccion = 'demo'), 0) + 1
   where not exists (select 1 from public.fichas where url = 'https://felixdigital.netlify.app/');
@@ -28,7 +28,7 @@ begin
          'Panel para el dueño: edición de precios y productos al instante, agotados, favoritos, '
          || 'historial de cambios y métricas (más vistos, buscados, favoritos y preguntas al asistente). '
          || 'Demo: usuario Félix, contraseña demo.',
-         'https://felixdigital.netlify.app/panel.html', 'iframe', 'activo',
+         'https://felixdigital.netlify.app/panel.html', 'iframe', 'en_desarrollo',
          array['carta digital', 'panel', 'métricas'],
          coalesce((select max(orden) from public.fichas where seccion = 'demo'), 0) + 1
   where not exists (select 1 from public.fichas where url = 'https://felixdigital.netlify.app/panel.html');
