@@ -8,7 +8,8 @@ Panel interno de **brixx**, agencia de IA de dos socios. Centraliza en un solo l
 4. **Cotizador**: catálogo de servicios con precio de implementación y abono mensual, y cotizaciones por cliente con versión imprimible/PDF.
 5. **Finanzas**: cobros, costos del estudio y tipo de cambio.
 6. **Grabaciones**: reuniones grabadas con el celular → transcripción (AssemblyAI) + análisis con Claude (puntos clave, próximos pasos, propuesta con el catálogo).
-7. **Sistemas de gestión** y **Demos web**: fichas de las apps entregadas y de las demos (cada una con su URL; el hub las lista y las abre).
+7. **Asistente de voz** ("Jarvis"): botón flotante en todas las pantallas; dictado con la Web Speech API (es-AR), respuesta de Claude por la Edge Function `asistente`, lectura en voz alta con `speechSynthesis`.
+8. **Sistemas de gestión** y **Demos web**: fichas de las apps entregadas y de las demos (cada una con su URL; el hub las lista y las abre).
 
 Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay registro público.
 
@@ -25,7 +26,7 @@ Usuarios: solo los dos socios, invitados manualmente desde Supabase. No hay regi
 | Marca | `components/layout/Logo.tsx` (isotipo SVG) · `public/brixx-logo.png` (original) |
 | Deploy | Vercel (build automático desde GitHub) |
 
-El frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend. La única parte de servidor es la **Edge Function `grabaciones`** (Deno, en `supabase/functions/`), que guarda las claves de terceros (AssemblyAI, Anthropic) como *secrets* de Supabase: **nunca van al frontend, al repo ni a Vercel**.
+El frontend habla directo con Supabase usando la clave pública (anon/publishable). **La seguridad la dan las políticas RLS**, no el frontend. La única parte de servidor son las **Edge Functions `grabaciones` y `asistente`** (Deno, en `supabase/functions/`), que guardan las claves de terceros (AssemblyAI, Anthropic) como *secrets* de Supabase: **nunca van al frontend, al repo ni a Vercel**.
 
 ## Flujo de trabajo (regla fija)
 
@@ -74,11 +75,13 @@ src/
     fichas/              # useFichas, FichaCard, FichaForm, ImagenPicker (sistemas + demos)
     pipeline/            # useProspectos, Tablero (kanban), ProspectoCard, ProspectoForm, etapas.ts
     grabaciones/         # useGrabadora (MediaRecorder + copia en IndexedDB), useGrabaciones, VistaAnalisis, VistaTranscripcion
+    asistente/           # Asistente (botón flotante + panel), useReconocimientoVoz (Web Speech API), useVoz (speechSynthesis), useAsistente
   pages/                 # una página por ruta
   types/db.ts            # tipos de las tablas de la base
 supabase/
   migrations/            # SQL versionado: esquema, RLS, seeds
   functions/grabaciones/ # Edge Function: index.ts (rutas), transcripcion.ts (AssemblyAI), analisis.ts (Claude)
+  functions/asistente/   # Edge Function: index.ts (auth + entrada), contexto.ts (datos del hub para la pregunta), cerebro.ts (Claude)
 ```
 
 ## Rutas
@@ -92,6 +95,7 @@ supabase/
 - `/finanzas` (`?vista=costos`) — cobros, costos y tipo de cambio.
 - `/grabar` (`?reunion=<id>`) — grabadora; `/grabaciones` — lista; `/grabaciones/:id` — "Lo importante" + transcripción.
 - `/sistemas`, `/demos` — grilla de fichas filtrada por `seccion`.
+- El asistente no tiene ruta: es un botón flotante que se monta en `AppLayout`.
 - `/ver/:id` — ficha abierta embebida en iframe (con botón "abrir en pestaña nueva").
 - `/pipeline` — kanban de prospectos.
 
@@ -107,6 +111,7 @@ supabase/
 - **Por cobrar** = implementación de cotizaciones aceptadas − cobros no-abono del cliente. **Ingreso recurrente** = abonos de cotizaciones aceptadas de clientes activos.
 - **Costos**: `mensual` cuenta cada mes entre `desde` y `hasta`; `anual` cuenta 1/12 por mes; `unico` solo en el mes de `desde`. Categoría `adquisicion` alimenta el ROAS.
 - **Grabaciones**: estados `pendiente → transcribiendo → analizando → lista` (o `error` con motivo). Sin claves cargadas, todo queda `pendiente` y se procesa después con el botón de la grabación: la app tiene que funcionar sin las claves. El aviso del proveedor llega por webhook; si no llega, el hub consulta (`actualizar`) mientras la página está abierta. Audio en bucket privado `grabaciones`, se borra a los 90 días (el hub lo limpia al listar). El análisis usa `claude-opus-5-5` con `output_config.format` (JSON schema `ESQUEMA` en `analisis.ts`, en sincronía con `Analisis` en `types/db.ts`), effort `medium` y `fallbacks: "default"`. Para cambiar de proveedor de transcripción, reemplazar solo `transcripcion.ts`.
+- **Asistente de voz**: push-to-talk (escucha solo mientras el micrófono está activo, nunca de fondo); sin Web Speech API, aviso + campo de texto. No se monta en `/grabar` (las dos cosas usan el micrófono). Historial solo de la sesión (estado + `sessionStorage`), no se guarda en la base. La Edge Function `asistente` valida `es_miembro()`, arma un contexto acotado (`contexto.ts`: últimos 30 días de grabaciones con resumen y próximos pasos, reuniones de -7 a +14 días, hasta 40 clientes/prospectos, 15 cotizaciones, cobros del mes, metas; detalle de UNA grabación si la pregunta habla de una reunión y su transcripción solo si pide lo que se dijo o no tiene análisis) y llama a `claude-sonnet-5-5` (effort `low`, `fallbacks: "default"`). Respuesta en texto plano para voz (sin markdown; `limpiarParaVoz` lo asegura).
 - **Gráficos**: un solo eje, series con tokens `serie-ingreso` / `serie-costo` (validados para daltonismo), leyenda, tooltip al pasar y vista de tabla.
 - **Pipeline**: el orden dentro de cada columna es `prospectos.orden` (número decimal); al soltar una tarjeta entre dos se usa el promedio, así se actualiza una sola fila.
 - **Esquema versionado**: cualquier cambio de base va como archivo nuevo en `supabase/migrations/` (`NNNN_descripcion.sql`), idempotente cuando sea posible. Lo aplica el Action al mergear (ver "Migraciones automáticas"). Mantener `src/types/` en sincronía.
