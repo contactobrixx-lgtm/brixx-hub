@@ -15,11 +15,7 @@ export interface ServicioCatalogo {
   precio_mensual: number
 }
 
-export type Origen = 'reunion' | 'audio'
-
 export interface ContextoAnalisis {
-  /** 'reunion' = grabada con el micrófono; 'audio' = archivo subido (por ejemplo, un audio de WhatsApp) */
-  origen: Origen
   titulo: string
   fecha: string // YYYY-MM-DD de la reunión
   segmentos: Segmento[]
@@ -67,12 +63,6 @@ export const ESQUEMA = objeto({
   preguntas_pendientes: lista(texto),
 })
 
-/** Para audios subidos: lo mismo, más qué quiere la persona y una respuesta lista para mandar. */
-export const ESQUEMA_AUDIO = {
-  ...ESQUEMA,
-  properties: { lo_que_quiere: texto, respuesta_sugerida: texto, ...ESQUEMA.properties },
-  required: ['lo_que_quiere', 'respuesta_sugerida', ...ESQUEMA.required],
-}
 
 const SISTEMA = `Sos el analista comercial de brixx, una agencia de IA y soluciones digitales de dos socios en Argentina. \
 Leés la transcripción de una reunión (con un cliente, un prospecto o entre los socios) y dejás lo que hace falta para actuar.
@@ -96,28 +86,6 @@ catálogo, servicio_id = null y describilo en "nombre". "etapa": 1 = arrancar ya
 Reglas: basate solo en lo que se dijo. No inventes datos del cliente, montos ni fechas. Si la reunión no fue comercial \
 (por ejemplo, entre los socios), adaptá la propuesta a lo que se habló o dejá servicios vacío.`
 
-const SISTEMA_AUDIO = `Sos el analista comercial de brixx, una agencia de IA y soluciones digitales de dos socios en Argentina. \
-Te pasan la transcripción de un audio que alguien le mandó a brixx (casi siempre una nota de voz de WhatsApp de un cliente, \
-un prospecto o un proveedor). Tu trabajo es entender qué quiere esa persona y dejar todo listo para contestarle.
-
-Qué devolver:
-- lo_que_quiere: en 1 o 2 oraciones, qué pide o qué necesita la persona, directo al grano.
-- respuesta_sugerida: un mensaje para mandarle por WhatsApp de parte de brixx. Cálido, profesional, en español rioplatense \
-con voseo, de 2 a 5 oraciones, sin emojis ni markdown. Respondé lo que se pueda, y si falta información, preguntala. \
-No prometas precios, plazos ni cosas que no estén en el audio o en el catálogo.
-- resumen: 2 a 4 oraciones con el contexto del audio.
-- puntos_clave: lo importante, de 1 a 6 puntos (pedidos, dudas, datos, fechas, montos), ordenados por importancia. En "cita" \
-copiá textual una frase breve de la transcripción y en "segundo" el segundo donde empieza, tomado de la marca [mm:ss]; si no, null.
-- decisiones: lo que la persona ya decidió o confirmó. Lista vacía si nada.
-- proximos_pasos: lo que tiene que hacer brixx para responder o avanzar. "responsable" null salvo que se nombre a alguien; \
-"fecha" AAAA-MM-DD si se mencionó un día (resolvé "el viernes", "mañana", etc. respecto de la fecha del audio), si no null.
-- propuesta: si el audio es un pedido de trabajo, cómo encararlo con servicios del catálogo (usá su "id" exacto; \
-servicio_id = null si no está; etapa 1 = arrancar ya, 2 = con las primeras ventas, 3 = con ingresos estables; sin inventar precios). \
-Si no es un pedido de trabajo (un reclamo, una consulta, algo personal), dejá servicios vacío y en enfoque contá cómo conviene manejarlo.
-- preguntas_pendientes: lo que falta saber para avanzar.
-
-Reglas: basate solo en lo que se dijo. No inventes datos, montos ni fechas. Si el audio está cortado o no se entiende, decilo en lo_que_quiere.`
-
 function mmss(ms: number) {
   const s = Math.floor(ms / 1000)
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
@@ -138,12 +106,11 @@ export function armarMensaje(ctx: ContextoAnalisis): string {
     ? `${p.empresa ? `${p.empresa} (contacto: ${p.nombre})` : p.nombre}. Rubro: ${p.rubro ?? 'sin dato'}. Etapa en el pipeline: ${p.etapa}.${p.notas ? ` Notas previas: ${p.notas}` : ''}`
     : 'No está vinculada a un cliente o prospecto.'
 
-  const etiqueta = ctx.origen === 'audio' ? 'audio' : 'reunion'
-  return `<${etiqueta}>
+  return `<reunion>
 Título: ${ctx.titulo}
 Fecha: ${ctx.fecha}
 Cliente o prospecto: ${cliente}
-</${etiqueta}>
+</reunion>
 
 <catalogo_de_servicios>
 ${catalogo || '(el catálogo está vacío)'}
@@ -156,20 +123,19 @@ ${transcripcion}
 
 export async function analizar(ctx: ContextoAnalisis): Promise<{ analisis: unknown; modelo: string }> {
   const client = new Anthropic() // lee ANTHROPIC_API_KEY
-  const esAudio = ctx.origen === 'audio'
   const response = await client.beta.messages.create({
     model: MODELO,
     max_tokens: 16000,
     // Si el modelo rechaza el pedido, la API lo reintenta sola con un modelo de respaldo.
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    output_config: { effort: 'medium', format: { type: 'json_schema', schema: esAudio ? ESQUEMA_AUDIO : ESQUEMA } },
-    system: esAudio ? SISTEMA_AUDIO : SISTEMA,
+    output_config: { effort: 'medium', format: { type: 'json_schema', schema: ESQUEMA } },
+    system: SISTEMA,
     messages: [{ role: 'user', content: armarMensaje(ctx) }],
   })
 
   if (response.stop_reason === 'refusal') {
-    throw new Error(`Claude no pudo analizar ${esAudio ? 'este audio' : 'esta reunión'} (rechazo de seguridad).`)
+    throw new Error('Claude no pudo analizar esta reunión (rechazo de seguridad).')
   }
   if (response.stop_reason === 'max_tokens') {
     throw new Error('El análisis quedó incompleto (respuesta demasiado larga).')

@@ -45,7 +45,7 @@ export class Hub {
     if (!this.prospectosCache) {
       const { data } = await this.db
         .from('prospectos')
-        .select('id, nombre, empresa, rubro, telefono, email, etapa, valor_estimado, moneda, responsable, proxima_accion, fecha_proxima_accion, fecha_cierre, motivo_perdida, notas')
+        .select('*') // incluye la carpeta del cliente (instagram, web, industria, sintesis)
         .order('updated_at', { ascending: false })
       this.prospectosCache = data ?? []
     }
@@ -140,20 +140,34 @@ export class Hub {
       .maybeSingle()
     if (!g) return 'No existe una grabación con ese id. Buscala primero con buscar_grabaciones.'
     const a = g.analisis as {
+      tipo?: string
+      en_una_linea?: string
+      dolores?: string[]
+      cuellos_de_botella?: string[]
+      soluciones?: { solucion: string; servicio: string }[]
+      falta_saber?: string[]
+      propuesta?: { asunto?: string; mensaje?: string; enfoque?: string; servicios?: { nombre: string; motivo: string; etapa: number }[]; riesgos?: string[] }
       lo_que_quiere?: string
       respuesta_sugerida?: string
       resumen?: string
       puntos_clave?: { titulo: string; detalle: string; tipo: string; cita: string }[]
       decisiones?: string[]
       proximos_pasos?: { accion: string; responsable: string | null; fecha: string | null }[]
-      propuesta?: { enfoque: string; servicios: { nombre: string; motivo: string; etapa: number }[]; riesgos: string[] }
       preguntas_pendientes?: string[]
     } | null
-    const tipo = g.origen === 'audio' ? 'Audio subido (por ejemplo, de WhatsApp)' : 'Grabación de reunión'
+    const tipo = g.origen === 'audio' ? 'Intervención: audio subido' : g.origen === 'texto' ? 'Intervención: texto (chat o notas)' : 'Grabación de reunión'
     const out = [`${tipo} "${g.titulo}" del ${fechaHoraAR(g.created_at as string)}`, `Estado: ${g.estado}${g.error ? ` (${g.error})` : ''}`]
     const cliente = await this.nombreDe(g.prospecto_id)
     if (cliente) out.push(`Cliente: ${cliente}`)
-    if (a) {
+    if (a?.tipo === 'intervencion') {
+      out.push(`Quiere: ${a.en_una_linea}`)
+      if (a.dolores?.length) out.push(`Dolores: ${a.dolores.join('; ')}`)
+      if (a.cuellos_de_botella?.length) out.push(`Cuellos de botella: ${a.cuellos_de_botella.join('; ')}`)
+      if (a.soluciones?.length) out.push(`Soluciones y servicios: ${a.soluciones.map((x) => `${x.solucion} (${x.servicio})`).join('; ')}`)
+      if (a.falta_saber?.length) out.push(`Falta saber: ${a.falta_saber.join('; ')}`)
+      if (a.propuesta?.mensaje) out.push(`Propuesta para mandarle: ${a.propuesta.mensaje}`)
+      if ((g.urls as string[] | null)?.length) out.push(`Links: ${(g.urls as string[]).join(', ')}`)
+    } else if (a) {
       if (a.lo_que_quiere) out.push(`Lo que quiere: ${a.lo_que_quiere}`)
       if (a.respuesta_sugerida) out.push(`Respuesta sugerida: ${a.respuesta_sugerida}`)
       out.push(`Resumen: ${a.resumen}`)
@@ -198,10 +212,25 @@ export class Hub {
     filas = filas.slice(0, 60)
     if (!filas.length) return 'No encontré clientes ni prospectos con ese criterio.'
     const hoy = hoyAR()
+    // Con pocos resultados (se preguntó por un cliente puntual) va también lo de su carpeta
+    const conCarpeta = filas.length <= 3
+    const carpeta = (p: Fila) => {
+      const s = p.sintesis as { situacion?: string; objetivos?: string[]; soluciones?: { solucion: string; servicio: string }[] } | null
+      const partes = [
+        p.industria ? `industria: ${p.industria}` : '',
+        p.email ? `mail: ${p.email}` : '',
+        p.instagram ? `instagram: ${p.instagram}` : '',
+        p.web ? `web: ${p.web}` : '',
+        conCarpeta && s?.situacion ? `situación: ${s.situacion}` : '',
+        conCarpeta && s?.objetivos?.length ? `objetivos: ${s.objetivos.join('; ')}` : '',
+        conCarpeta && s?.soluciones?.length ? `soluciones que le proponemos: ${s.soluciones.map((x) => `${x.solucion} (${x.servicio})`).join('; ')}` : '',
+      ].filter(Boolean)
+      return partes.length ? ` | ${partes.join(' | ')}` : ''
+    }
     return filas
       .map(
         (p) =>
-          `- ${p.empresa ? `${p.empresa} (contacto: ${p.nombre})` : p.nombre} | etapa: ${p.etapa}${p.rubro ? ` | rubro: ${p.rubro}` : ''}${p.valor_estimado != null ? ` | valor: ${p.moneda} ${p.valor_estimado}` : ''}${p.fecha_cierre ? ` | cliente desde ${p.fecha_cierre}` : ''}${p.proxima_accion ? ` | próxima acción: ${p.proxima_accion}${p.fecha_proxima_accion ? ` (${p.fecha_proxima_accion}${(p.fecha_proxima_accion as string) < hoy ? ', VENCIDA' : ''})` : ''}` : ''}${p.responsable ? ` | responsable: ${p.responsable}` : ''}${p.telefono ? ` | tel: ${p.telefono}` : ''}${p.motivo_perdida ? ` | motivo de pérdida: ${p.motivo_perdida}` : ''}${p.notas ? ` | notas: ${corto(p.notas as string, 300)}` : ''}`,
+          `- ${p.empresa ? `${p.empresa} (contacto: ${p.nombre})` : p.nombre} | etapa: ${p.etapa}${p.rubro ? ` | rubro: ${p.rubro}` : ''}${p.valor_estimado != null ? ` | valor: ${p.moneda} ${p.valor_estimado}` : ''}${p.fecha_cierre ? ` | cliente desde ${p.fecha_cierre}` : ''}${p.proxima_accion ? ` | próxima acción: ${p.proxima_accion}${p.fecha_proxima_accion ? ` (${p.fecha_proxima_accion}${(p.fecha_proxima_accion as string) < hoy ? ', VENCIDA' : ''})` : ''}` : ''}${p.responsable ? ` | responsable: ${p.responsable}` : ''}${p.telefono ? ` | tel: ${p.telefono}` : ''}${p.motivo_perdida ? ` | motivo de pérdida: ${p.motivo_perdida}` : ''}${p.notas ? ` | notas: ${corto(p.notas as string, 300)}` : ''}${carpeta(p)}`,
       )
       .join('\n')
   }

@@ -25,6 +25,15 @@ export function ProspectoForm(props: Props) {
   return <FormInterno key={props.prospecto?.id ?? `nuevo-${props.etapaInicial}`} {...props} />
 }
 
+/** "@usuario" o "su-web.com" → link completo, para que se pueda abrir. */
+function linkCompleto(valor: string, tipo: 'instagram' | 'web'): string | null {
+  const v = valor.trim()
+  if (!v) return null
+  if (/^https?:\/\//i.test(v)) return v
+  if (tipo === 'instagram' && !v.includes('.')) return `https://www.instagram.com/${v.replace(/^@/, '')}/`
+  return `https://${v}`
+}
+
 function linkWhatsApp(tel: string) {
   const digitos = tel.replace(/\D/g, '')
   return digitos ? `https://wa.me/${digitos}` : null
@@ -44,6 +53,9 @@ function FormInterno({
   const [nombre, setNombre] = useState(p?.nombre ?? '')
   const [empresa, setEmpresa] = useState(p?.empresa ?? '')
   const [rubro, setRubro] = useState(p?.rubro ?? '')
+  const [industria, setIndustria] = useState(p?.industria ?? '')
+  const [instagram, setInstagram] = useState(p?.instagram ?? '')
+  const [web, setWeb] = useState(p?.web ?? '')
   const [telefono, setTelefono] = useState(p?.telefono ?? '')
   const [email, setEmail] = useState(p?.email ?? '')
   const [etapa, setEtapa] = useState<Etapa>(p?.etapa ?? etapaInicial)
@@ -85,6 +97,10 @@ function FormInterno({
           ficha_demo_id: demoId || null,
           motivo_perdida: etapa === 'perdido' ? vacioANull(motivo) : null,
           notas: vacioANull(notas),
+          // Datos de la carpeta del cliente (se mandan solo si la base ya los tiene o se cargó algo)
+          ...(p && 'instagram' in p) || instagram.trim() || web.trim() || industria.trim()
+            ? { instagram: linkCompleto(instagram, 'instagram'), web: linkCompleto(web, 'web'), industria: vacioANull(industria) }
+            : {},
           // Si cambia de columna desde el formulario, va al final de la nueva
           orden: p && p.etapa === etapa ? p.orden : ordenAlFinal(etapa),
         },
@@ -162,8 +178,17 @@ function FormInterno({
               )}
             </div>
           </Field>
-          <Field label="Email" className="sm:col-span-2">
+          <Field label="Industria">
+            <Input value={industria} onChange={(e) => setIndustria(e.target.value)} placeholder="Retail, servicios, salud…" />
+          </Field>
+          <Field label="Email">
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="Instagram">
+            <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@su_negocio" autoCapitalize="off" />
+          </Field>
+          <Field label="Web">
+            <Input value={web} onChange={(e) => setWeb(e.target.value)} placeholder="su-web.com.ar" inputMode="url" autoCapitalize="off" />
           </Field>
         </div>
 

@@ -5,6 +5,8 @@ import { LoginPage } from './pages/LoginPage'
 import { NuevaClavePage } from './pages/NuevaClavePage'
 import { FichasPage } from './pages/FichasPage'
 import { VisorPage } from './pages/VisorPage'
+import { ClientesPage } from './pages/ClientesPage'
+import { ClientePage } from './pages/ClientePage'
 import { PipelinePage } from './pages/PipelinePage'
 import { InicioPage } from './pages/InicioPage'
 import { CalendarioPage } from './pages/CalendarioPage'
@@ -78,6 +80,8 @@ export default function App() {
         <Route path="/sistemas" element={<FichasPage seccion="sistema" />} />
         <Route path="/demos" element={<FichasPage seccion="demo" />} />
         <Route path="/pipeline" element={<PipelinePage />} />
+        <Route path="/clientes" element={<ClientesPage />} />
+        <Route path="/clientes/:id" element={<ClientePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/inicio" replace />} />
     </Routes>

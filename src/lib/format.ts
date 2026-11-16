@@ -63,6 +63,14 @@ export function formatUSD(valor: number): string {
  * Convierte a USD. tipoCambio = cuántos ARS vale 1 USD.
  * Devuelve null si es ARS y no hay tipo de cambio cargado.
  */
+/** "USD 600 + USD 40/mes" de un servicio del catálogo (null si no tiene precio cargado). */
+export function precioServicio(s: { precio_implementacion: number | string; precio_mensual: number | string }): string | null {
+  const impl = Number(s.precio_implementacion) || 0
+  const mes = Number(s.precio_mensual) || 0
+  if (!impl && !mes) return null
+  return [impl ? formatUSD(impl) : null, mes ? `${formatUSD(mes)}/mes` : null].filter(Boolean).join(' + ')
+}
+
 export function aUSD(monto: number, moneda: Moneda, tipoCambio: number | null): number | null {
   if (moneda === 'USD') return Number(monto)
   return tipoCambio ? Number(monto) / tipoCambio : null
