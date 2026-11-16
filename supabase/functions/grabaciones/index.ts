@@ -1,10 +1,17 @@
-// Edge Function "grabaciones": transcribe (AssemblyAI) y analiza (Claude) las grabaciones de reuniones.
+// Edge Function "grabaciones": transcribe (AssemblyAI) y analiza (Claude) las grabaciones de reuniones
+// y las intervenciones con clientes (audio subido, texto pegado y/o links).
 //
 // Pedidos desde el hub (POST JSON, con la sesión del usuario):
-//   { accion: "config" }               → qué claves están cargadas
-//   { accion: "procesar", id }          → manda el audio a transcribir
-//   { accion: "actualizar", id }        → consulta si la transcripción terminó (respaldo del webhook)
-//   { accion: "analizar", id }          → (re)hace el análisis con Claude
+//   { accion: "config" }                    → qué claves están cargadas
+//   { accion: "procesar", id }               → manda el audio a transcribir (un texto pasa directo al análisis)
+//   { accion: "actualizar", id }             → consulta si la transcripción terminó (respaldo del webhook)
+//   { accion: "analizar", id }               → (re)hace el análisis con Claude
+//   { accion: "sintesis", prospecto_id }     → (re)arma el resumen de la carpeta del cliente
+//
+// Reuniones: resumen, puntos clave y propuesta (analisis.ts).
+// Intervenciones (origen "audio" o "texto"): dolores, cuellos de botella, soluciones y propuesta para mandar
+// (intervencion.ts); si el cliente no tiene carpeta, se crea. Después de cada análisis con cliente se
+// actualiza la síntesis de su carpeta (sintesis.ts).
 // Aviso de AssemblyAI cuando termina: POST ?webhook=1&id=<grabación>, con header x-brixx-token.
 //
 // Claves (Supabase → Edge Functions → Secrets): ASSEMBLYAI_API_KEY, ANTHROPIC_API_KEY.
@@ -12,6 +19,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { assemblyConfigurado, consultarTranscripcion, enviarATranscribir, type ResultadoTranscripcion } from './transcripcion.ts'
 import { analizar, claudeConfigurado, MODELO } from './analisis.ts'
+import { analizarIntervencion, carpetaDelCliente, linksDeUrls } from './intervencion.ts'
+import { sintetizarYGuardar } from './sintesis.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -57,6 +66,19 @@ async function cargar(id: string) {
 
 async function procesar(id: string) {
   const g = await cargar(id)
+  // Intervención de solo texto: no hay nada que transcribir, el texto es el material
+  if (g.origen === 'texto') {
+    const texto = String(g.texto_original ?? '').trim()
+    if (!texto && !(g.urls ?? []).length) throw new Error('La intervención no tiene texto ni links.')
+    const segmentos = texto ? [{ hablante: 'A', inicio_ms: 0, fin_ms: 0, texto }] : []
+    if (!claudeConfigurado()) {
+      await actualizarFila(id, { segmentos, estado: 'pendiente', error: null })
+      return { estado: 'pendiente', falta: 'anthropic' }
+    }
+    await actualizarFila(id, { segmentos, estado: 'analizando', error: null })
+    enSegundoPlano(analizarGrabacion(id))
+    return { estado: 'analizando' }
+  }
   if (!g.audio_path) throw new Error('La grabación no tiene audio (¿se borró a los 90 días?).')
   if (!assemblyConfigurado()) {
     await actualizarFila(id, { estado: 'pendiente', error: null })
@@ -100,8 +122,19 @@ async function actualizar(id: string) {
   return { estado: await guardarTranscripcion(id, r) }
 }
 
+/** Re-arma la síntesis de la carpeta del cliente (si falla, no rompe el análisis que ya se guardó). */
+async function actualizarSintesis(prospectoId: string | null) {
+  if (!prospectoId) return
+  try {
+    await sintetizarYGuardar(admin, prospectoId)
+  } catch (e) {
+    console.error('No se pudo actualizar la síntesis del cliente:', e)
+  }
+}
+
 async function analizarGrabacion(id: string) {
   const g = await cargar(id)
+  if (g.origen === 'audio' || g.origen === 'texto') return await analizarComoIntervencion(g)
   if (!g.segmentos?.length) {
     await actualizarFila(id, { estado: 'error', error: 'La transcripción salió vacía: no hay nada para analizar.' })
     return
@@ -126,7 +159,6 @@ async function analizarGrabacion(id: string) {
       .order('orden')
 
     const { analisis, modelo } = await analizar({
-      origen: g.origen === 'audio' ? 'audio' : 'reunion',
       titulo: g.titulo,
       fecha,
       segmentos: g.segmentos,
@@ -135,6 +167,58 @@ async function analizarGrabacion(id: string) {
       prospecto: prospecto ?? null,
     })
     await actualizarFila(id, { analisis, modelo, estado: 'lista', error: null })
+    await actualizarSintesis(prospectoId)
+  } catch (e) {
+    const mensaje = e instanceof Error ? e.message : String(e)
+    await actualizarFila(id, { estado: 'error', error: `No se pudo analizar con Claude: ${mensaje}` })
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function analizarComoIntervencion(g: any) {
+  const id = g.id as string
+  const urls = (g.urls ?? []) as string[]
+  if (!g.segmentos?.length && !String(g.texto_original ?? '').trim() && !urls.length) {
+    await actualizarFila(id, { estado: 'error', error: 'La intervención salió vacía: no hay nada para analizar.' })
+    return
+  }
+  try {
+    const [{ data: prospecto }, { data: servicios }] = await Promise.all([
+      g.prospecto_id
+        ? admin.from('prospectos').select('nombre, empresa, rubro, etapa, notas').eq('id', g.prospecto_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      admin.from('servicios').select('id, nombre, descripcion, precio_implementacion, precio_mensual').eq('activo', true).order('orden'),
+    ])
+    const { analisis, modelo } = await analizarIntervencion({
+      fecha: String(g.created_at).slice(0, 10),
+      titulo: g.titulo,
+      segmentos: g.segmentos ?? null,
+      texto: g.texto_original ?? null,
+      urls,
+      servicios: servicios ?? [],
+      prospecto: prospecto ?? null,
+    })
+    // Carpeta del cliente: la elegida, una que coincida o una nueva. Los links cargados completan Instagram y web.
+    const c = (analisis.cliente ?? {}) as Record<string, string | null>
+    const links = linksDeUrls(urls)
+    const carpeta = await carpetaDelCliente(admin, g.prospecto_id ?? null, {
+      nombre: c.nombre ?? null,
+      empresa: c.empresa ?? null,
+      email: c.email ?? null,
+      telefono: c.telefono ?? null,
+      instagram: links.instagram ?? c.instagram ?? null,
+      web: links.web ?? c.web ?? null,
+      rubro: c.rubro ?? null,
+      industria: c.industria ?? null,
+    })
+    await actualizarFila(id, {
+      analisis: { ...analisis, carpeta_creada: carpeta.creado },
+      modelo,
+      prospecto_id: carpeta.id,
+      estado: 'lista',
+      error: null,
+    })
+    await actualizarSintesis(carpeta.id)
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : String(e)
     await actualizarFila(id, { estado: 'error', error: `No se pudo analizar con Claude: ${mensaje}` })
@@ -144,6 +228,7 @@ async function analizarGrabacion(id: string) {
 async function pedirAnalisis(id: string) {
   if (!claudeConfigurado()) return { estado: 'lista', falta: 'anthropic' }
   const g = await cargar(id)
+  if (g.origen === 'texto') return await procesar(id)
   if (!g.segmentos?.length) throw new Error('Primero hay que transcribir la grabación.')
   await actualizarFila(id, { estado: 'analizando', error: null })
   enSegundoPlano(analizarGrabacion(id))
@@ -179,7 +264,7 @@ Deno.serve(async (req) => {
   }
 
   if (!(await esMiembro(req))) return json({ error: 'No autorizado' }, 401)
-  let body: { accion?: string; id?: string }
+  let body: { accion?: string; id?: string; prospecto_id?: string }
   try {
     body = await req.json()
   } catch {
@@ -196,6 +281,11 @@ Deno.serve(async (req) => {
         return json(await actualizar(body.id!))
       case 'analizar':
         return json(await pedirAnalisis(body.id!))
+      case 'sintesis': {
+        if (!claudeConfigurado()) return json({ error: 'Falta cargar la clave de Anthropic.', falta: 'anthropic' }, 503)
+        if (!body.prospecto_id) return json({ error: 'Falta el cliente.' }, 400)
+        return json({ sintesis: await sintetizarYGuardar(admin, body.prospecto_id) })
+      }
       default:
         return json({ error: 'Acción desconocida' }, 400)
     }

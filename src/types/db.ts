@@ -62,11 +62,30 @@ export interface Prospecto {
   orden: number
   /** Cuándo pasó a cliente (lo completa la base al entrar en una etapa ganada). */
   fecha_cierre: string | null
+  instagram: string | null
+  web: string | null
+  industria: string | null
+  /** Lo de arriba de la carpeta del cliente: lo arma Claude con todo lo que se sabe de él. */
+  sintesis: Sintesis | null
+  sintesis_at: string | null
   created_at: string
   updated_at: string
 }
 
-export type ProspectoInput = Omit<Prospecto, 'id' | 'created_at' | 'updated_at' | 'fecha_cierre'>
+/** Mantener en sincronía con ESQUEMA_SINTESIS en supabase/functions/grabaciones/sintesis.ts. */
+export interface Sintesis {
+  situacion: string
+  objetivos: string[]
+  soluciones: { solucion: string; servicio_id: string | null; servicio: string }[]
+  hacer_ahora: { accion: string; fecha: string | null }[]
+  falta_saber: string[]
+}
+
+export type ProspectoInput = Omit<
+  Prospecto,
+  'id' | 'created_at' | 'updated_at' | 'fecha_cierre' | 'sintesis' | 'sintesis_at' | 'instagram' | 'web' | 'industria'
+> &
+  Partial<Pick<Prospecto, 'instagram' | 'web' | 'industria'>>
 
 export interface Miembro {
   email: string
@@ -205,8 +224,37 @@ export interface Analisis {
   preguntas_pendientes: string[]
 }
 
-/** reunion = grabada con el micrófono; audio = archivo subido (por ejemplo, de WhatsApp) */
-export type OrigenGrabacion = 'reunion' | 'audio'
+/** reunion = grabada con el micrófono; audio = archivo subido (por ejemplo, de WhatsApp); texto = chat o notas pegadas */
+export type OrigenGrabacion = 'reunion' | 'audio' | 'texto'
+
+/**
+ * Análisis de una intervención (audio o texto de un cliente, con sus links).
+ * Mantener en sincronía con ESQUEMA_INTERVENCION en supabase/functions/grabaciones/intervencion.ts.
+ */
+export interface AnalisisIntervencion {
+  tipo: 'intervencion'
+  cliente: {
+    nombre: string | null
+    empresa: string | null
+    email: string | null
+    telefono: string | null
+    instagram: string | null
+    web: string | null
+    rubro: string | null
+    industria: string | null
+  }
+  en_una_linea: string
+  dolores: string[]
+  cuellos_de_botella: string[]
+  soluciones: { solucion: string; servicio_id: string | null; servicio: string }[]
+  falta_saber: string[]
+  propuesta: { asunto: string; mensaje: string }
+  /** true si el hub creó la carpeta del cliente con esta intervención */
+  carpeta_creada?: boolean
+}
+
+export const esIntervencion = (a: unknown): a is AnalisisIntervencion =>
+  !!a && typeof a === 'object' && (a as { tipo?: string }).tipo === 'intervencion'
 
 export interface Grabacion {
   id: string
@@ -223,7 +271,11 @@ export interface Grabacion {
   proveedor_id: string | null
   segmentos: Segmento[] | null
   hablantes: Record<string, string>
-  analisis: Analisis | null
+  analisis: Analisis | AnalisisIntervencion | null
+  /** Texto pegado en una intervención (chat, mail o notas) */
+  texto_original: string | null
+  /** Links cargados con la intervención (Instagram, web…) */
+  urls: string[]
   modelo: string | null
   grabado_por: string | null
   created_at: string

@@ -5,6 +5,7 @@ import {
   AudioLines,
   Calculator,
   Home,
+  FolderOpen,
   KanbanSquare,
   KeyRound,
   LayoutGrid,
@@ -34,6 +35,7 @@ const ESTUDIO: Item[] = [
   { to: '/calendario', label: 'Calendario', icono: CalendarDays },
   { to: '/grabaciones', label: 'Grabaciones', icono: Mic },
   { to: '/pipeline', label: 'Pipeline', icono: KanbanSquare },
+  { to: '/clientes', label: 'Clientes', icono: FolderOpen },
   { to: '/cotizador', label: 'Cotizador', icono: Calculator },
   { to: '/finanzas', label: 'Finanzas', icono: Wallet },
 ]

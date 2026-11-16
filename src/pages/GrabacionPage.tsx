@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, RotateCw, Sparkles } from 'lucide-react'
-import type { Analisis, CotizacionItemInput } from '../types/db'
+import { esIntervencion, type Analisis, type CotizacionItemInput } from '../types/db'
 import { useConfigGrabaciones, useGrabacion, useGrabaciones } from '../features/grabaciones/useGrabaciones'
 import { ESTADO_GRABACION } from '../features/grabaciones/estados'
 import { AvisoConfig } from '../features/grabaciones/AvisoConfig'
 import { VistaAnalisis } from '../features/grabaciones/VistaAnalisis'
 import { VistaTranscripcion } from '../features/grabaciones/VistaTranscripcion'
+import { VistaIntervencion } from '../features/grabaciones/VistaIntervencion'
 import { useCotizaciones, useServicios } from '../features/cotizador/useCotizador'
 import { actualizarProspecto, useProspectos } from '../features/pipeline/useProspectos'
 import { useReuniones } from '../features/calendario/useReuniones'
@@ -41,11 +42,14 @@ export function GrabacionPage() {
   const prospectoId = g?.prospecto_id ?? reunion?.prospecto_id ?? null
   const prospecto = prospectos.find((p) => p.id === prospectoId)
 
+  // Análisis de reunión (las intervenciones tienen otro formato)
+  const analisisReunion = g?.analisis && !esIntervencion(g.analisis) ? g.analisis : null
+
   // Segmentos que contienen el segundo de algún punto clave
   const destacados = useMemo(() => {
     const set = new Set<number>()
     const segs = g?.segmentos ?? []
-    for (const p of g?.analisis?.puntos_clave ?? []) {
+    for (const p of analisisReunion?.puntos_clave ?? []) {
       if (p.segundo == null) continue
       const ms = p.segundo * 1000
       let idx = segs.findIndex((s) => ms >= s.inicio_ms - 1000 && ms <= Math.max(s.fin_ms, s.inicio_ms) + 1000)
@@ -53,7 +57,7 @@ export function GrabacionPage() {
       if (segs.length) set.add(idx)
     }
     return set
-  }, [g?.segmentos, g?.analisis])
+  }, [g?.segmentos, analisisReunion])
 
   if (cargando) return <PantallaCarga />
   if (!g) return <p className="p-10 text-center text-tenue">No se encontró la grabación.</p>
@@ -95,12 +99,12 @@ export function GrabacionPage() {
     }
   }
 
-  const crearCotizacion = (a: Analisis) =>
+  /** Crea una cotización en borrador con los servicios sugeridos y la abre en el cotizador. */
+  const cotizar = (sugeridos: { servicio_id: string | null; nombre: string }[], despues: { servicio_id: string | null; nombre: string }[]) =>
     ejecutar(async () => {
       if (!prospectoId) throw new Error('Vinculá la grabación a un cliente o prospecto.')
       const porId = new Map(servicios.map((s) => [s.id, s]))
-      const items: CotizacionItemInput[] = a.propuesta.servicios
-        .filter((s) => s.etapa === 1)
+      const items: CotizacionItemInput[] = sugeridos
         .map((s, i) => {
           const cat = s.servicio_id ? porId.get(s.servicio_id) : undefined
           return {
@@ -112,7 +116,6 @@ export function GrabacionPage() {
             orden: i,
           }
         })
-      const despues = a.propuesta.servicios.filter((s) => s.etapa !== 1)
       const venc = new Date()
       venc.setDate(venc.getDate() + 15)
       const cotId = await guardarConItems(
@@ -133,6 +136,12 @@ export function GrabacionPage() {
       )
       navigate(`/cotizador?abrir=${cotId}`)
     })
+
+  const crearCotizacion = (a: Analisis) =>
+    cotizar(
+      a.propuesta.servicios.filter((s) => s.etapa === 1),
+      a.propuesta.servicios.filter((s) => s.etapa !== 1),
+    )
 
   const proximaAccion = (p: Analisis['proximos_pasos'][number]) =>
     ejecutar(async () => {
@@ -160,12 +169,28 @@ export function GrabacionPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge tono={estado.tono}>{estado.label}</Badge>
           {g.origen === 'audio' && <Badge tono="violeta">Audio subido</Badge>}
+          {g.origen === 'texto' && <Badge tono="violeta">Texto</Badge>}
           <span className="text-sm text-tenue">
             {new Date(g.created_at).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })} {formatHora(new Date(g.created_at))}
             {g.duracion_seg ? ` · ${formatDuracion(g.duracion_seg)}` : ''}
           </span>
         </div>
         <h1 className="mt-2 text-[28px] leading-tight font-bold sm:text-[32px]">{g.titulo}</h1>
+        {(g.urls ?? []).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {g.urls.map((u) => (
+              <a
+                key={u}
+                href={/^https?:\/\//i.test(u) ? u : `https://${u}`}
+                target="_blank"
+                rel="noreferrer"
+                className="max-w-full truncate text-sm text-acento-texto hover:underline"
+              >
+                {u.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '')}
+              </a>
+            ))}
+          </div>
+        )}
         <div className="mt-3 max-w-md">
           <Select
             value={g.prospecto_id ?? ''}
@@ -191,7 +216,7 @@ export function GrabacionPage() {
         <div className="mb-5 flex items-center gap-3 rounded-2xl border border-borde bg-superficie p-4">
           <Spinner />
           <div>
-            <p className="font-semibold">{g.estado === 'transcribiendo' ? 'Transcribiendo el audio…' : g.origen === 'audio' ? 'Claude está escuchando qué quiere…' : 'Claude está analizando la reunión…'}</p>
+            <p className="font-semibold">{g.estado === 'transcribiendo' ? 'Transcribiendo el audio…' : g.origen === 'reunion' ? 'Claude está analizando la reunión…' : 'Claude está analizando la intervención…'}</p>
             <p className="text-sm text-tenue">Suele tardar unos minutos. Podés salir: se actualiza solo.</p>
           </div>
         </div>
@@ -236,7 +261,7 @@ export function GrabacionPage() {
           <audio ref={audio} src={audioUrl} controls preload="metadata" className="w-full" />
         </div>
       )}
-      {!g.audio_path && g.segmentos && (
+      {!g.audio_path && g.segmentos && g.origen !== 'texto' && (
         <p className="mb-5 text-[13px] text-tenue">El audio se borró a los 90 días; la transcripción y el análisis quedan.</p>
       )}
 
@@ -248,20 +273,35 @@ export function GrabacionPage() {
               onChange={setVista}
               opciones={[
                 { valor: 'importante', label: 'Lo importante' },
-                { valor: 'transcripcion', label: 'Transcripción' },
+                { valor: 'transcripcion', label: g.origen === 'texto' ? 'Texto' : 'Transcripción' },
               ]}
             />
           </div>
           {vista === 'importante' ? (
-            g.analisis ? (
-              <VistaAnalisis
+            esIntervencion(g.analisis) ? (
+              <VistaIntervencion
                 analisis={g.analisis}
+                servicios={servicios}
+                prospecto={prospecto ?? null}
+                ocupado={ocupado}
+                onCrearCotizacion={() => {
+                  const a = g.analisis
+                  if (!esIntervencion(a)) return
+                  cotizar(
+                    a.soluciones.filter((s) => s.servicio_id).map((s) => ({ servicio_id: s.servicio_id, nombre: s.servicio })),
+                    [],
+                  )
+                }}
+              />
+            ) : analisisReunion ? (
+              <VistaAnalisis
+                analisis={analisisReunion}
                 telefono={prospecto?.telefono ?? null}
                 servicios={servicios}
                 tieneProspecto={!!prospectoId}
                 ocupado={ocupado}
                 onIrA={irA}
-                onCrearCotizacion={() => crearCotizacion(g.analisis!)}
+                onCrearCotizacion={() => crearCotizacion(analisisReunion)}
                 onProximaAccion={proximaAccion}
                 onAgendar={agendar}
               />

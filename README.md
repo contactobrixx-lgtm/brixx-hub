@@ -84,15 +84,24 @@ Las claves se aplican al instante, sin volver a publicar nada. Viven solo en Sup
 
 En el hub, entrá a **Grabaciones**, abrí una pendiente y tocá **Transcribir y analizar**. La transcripción tarda unos minutos y el análisis, uno o dos más. La página se actualiza sola.
 
-### Audios de WhatsApp
+### Clientes e intervenciones
 
-Además de grabar, podés **subir un audio** (por ejemplo, una nota de voz que te mandaron por WhatsApp) y Claude te dice **qué quiere la persona** y te sugiere **qué contestarle**.
+**Clientes** (menú → Clientes) tiene una carpeta por cliente y cliente potencial. Cada carpeta muestra:
+- sus datos: contacto, mail, teléfono, Instagram, web, rubro e industria;
+- sus **objetivos** y las **soluciones que le proponemos**, con el servicio del catálogo y el precio;
+- qué hacer ahora (con botones para pasarlo al pipeline o agendarlo) y qué falta saber;
+- todas sus intervenciones, audios y reuniones.
 
-1. En WhatsApp, mantené apretado el audio → **Compartir** → guardalo en **Archivos** (en la compu: clic derecho → Descargar).
-2. En el hub: **Grabaciones → Subir audio**, elegí el archivo y, si es de un cliente o prospecto, elegilo también.
-3. Se transcribe y se analiza como una reunión. En **Lo importante** aparecen "Lo que quiere" y "Respuesta sugerida", con botones para copiarla o abrir WhatsApp con el mensaje escrito.
+**Nueva intervención**: después de hablar con un cliente, cargá lo que tengas:
+- un **audio** (por ejemplo, una nota de voz de WhatsApp: mantené apretado el audio → Compartir → guardalo en Archivos);
+- un **texto**: el chat, un mail o tus notas;
+- sus **links**: Instagram, web.
 
-Acepta .opus (el formato de WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Jarvis también los puede consultar ("Jarvis, ¿qué quería el de Napoli en el audio?").
+Claude lo analiza y te devuelve, bien resumido: **dolores**, **cuellos de botella**, **soluciones y servicios** a ofrecer (con el total y un botón para armar la cotización) y una **propuesta para mandarle** (copiar, WhatsApp o mail).
+
+Si no elegís el cliente, lo detecta solo. Si no tiene carpeta, **se crea sola** (y aparece en el pipeline, en Contacto), con los datos que se mencionaron. Después se actualiza el resumen de su carpeta.
+
+Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee las webs; Instagram casi no se deja leer, pero el link queda guardado en la carpeta. Jarvis también consulta las carpetas y las intervenciones.
 
 > **Al grabar con el celular:** dejá la pantalla prendida y el hub abierto. El celular corta el micrófono si se bloquea o cambiás de app. Lo grabado hasta ese momento se guarda en el teléfono y se puede recuperar.
 

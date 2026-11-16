@@ -38,7 +38,7 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
       incluir_transcripcion: { type: 'boolean', description: 'true solo si hace falta el texto literal de la reunión.' },
     },
   ),
-  herramienta('clientes_y_prospectos', 'Clientes y prospectos con etapa, valor, próxima acción, contacto y notas.', {
+  herramienta('clientes_y_prospectos', 'Clientes y prospectos (sección Clientes) con etapa, valor, próxima acción, contacto, Instagram, web y notas. Si se busca uno puntual, trae también su carpeta: objetivos y soluciones que le proponemos.', {
     texto: opcional({ type: 'string', description: 'Nombre, empresa o rubro a buscar.' }),
     tipo: { type: 'string', enum: ['clientes', 'prospectos', 'perdidos', 'todos'] },
   }),

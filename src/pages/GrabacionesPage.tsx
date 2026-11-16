@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FileAudio, Mic, Upload } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
-import { SubirAudioForm } from '../features/grabaciones/SubirAudioForm'
+import { IntervencionForm } from '../features/grabaciones/IntervencionForm'
 import { Button } from '../components/ui/Button'
 import { useConfigGrabaciones, useGrabaciones } from '../features/grabaciones/useGrabaciones'
-import { ESTADO_GRABACION } from '../features/grabaciones/estados'
+import { ESTADO_GRABACION, lineaDeAnalisis } from '../features/grabaciones/estados'
 import { AvisoConfig } from '../features/grabaciones/AvisoConfig'
 import { useProspectos } from '../features/pipeline/useProspectos'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -27,7 +27,7 @@ function BotonGrabar() {
 }
 
 export function GrabacionesPage() {
-  const { filas, cargando, error, subir } = useGrabaciones()
+  const { filas, cargando, error, crearIntervencion } = useGrabaciones()
   const { miembro } = useAuth()
   const navigate = useNavigate()
   const [subiendoAudio, setSubiendoAudio] = useState(false)
@@ -39,22 +39,22 @@ export function GrabacionesPage() {
     <div className="mx-auto w-full max-w-[1240px] px-4 pt-6 pb-16 md:px-10 md:pt-8">
       <PageHeader
         titulo="Grabaciones"
-        subtitulo="Reuniones grabadas con el celular y audios de WhatsApp: transcripción, lo más importante y qué hacer."
+        subtitulo="Reuniones grabadas con el celular, y audios o chats de clientes: transcripción, lo más importante y qué hacer."
         acciones={
           <div className="flex flex-wrap gap-2">
             <Button variant="secundario" onClick={() => setSubiendoAudio(true)}>
-              <Upload className="size-[18px]" /> Subir audio
+              <Upload className="size-[18px]" /> Audio o texto
             </Button>
             <BotonGrabar />
           </div>
         }
       />
-      <SubirAudioForm
+      <IntervencionForm
         abierto={subiendoAudio}
         prospectos={prospectos}
         onCerrar={() => setSubiendoAudio(false)}
-        onSubir={async (archivo, d) => {
-          const id = await subir(archivo, { ...d, reunion_id: null, grabado_por: miembro?.email ?? null, origen: 'audio' })
+        onGuardar={async (d) => {
+          const id = await crearIntervencion({ ...d, grabado_por: miembro?.email ?? null })
           setSubiendoAudio(false)
           navigate(`/grabaciones/${id}`)
         }}
@@ -84,7 +84,7 @@ export function GrabacionesPage() {
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center gap-2">
-                    {g.origen === 'audio' && <FileAudio className="size-4 shrink-0 text-tenue" aria-label="Audio subido" />}
+                    {g.origen !== 'reunion' && <FileAudio className="size-4 shrink-0 text-tenue" aria-label="Audio subido" />}
                     <span className="block truncate font-semibold">{g.titulo}</span>
                   </span>
                   <span className="block truncate text-[13px] text-tenue">
@@ -92,9 +92,7 @@ export function GrabacionesPage() {
                     {g.duracion_seg ? ` · ${formatDuracion(g.duracion_seg)}` : ''}
                     {p ? ` · ${p.empresa || p.nombre}` : ''}
                   </span>
-                  {(g.analisis?.lo_que_quiere || g.analisis?.resumen) && (
-                    <span className="mt-1 line-clamp-2 block text-sm text-suave">{g.analisis.lo_que_quiere || g.analisis.resumen}</span>
-                  )}
+                  {lineaDeAnalisis(g.analisis) && <span className="mt-1 line-clamp-2 block text-sm text-suave">{lineaDeAnalisis(g.analisis)}</span>}
                 </span>
                 <Badge tono={e.tono}>{e.label}</Badge>
               </Link>

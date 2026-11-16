@@ -118,10 +118,10 @@ export function useGrabaciones() {
   }, [tabla])
 
   /**
-   * Sube el audio, crea la grabación y la manda a procesar.
-   * Si falla el procesamiento (claves sin cargar, función sin publicar) la grabación queda pendiente igual.
+   * Sube el audio y crea la grabación (sin mandarla a procesar).
+   * Si falla el guardado, borra el audio subido.
    */
-  const subir = async (
+  const subirSinProcesar = async (
     blob: Blob,
     datos: {
       titulo: string
@@ -133,6 +133,8 @@ export function useGrabaciones() {
       origen?: 'reunion' | 'audio'
       /** Tipo del archivo si el navegador no lo informa bien */
       mime?: string
+      /** Columnas extra (texto e links de una intervención) */
+      extra?: Record<string, unknown>
     },
   ): Promise<string> => {
     const mime = datos.mime ?? mimeBase(blob.type)
@@ -156,6 +158,7 @@ export function useGrabaciones() {
         grabado_por: datos.grabado_por,
         estado: 'pendiente',
         ...(datos.origen === 'audio' ? { origen: 'audio' } : {}),
+        ...(datos.extra ?? {}),
       })
       .select('id')
       .single()
@@ -163,7 +166,57 @@ export function useGrabaciones() {
       await supabase.storage.from(BUCKET_GRABACIONES).remove([path])
       throw new Error(`No se pudo guardar la grabación: ${error.message}`)
     }
-    const id = (data as { id: string }).id
+    return (data as { id: string }).id
+  }
+
+  /**
+   * Sube el audio de una reunión grabada, crea la grabación y la manda a procesar.
+   * Si falla el procesamiento (claves sin cargar, función sin publicar) la grabación queda pendiente igual.
+   */
+  const subir = async (blob: Blob, datos: Parameters<typeof subirSinProcesar>[1]): Promise<string> => {
+    const id = await subirSinProcesar(blob, datos)
+    await llamarFuncion('procesar', id).catch(() => {}) // queda "pendiente" si no se pudo
+    await tabla.recargar()
+    return id
+  }
+
+  /**
+   * Carga una intervención con un cliente: un audio y/o un texto (chat, mail, notas) y/o links.
+   * Con audio se transcribe y después se analiza; con solo texto o links pasa directo al análisis.
+   * Si no se elige cliente, el análisis lo detecta (y crea su carpeta si no existe).
+   */
+  const crearIntervencion = async (d: {
+    archivo: File | null
+    mime: string | null
+    segundos: number | null
+    texto: string
+    urls: string[]
+    titulo: string
+    prospecto_id: string | null
+    grabado_por: string | null
+  }): Promise<string> => {
+    const extra = { texto_original: d.texto.trim() || null, urls: d.urls }
+    let id: string
+    if (d.archivo) {
+      id = await subirSinProcesar(d.archivo, {
+        titulo: d.titulo,
+        segundos: d.segundos,
+        reunion_id: null,
+        prospecto_id: d.prospecto_id,
+        grabado_por: d.grabado_por,
+        origen: 'audio',
+        mime: d.mime ?? undefined,
+        extra,
+      })
+    } else {
+      const { data, error } = await supabase
+        .from('grabaciones')
+        .insert({ titulo: d.titulo, prospecto_id: d.prospecto_id, grabado_por: d.grabado_por, origen: 'texto', estado: 'pendiente', ...extra })
+        .select('id')
+        .single()
+      if (error) throw new Error(`No se pudo guardar la intervención: ${error.message}`)
+      id = (data as { id: string }).id
+    }
     await llamarFuncion('procesar', id).catch(() => {}) // queda "pendiente" si no se pudo
     await tabla.recargar()
     return id
@@ -174,7 +227,7 @@ export function useGrabaciones() {
     await tabla.eliminar(g.id)
   }
 
-  return { ...tabla, subir, eliminar }
+  return { ...tabla, subir, crearIntervencion, eliminar }
 }
 
 /** Una grabación, con actualización automática mientras se procesa. */

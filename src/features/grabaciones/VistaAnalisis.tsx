@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { CalendarPlus, Check, Copy, FileText, ListChecks, MessageCircle, Quote } from 'lucide-react'
+import { CalendarPlus, FileText, ListChecks, Quote } from 'lucide-react'
+import { MensajeParaEnviar } from './MensajeParaEnviar'
 import type { Analisis, Servicio, TipoPuntoClave } from '../../types/db'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -24,44 +24,6 @@ function Bloque({ titulo, children }: { titulo: string; children: React.ReactNod
       <h2 className="mb-3 text-[19px] font-bold">{titulo}</h2>
       {children}
     </section>
-  )
-}
-
-/** Link para abrir WhatsApp con el mensaje escrito (al número del cliente si lo tiene cargado). */
-function linkWhatsApp(texto: string, telefono: string | null) {
-  const numero = (telefono ?? '').replace(/\D/g, '')
-  return `https://wa.me/${numero.length >= 10 ? numero : ''}?text=${encodeURIComponent(texto)}`
-}
-
-function RespuestaSugerida({ texto, telefono }: { texto: string; telefono: string | null }) {
-  const [copiado, setCopiado] = useState(false)
-  const copiar = async () => {
-    try {
-      await navigator.clipboard.writeText(texto)
-      setCopiado(true)
-      window.setTimeout(() => setCopiado(false), 2000)
-    } catch {
-      /* sin permiso de portapapeles: se puede seleccionar a mano */
-    }
-  }
-  return (
-    <>
-      <p className="rounded-xl bg-elevada p-3.5 leading-relaxed whitespace-pre-line text-suave select-text">{texto}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" variant="secundario" onClick={copiar}>
-          {copiado ? <Check className="size-4" /> : <Copy className="size-4" />} {copiado ? 'Copiado' : 'Copiar'}
-        </Button>
-        <a
-          href={linkWhatsApp(texto, telefono)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-[11px] border border-acento bg-acento px-3 text-sm font-semibold text-white hover:bg-acento-fuerte"
-        >
-          <MessageCircle className="size-4" /> Abrir en WhatsApp
-        </a>
-      </div>
-      <p className="mt-2 text-[13px] text-tenue">Revisala antes de mandarla: es una sugerencia.</p>
-    </>
   )
 }
 
@@ -94,7 +56,7 @@ export function VistaAnalisis({ analisis: a, telefono = null, servicios, tienePr
       )}
       {a.respuesta_sugerida && (
         <Bloque titulo="Respuesta sugerida">
-          <RespuestaSugerida texto={a.respuesta_sugerida} telefono={telefono} />
+          <MensajeParaEnviar texto={a.respuesta_sugerida} telefono={telefono} />
         </Bloque>
       )}
 
