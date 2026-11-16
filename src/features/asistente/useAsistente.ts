@@ -7,6 +7,8 @@ export interface Mensaje {
   rol: 'usuario' | 'asistente'
   texto: string
   error?: boolean
+  /** Versión corta para leer en voz alta (si la respuesta era larga) */
+  voz?: string
   /** Qué datos consultó para responder (agenda, grabaciones…) */
   consultas?: string[]
 }
@@ -35,7 +37,10 @@ export function useAsistente() {
     }
   }, [mensajes])
 
-  /** Manda una pregunta. Devuelve el texto de la respuesta (o null si falló). */
+  /**
+   * Manda una pregunta. La respuesta aparece en pantalla apenas llega;
+   * devuelve el texto para leer en voz alta (o null si falló).
+   */
   const preguntar = useCallback(
     async (pregunta: string): Promise<string | null> => {
       const texto = pregunta.trim()
@@ -59,10 +64,14 @@ export function useAsistente() {
           }
           throw new Error(mensaje)
         }
-        const d = data as { respuesta?: string; consultas?: string[] }
+        const d = data as { respuesta?: string; respuesta_voz?: string; consultas?: string[] }
         const respuesta = String(d.respuesta ?? '')
-        setMensajes((m) => [...m, { id: crypto.randomUUID(), rol: 'asistente', texto: respuesta, consultas: d.consultas }])
-        return respuesta
+        const hablada = d.respuesta_voz?.trim() || respuesta
+        setMensajes((m) => [
+          ...m,
+          { id: crypto.randomUUID(), rol: 'asistente', texto: respuesta, voz: hablada !== respuesta ? hablada : undefined, consultas: d.consultas },
+        ])
+        return hablada
       } catch (e) {
         setMensajes((m) => [
           ...m,

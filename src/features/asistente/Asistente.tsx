@@ -200,7 +200,7 @@ export function Asistente() {
                 <p className="whitespace-pre-line">{m.texto}</p>
                 {m.rol === 'asistente' && !m.error && voz.disponible && (
                   <button
-                    onClick={() => voz.decir(m.texto)}
+                    onClick={() => voz.decir(m.voz ?? m.texto)}
                     className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs text-tenue hover:text-texto"
                     aria-label="Escuchar de nuevo"
                   >

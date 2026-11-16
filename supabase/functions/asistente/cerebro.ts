@@ -58,8 +58,47 @@ export function armarMensajes(panorama: string, pregunta: string, historial: Tur
 
 export interface Resultado {
   respuesta: string
+  /** Versión corta para leer en voz alta (igual a respuesta si ya es corta) */
+  respuesta_voz: string
   modelo: string
   consultas: string[] // herramientas usadas, para mostrar en pantalla
+}
+
+/** Por encima de esto, la voz premium (ElevenLabs) lee un resumen y la pantalla muestra todo. */
+export const MAX_VOZ = 600
+
+/** Corta en la última oración completa que entra en el límite. */
+export function recortarOraciones(texto: string, max: number): string {
+  if (texto.length <= max) return texto
+  const corte = texto.slice(0, max)
+  const fin = Math.max(corte.lastIndexOf('. '), corte.lastIndexOf('? '), corte.lastIndexOf('! '))
+  return fin > max / 3 ? corte.slice(0, fin + 1) : corte.replace(/\s+\S*$/, '') + '…'
+}
+
+/** Si la respuesta es larga, pide un resumen corto para decir en voz alta (ahorra créditos de voz). */
+async function versionHablada(client: Anthropic, respuesta: string): Promise<string> {
+  if (respuesta.length <= MAX_VOZ) return respuesta
+  try {
+    const r = await client.beta.messages.create({
+      model: MODELO,
+      max_tokens: 2000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort: 'low' },
+      system:
+        'Resumís respuestas de Jarvis, el asistente de voz de brixx, para leerlas en voz alta. ' +
+        'Español rioplatense con voseo, texto plano, sin listas ni markdown. ' +
+        'Dos o tres oraciones, menos de 400 caracteres, con lo más importante. ' +
+        'Si hace falta, terminá con "el detalle completo te lo dejé en pantalla".',
+      messages: [{ role: 'user', content: `<respuesta>\n${respuesta}\n</respuesta>` }],
+    })
+    if (r.stop_reason === 'refusal') return recortarOraciones(respuesta, MAX_VOZ)
+    const texto = limpiarParaVoz(r.content.map((b) => (b.type === 'text' ? b.text : '')).join(' '))
+    return recortarOraciones(texto || respuesta, MAX_VOZ)
+  } catch (e) {
+    console.error('Resumen hablado:', e)
+    return recortarOraciones(respuesta, MAX_VOZ)
+  }
 }
 
 export async function responder(hub: Hub, panorama: string, pregunta: string, historial: Turno[]): Promise<Resultado> {
@@ -84,7 +123,8 @@ export async function responder(hub: Hub, panorama: string, pregunta: string, hi
     })
 
     if (response.stop_reason === 'refusal') {
-      return { respuesta: 'Perdón, esa no la puedo responder. Probá preguntándome de otra forma.', modelo: response.model, consultas }
+      const respuesta = 'Perdón, esa no la puedo responder. Probá preguntándome de otra forma.'
+      return { respuesta, respuesta_voz: respuesta, modelo: response.model, consultas }
     }
 
     const usos = response.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use')
@@ -110,7 +150,9 @@ export async function responder(hub: Hub, panorama: string, pregunta: string, hi
       .map((b) => (b.type === 'text' ? b.text : ''))
       .filter(Boolean)
       .join(' ')
-    return { respuesta: limpiarParaVoz(texto) || 'No me salió una respuesta. ¿Me lo repetís?', modelo: response.model, consultas }
+    const respuesta = limpiarParaVoz(texto) || 'No me salió una respuesta. ¿Me lo repetís?'
+    return { respuesta, respuesta_voz: await versionHablada(client, respuesta), modelo: response.model, consultas }
   }
-  return { respuesta: 'Me enredé buscando los datos. ¿Me lo preguntás de otra forma?', modelo: MODELO, consultas }
+  const respuesta = 'Me enredé buscando los datos. ¿Me lo preguntás de otra forma?'
+  return { respuesta, respuesta_voz: respuesta, modelo: MODELO, consultas }
 }

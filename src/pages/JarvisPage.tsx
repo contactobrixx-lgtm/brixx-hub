@@ -369,7 +369,7 @@ export function JarvisPage() {
                       <span className="mr-1.5 text-[10px] font-bold tracking-wider uppercase opacity-70">{m.rol === 'usuario' ? 'Vos' : 'Jarvis'}</span>
                       {m.texto}
                       {m.rol === 'asistente' && !m.error && voz.disponible && (
-                        <button onClick={() => voz.decir(m.texto)} className="ml-1.5 cursor-pointer align-middle text-tenue hover:text-texto" aria-label="Escuchar de nuevo">
+                        <button onClick={() => voz.decir(m.voz ?? m.texto)} className="ml-1.5 cursor-pointer align-middle text-tenue hover:text-texto" aria-label="Escuchar de nuevo">
                           <Volume2 className="inline size-3.5" />
                         </button>
                       )}

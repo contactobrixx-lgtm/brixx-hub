@@ -31,10 +31,20 @@ function guardarEnCache(texto: string, url: string) {
   }
 }
 
+// Si ElevenLabs no contesta en este tiempo, se lee con la voz del dispositivo
+const TIMEOUT_PREMIUM_MS = 12000
+// Tope de seguridad para cuidar los créditos (el asistente ya manda un resumen corto)
+const MAX_PREMIUM = 700
+
 async function audioPremium(texto: string): Promise<string | null> {
   const enCache = cacheAudio.get(texto)
   if (enCache) return enCache
-  const { data, error } = await supabase.functions.invoke('voz', { body: { texto } })
+  if (texto.length > MAX_PREMIUM) return null // muy largo: mejor la voz del dispositivo que gastar créditos
+  const { data, error } = await supabase.functions.invoke('voz', {
+    body: { texto },
+    signal: AbortSignal.timeout(TIMEOUT_PREMIUM_MS),
+  })
+  if (error) console.warn('Voz premium no disponible, uso la del dispositivo:', error.message)
   if (error || !(data instanceof Blob) || data.size === 0) return null
   const url = URL.createObjectURL(new Blob([data], { type: 'audio/mpeg' }))
   guardarEnCache(texto, url)
