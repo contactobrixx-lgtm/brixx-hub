@@ -159,6 +159,7 @@ export function GrabacionPage() {
       <header className="mb-5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tono={estado.tono}>{estado.label}</Badge>
+          {g.origen === 'audio' && <Badge tono="violeta">Audio subido</Badge>}
           <span className="text-sm text-tenue">
             {new Date(g.created_at).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })} {formatHora(new Date(g.created_at))}
             {g.duracion_seg ? ` · ${formatDuracion(g.duracion_seg)}` : ''}
@@ -190,7 +191,7 @@ export function GrabacionPage() {
         <div className="mb-5 flex items-center gap-3 rounded-2xl border border-borde bg-superficie p-4">
           <Spinner />
           <div>
-            <p className="font-semibold">{g.estado === 'transcribiendo' ? 'Transcribiendo el audio…' : 'Claude está analizando la reunión…'}</p>
+            <p className="font-semibold">{g.estado === 'transcribiendo' ? 'Transcribiendo el audio…' : g.origen === 'audio' ? 'Claude está escuchando qué quiere…' : 'Claude está analizando la reunión…'}</p>
             <p className="text-sm text-tenue">Suele tardar unos minutos. Podés salir: se actualiza solo.</p>
           </div>
         </div>
@@ -255,6 +256,7 @@ export function GrabacionPage() {
             g.analisis ? (
               <VistaAnalisis
                 analisis={g.analisis}
+                telefono={prospecto?.telefono ?? null}
                 servicios={servicios}
                 tieneProspecto={!!prospectoId}
                 ocupado={ocupado}
@@ -287,7 +289,7 @@ export function GrabacionPage() {
           size="sm"
           onClick={() => (confirmarBorrado ? eliminar(g).then(() => navigate('/grabaciones')) : setConfirmarBorrado(true))}
         >
-          {confirmarBorrado ? '¿Seguro? Borrar grabación y audio' : 'Borrar grabación'}
+          {confirmarBorrado ? '¿Seguro? Borrar grabación y audio' : g.origen === 'audio' ? 'Borrar audio' : 'Borrar grabación'}
         </Button>
       </div>
     </div>

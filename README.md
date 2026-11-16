@@ -84,6 +84,16 @@ Las claves se aplican al instante, sin volver a publicar nada. Viven solo en Sup
 
 En el hub, entrá a **Grabaciones**, abrí una pendiente y tocá **Transcribir y analizar**. La transcripción tarda unos minutos y el análisis, uno o dos más. La página se actualiza sola.
 
+### Audios de WhatsApp
+
+Además de grabar, podés **subir un audio** (por ejemplo, una nota de voz que te mandaron por WhatsApp) y Claude te dice **qué quiere la persona** y te sugiere **qué contestarle**.
+
+1. En WhatsApp, mantené apretado el audio → **Compartir** → guardalo en **Archivos** (en la compu: clic derecho → Descargar).
+2. En el hub: **Grabaciones → Subir audio**, elegí el archivo y, si es de un cliente o prospecto, elegilo también.
+3. Se transcribe y se analiza como una reunión. En **Lo importante** aparecen "Lo que quiere" y "Respuesta sugerida", con botones para copiarla o abrir WhatsApp con el mensaje escrito.
+
+Acepta .opus (el formato de WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Jarvis también los puede consultar ("Jarvis, ¿qué quería el de Napoli en el audio?").
+
 > **Al grabar con el celular:** dejá la pantalla prendida y el hub abierto. El celular corta el micrófono si se bloquea o cambiás de app. Lo grabado hasta ese momento se guarda en el teléfono y se puede recuperar.
 
 ---

@@ -42,6 +42,7 @@ export function useConfigGrabaciones() {
 }
 
 function extension(mime: string) {
+  if (mime.includes('opus')) return 'ogg'
   if (mime.includes('mp4') || mime.includes('aac') || mime.includes('m4a')) return 'm4a'
   if (mime.includes('ogg')) return 'ogg'
   if (mime.includes('mpeg')) return 'mp3'
@@ -51,6 +52,52 @@ function extension(mime: string) {
 
 /** Tipo base para el bucket (sin parámetros como ;codecs=opus). */
 const mimeBase = (mime: string) => mime.split(';')[0].trim() || 'audio/webm'
+
+// Por extensión, para archivos que el navegador no reconoce (las notas de voz de WhatsApp son .opus)
+const MIME_POR_EXTENSION: Record<string, string> = {
+  opus: 'audio/ogg',
+  ogg: 'audio/ogg',
+  oga: 'audio/ogg',
+  m4a: 'audio/mp4',
+  mp4: 'audio/mp4',
+  aac: 'audio/aac',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  webm: 'audio/webm',
+}
+export const EXTENSIONES_AUDIO = Object.keys(MIME_POR_EXTENSION)
+
+/** Tipo de un archivo de audio subido: por extensión si se conoce (más confiable entre navegadores). */
+export function mimeDeArchivo(archivo: File): string | null {
+  const ext = archivo.name.split('.').pop()?.toLowerCase() ?? ''
+  if (MIME_POR_EXTENSION[ext]) return MIME_POR_EXTENSION[ext]
+  const tipo = mimeBase(archivo.type)
+  if (archivo.type.startsWith('audio/')) return tipo === 'audio/opus' ? 'audio/ogg' : tipo
+  return null
+}
+
+/** Duración de un archivo de audio en segundos (null si el navegador no la puede leer, por ejemplo .opus en iPhone). */
+export function duracionDeArchivo(archivo: Blob): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(archivo)
+    const a = new Audio()
+    const fin = (v: number | null) => {
+      URL.revokeObjectURL(url)
+      resolve(v)
+    }
+    const t = window.setTimeout(() => fin(null), 4000)
+    a.preload = 'metadata'
+    a.onloadedmetadata = () => {
+      window.clearTimeout(t)
+      fin(Number.isFinite(a.duration) && a.duration > 0 ? Math.round(a.duration) : null)
+    }
+    a.onerror = () => {
+      window.clearTimeout(t)
+      fin(null)
+    }
+    a.src = url
+  })
+}
 
 export function useGrabaciones() {
   const tabla = useTabla<Grabacion>('grabaciones', { orden: [{ columna: 'created_at', asc: false }] })
@@ -76,13 +123,25 @@ export function useGrabaciones() {
    */
   const subir = async (
     blob: Blob,
-    datos: { titulo: string; segundos: number; reunion_id: string | null; prospecto_id: string | null; grabado_por: string | null },
+    datos: {
+      titulo: string
+      segundos: number | null
+      reunion_id: string | null
+      prospecto_id: string | null
+      grabado_por: string | null
+      /** 'audio' = archivo subido (por ejemplo, de WhatsApp); por defecto, reunión grabada */
+      origen?: 'reunion' | 'audio'
+      /** Tipo del archivo si el navegador no lo informa bien */
+      mime?: string
+    },
   ): Promise<string> => {
-    const mime = mimeBase(blob.type)
+    const mime = datos.mime ?? mimeBase(blob.type)
     const path = `${crypto.randomUUID()}.${extension(mime)}`
+    // Supabase toma el tipo del archivo mismo: si el navegador no lo reconoció (pasa con .opus), se lo ponemos
+    const cuerpo = blob.type === mime ? blob : new Blob([blob], { type: mime })
     const { error: errSubida } = await supabase.storage
       .from(BUCKET_GRABACIONES)
-      .upload(path, blob, { contentType: mime, cacheControl: '3600' })
+      .upload(path, cuerpo, { contentType: mime, cacheControl: '3600' })
     if (errSubida) throw new Error(`No se pudo subir el audio: ${errSubida.message}`)
 
     const { data, error } = await supabase
@@ -96,6 +155,7 @@ export function useGrabaciones() {
         duracion_seg: datos.segundos,
         grabado_por: datos.grabado_por,
         estado: 'pendiente',
+        ...(datos.origen === 'audio' ? { origen: 'audio' } : {}),
       })
       .select('id')
       .single()

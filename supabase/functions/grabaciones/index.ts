@@ -126,6 +126,7 @@ async function analizarGrabacion(id: string) {
       .order('orden')
 
     const { analisis, modelo } = await analizar({
+      origen: g.origen === 'audio' ? 'audio' : 'reunion',
       titulo: g.titulo,
       fecha,
       segmentos: g.segmentos,

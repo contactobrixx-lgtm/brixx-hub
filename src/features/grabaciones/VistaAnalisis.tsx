@@ -1,4 +1,5 @@
-import { CalendarPlus, FileText, ListChecks, Quote } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarPlus, Check, Copy, FileText, ListChecks, MessageCircle, Quote } from 'lucide-react'
 import type { Analisis, Servicio, TipoPuntoClave } from '../../types/db'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -26,8 +27,48 @@ function Bloque({ titulo, children }: { titulo: string; children: React.ReactNod
   )
 }
 
+/** Link para abrir WhatsApp con el mensaje escrito (al número del cliente si lo tiene cargado). */
+function linkWhatsApp(texto: string, telefono: string | null) {
+  const numero = (telefono ?? '').replace(/\D/g, '')
+  return `https://wa.me/${numero.length >= 10 ? numero : ''}?text=${encodeURIComponent(texto)}`
+}
+
+function RespuestaSugerida({ texto, telefono }: { texto: string; telefono: string | null }) {
+  const [copiado, setCopiado] = useState(false)
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiado(true)
+      window.setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      /* sin permiso de portapapeles: se puede seleccionar a mano */
+    }
+  }
+  return (
+    <>
+      <p className="rounded-xl bg-elevada p-3.5 leading-relaxed whitespace-pre-line text-suave select-text">{texto}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" variant="secundario" onClick={copiar}>
+          {copiado ? <Check className="size-4" /> : <Copy className="size-4" />} {copiado ? 'Copiado' : 'Copiar'}
+        </Button>
+        <a
+          href={linkWhatsApp(texto, telefono)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex min-h-[38px] items-center gap-1.5 rounded-[11px] border border-acento bg-acento px-3 text-sm font-semibold text-white hover:bg-acento-fuerte"
+        >
+          <MessageCircle className="size-4" /> Abrir en WhatsApp
+        </a>
+      </div>
+      <p className="mt-2 text-[13px] text-tenue">Revisala antes de mandarla: es una sugerencia.</p>
+    </>
+  )
+}
+
 interface Props {
   analisis: Analisis
+  /** Teléfono del cliente, para "Abrir en WhatsApp" */
+  telefono?: string | null
   servicios: Servicio[]
   tieneProspecto: boolean
   ocupado: boolean
@@ -37,7 +78,7 @@ interface Props {
   onAgendar: (paso: Analisis['proximos_pasos'][number]) => void
 }
 
-export function VistaAnalisis({ analisis: a, servicios, tieneProspecto, ocupado, onIrA, onCrearCotizacion, onProximaAccion, onAgendar }: Props) {
+export function VistaAnalisis({ analisis: a, telefono = null, servicios, tieneProspecto, ocupado, onIrA, onCrearCotizacion, onProximaAccion, onAgendar }: Props) {
   const porId = new Map(servicios.map((s) => [s.id, s]))
   const sugeridos = a.propuesta.servicios
   const etapa1 = sugeridos.filter((s) => s.etapa === 1)
@@ -46,6 +87,17 @@ export function VistaAnalisis({ analisis: a, servicios, tieneProspecto, ocupado,
 
   return (
     <div className="flex flex-col gap-4">
+      {a.lo_que_quiere && (
+        <Bloque titulo="Lo que quiere">
+          <p className="text-[17px] leading-relaxed font-semibold">{a.lo_que_quiere}</p>
+        </Bloque>
+      )}
+      {a.respuesta_sugerida && (
+        <Bloque titulo="Respuesta sugerida">
+          <RespuestaSugerida texto={a.respuesta_sugerida} telefono={telefono} />
+        </Bloque>
+      )}
+
       <Bloque titulo="Resumen">
         <p className="leading-relaxed text-suave">{a.resumen}</p>
       </Bloque>

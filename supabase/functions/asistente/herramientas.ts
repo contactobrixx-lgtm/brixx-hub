@@ -21,7 +21,7 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   }),
   herramienta(
     'buscar_grabaciones',
-    'Lista grabaciones de reuniones (con su id y resumen) filtrando por cliente, por tema o por fechas. Para leer una completa, después usá leer_grabacion con el id.',
+    'Lista grabaciones de reuniones y audios subidos (por ejemplo, notas de voz de WhatsApp), con su id y resumen, filtrando por cliente, por tema o por fechas. Para leer una completa, después usá leer_grabacion con el id.',
     {
       cliente: opcional({ type: 'string', description: 'Nombre del cliente, empresa o contacto.' }),
       texto: opcional({ type: 'string', description: 'Tema o palabras a buscar en el título, resumen y puntos clave.' }),
