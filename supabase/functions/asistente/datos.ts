@@ -99,7 +99,7 @@ export class Hub {
   async buscarGrabaciones(o: { texto?: string; cliente?: string; desde?: string; hasta?: string; limite?: number }): Promise<string> {
     let q = this.db
       .from('grabaciones')
-      .select('id, titulo, created_at, duracion_seg, estado, prospecto_id, analisis')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(200)
     if (o.desde) q = q.gte('created_at', rangoUTC(o.desde, o.desde).ini)
@@ -114,8 +114,8 @@ export class Hub {
     if (o.texto) {
       const palabras = normalizar(o.texto).split(/\s+/).filter((w) => w.length >= 3)
       filas = filas.filter((g) => {
-        const a = g.analisis as { resumen?: string; puntos_clave?: { titulo: string; detalle: string }[] } | null
-        const t = normalizar(`${g.titulo} ${a?.resumen ?? ''} ${(a?.puntos_clave ?? []).map((p) => `${p.titulo} ${p.detalle}`).join(' ')}`)
+        const a = g.analisis as { lo_que_quiere?: string; resumen?: string; puntos_clave?: { titulo: string; detalle: string }[] } | null
+        const t = normalizar(`${g.titulo} ${g.origen === 'audio' ? 'audio whatsapp mensaje' : ''} ${a?.lo_que_quiere ?? ''} ${a?.resumen ?? ''} ${(a?.puntos_clave ?? []).map((p) => `${p.titulo} ${p.detalle}`).join(' ')}`)
         return palabras.some((w) => t.includes(w))
       })
     }
@@ -123,9 +123,10 @@ export class Hub {
     if (!filas.length) return 'No encontré grabaciones con esos criterios.'
     const lineas = await Promise.all(
       filas.map(async (g) => {
-        const a = g.analisis as { resumen?: string } | null
+        const a = g.analisis as { resumen?: string; lo_que_quiere?: string } | null
         const cliente = await this.nombreDe(g.prospecto_id)
-        return `- id ${g.id} | ${fechaHoraAR(g.created_at as string)} | "${g.titulo}"${cliente ? ` | cliente: ${cliente}` : ''}${g.duracion_seg ? ` | ${Math.round((g.duracion_seg as number) / 60)} min` : ''} | estado: ${g.estado}${a?.resumen ? ` | resumen: ${corto(a.resumen, 300)}` : ''}`
+        const tipo = g.origen === 'audio' ? 'audio subido' : 'reunión'
+        return `- id ${g.id} | ${tipo} | ${fechaHoraAR(g.created_at as string)} | "${g.titulo}"${cliente ? ` | cliente: ${cliente}` : ''}${g.duracion_seg ? ` | ${Math.round((g.duracion_seg as number) / 60)} min` : ''} | estado: ${g.estado}${a?.lo_que_quiere ? ` | quiere: ${corto(a.lo_que_quiere, 200)}` : ''}${a?.resumen ? ` | resumen: ${corto(a.resumen, 300)}` : ''}`
       }),
     )
     return `Grabaciones (de la más nueva a la más vieja):\n${lineas.join('\n')}`
@@ -134,11 +135,13 @@ export class Hub {
   async leerGrabacion(id: string, conTranscripcion: boolean): Promise<string> {
     const { data: g } = await this.db
       .from('grabaciones')
-      .select('id, titulo, created_at, duracion_seg, estado, error, prospecto_id, hablantes, analisis, segmentos')
+      .select('*') // incluye "origen" (reunión o audio subido)
       .eq('id', id)
       .maybeSingle()
     if (!g) return 'No existe una grabación con ese id. Buscala primero con buscar_grabaciones.'
     const a = g.analisis as {
+      lo_que_quiere?: string
+      respuesta_sugerida?: string
       resumen?: string
       puntos_clave?: { titulo: string; detalle: string; tipo: string; cita: string }[]
       decisiones?: string[]
@@ -146,10 +149,13 @@ export class Hub {
       propuesta?: { enfoque: string; servicios: { nombre: string; motivo: string; etapa: number }[]; riesgos: string[] }
       preguntas_pendientes?: string[]
     } | null
-    const out = [`Grabación "${g.titulo}" del ${fechaHoraAR(g.created_at as string)}`, `Estado: ${g.estado}${g.error ? ` (${g.error})` : ''}`]
+    const tipo = g.origen === 'audio' ? 'Audio subido (por ejemplo, de WhatsApp)' : 'Grabación de reunión'
+    const out = [`${tipo} "${g.titulo}" del ${fechaHoraAR(g.created_at as string)}`, `Estado: ${g.estado}${g.error ? ` (${g.error})` : ''}`]
     const cliente = await this.nombreDe(g.prospecto_id)
     if (cliente) out.push(`Cliente: ${cliente}`)
     if (a) {
+      if (a.lo_que_quiere) out.push(`Lo que quiere: ${a.lo_que_quiere}`)
+      if (a.respuesta_sugerida) out.push(`Respuesta sugerida: ${a.respuesta_sugerida}`)
       out.push(`Resumen: ${a.resumen}`)
       if (a.puntos_clave?.length) out.push(`Puntos clave:\n${a.puntos_clave.map((p) => `- [${p.tipo}] ${p.titulo}: ${p.detalle} (cita: "${p.cita}")`).join('\n')}`)
       if (a.decisiones?.length) out.push(`Decisiones: ${a.decisiones.join('; ')}`)

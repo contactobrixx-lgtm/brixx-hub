@@ -189,6 +189,10 @@ export type TipoPuntoClave = 'necesidad' | 'dolor' | 'presupuesto' | 'plazo' | '
 
 /** Respuesta de Claude. Mantener en sincronía con ESQUEMA en supabase/functions/grabaciones/analisis.ts. */
 export interface Analisis {
+  /** Solo en audios subidos: qué quiere la persona */
+  lo_que_quiere?: string
+  /** Solo en audios subidos: mensaje sugerido para contestarle */
+  respuesta_sugerida?: string
   resumen: string
   puntos_clave: { titulo: string; detalle: string; tipo: TipoPuntoClave; cita: string; segundo: number | null }[]
   decisiones: string[]
@@ -201,8 +205,12 @@ export interface Analisis {
   preguntas_pendientes: string[]
 }
 
+/** reunion = grabada con el micrófono; audio = archivo subido (por ejemplo, de WhatsApp) */
+export type OrigenGrabacion = 'reunion' | 'audio'
+
 export interface Grabacion {
   id: string
+  origen: OrigenGrabacion
   titulo: string
   reunion_id: string | null
   prospecto_id: string | null
