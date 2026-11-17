@@ -37,7 +37,8 @@ import { HudTele } from '../features/asistente/HudTele'
 import { ListaAgentes, PanelMision, RegistroMision, ResultadoMision } from '../features/asistente/PanelMision'
 import { useMisiones } from '../features/asistente/useMisiones'
 import { useDemo } from '../features/asistente/useDemo'
-import { ESTADO_DEMO, METRICAS_DEMO, pideDemo } from '../features/asistente/demo'
+import { EscenaDemo } from '../features/asistente/EscenaDemo'
+import { ESTADO_DEMO, METRICAS_DEMO, pideDemo, type TipoDemo } from '../features/asistente/demo'
 import { PanelPantalla, type DestinoPantalla } from '../features/asistente/PanelPantalla'
 import { ETAPAS_ABIERTAS } from '../types/db'
 import { useDashboard } from '../features/inicio/useDashboard'
@@ -52,7 +53,8 @@ const COMANDOS = [
   { label: 'Última reunión', pregunta: '¿Qué se sabe de la última reunión que grabé?' },
   { label: 'Pendientes', pregunta: '¿Qué tengo pendiente?' },
   { label: 'Meta del mes', pregunta: '¿Cómo vamos con la meta del mes?' },
-  { label: 'Modo demo', pregunta: 'Jarvis, modo demo' },
+  { label: 'Demo explicada', pregunta: 'Jarvis, modo demo' },
+  { label: 'Demo en acción', pregunta: 'Jarvis, modo show' },
 ]
 
 const CLAVE_VOZ = 'brixx-asistente-voz'
@@ -162,6 +164,7 @@ export function JarvisPage() {
   }
 
   const [activado, setActivado] = useState(false)
+  const [eligiendoDemo, setEligiendoDemo] = useState(false)
   const [texto, setTexto] = useState('')
   const [ahora, setAhora] = useState(new Date())
   const [vozActiva, setVozActiva] = useState(() => {
@@ -196,16 +199,18 @@ export function JarvisPage() {
     if (activado && vozActiva && !pensando) voz.decir(t)
   }
 
-  const iniciarDemo = () => {
+  const iniciarDemo = (tipo: TipoDemo) => {
+    setEligiendoDemo(false)
     voz.destrabar()
     setActivado(true)
     setTexto('')
     if (!modoTeleRef.current) entrarTele()
-    demo.iniciar()
+    demo.iniciar(tipo)
   }
 
   const enviar = async (pregunta: string) => {
-    if (pideDemo(pregunta)) return iniciarDemo()
+    const tipoDemo = pideDemo(pregunta)
+    if (tipoDemo) return iniciarDemo(tipoDemo)
     if (!pregunta.trim() || pensando) return
     if (demo.activo) demo.salir()
     setTexto('')
@@ -446,13 +451,29 @@ export function JarvisPage() {
                 {/* Modo tele (para una tele o un monitor) */}
                 {!modoTele && (
                   <div className="absolute top-3 right-3 z-10 flex gap-2">
-                    <button
-                      onClick={iniciarDemo}
-                      className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
-                      title="Modo demo: un recorrido por el hub con datos inventados, para mostrarlo y aprender a usarlo"
-                    >
-                      <Presentation className="size-4" /> Demo
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setEligiendoDemo((v) => !v)}
+                        className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                        title="Modo demo: el hub con datos inventados, para mostrarlo o aprender a usarlo"
+                        aria-expanded={eligiendoDemo}
+                      >
+                        <Presentation className="size-4" /> Demo
+                      </button>
+                      {eligiendoDemo && (
+                        <div className="absolute top-12 right-0 flex w-64 flex-col gap-1 rounded-xl border border-acento/30 bg-superficie/95 p-1.5 shadow-[0_0_40px_-12px_var(--color-acento)] backdrop-blur animate-aparecer">
+                          {[
+                            { tipo: 'actuada' as const, titulo: 'En acción', detalle: 'Jarvis te cuenta su día: qué hizo, qué hay hoy y qué preparó.' },
+                            { tipo: 'tutorial' as const, titulo: 'Explicada', detalle: 'Recorre cada pantalla y explica cómo usarla.' },
+                          ].map((o) => (
+                            <button key={o.tipo} onClick={() => iniciarDemo(o.tipo)} className="cursor-pointer rounded-lg px-3 py-2 text-left hover:bg-elevada">
+                              <span className="block text-sm font-semibold">{o.titulo}</span>
+                              <span className="block text-xs text-tenue">{o.detalle}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <button
                       onClick={entrarTele}
                       className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
@@ -523,7 +544,7 @@ export function JarvisPage() {
                       ) : undefined
                     }
                     derecha={demo.activo ? (demo.agentes.length ? <RegistroMision agentes={demo.agentes} /> : undefined) : misiones.activa ? <RegistroMision agentes={misiones.agentes} /> : undefined}
-                    conPanel={Boolean(pantalla) || (!demo.activo && misiones.mision?.estado === 'lista')}
+                    conPanel={Boolean(pantalla) || Boolean(demo.paso?.escena) || (!demo.activo && misiones.mision?.estado === 'lista')}
                     controles={
                       demo.activo ? (
                         <>
@@ -611,6 +632,8 @@ export function JarvisPage() {
                   </div>
                 )}
 
+                {demo.activo && demo.paso?.escena && !pantalla && <EscenaDemo escena={demo.paso.escena} />}
+
                 {pantalla && (
                   <PanelPantalla
                     destino={pantalla}
@@ -676,7 +699,7 @@ export function JarvisPage() {
             </Panel>
 
             <Panel titulo="Comandos rápidos">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {COMANDOS.map((c) => (
                   <button
                     key={c.label}

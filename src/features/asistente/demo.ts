@@ -1,4 +1,7 @@
-// Guion del modo demo de Jarvis ("Jarvis, modo demo"): un recorrido por el hub para mostrarlo y aprender a usarlo.
+// Guiones del modo demo de Jarvis. Dos versiones:
+// - "tutorial" ("Jarvis, modo demo"): recorre el hub explicando qué hace cada pantalla y qué pedirle.
+// - "actuada" ("Jarvis, modo show"): Jarvis actúa el sistema funcionando a full: cuenta lo que hizo, lo que hay
+//   para hoy y lo que preparó, abriendo cada pantalla como prueba.
 // Lo que dice es INVENTADO (no consulta la base ni a Claude): sirve para presentarlo sin depender de los datos del día.
 // Las pantallas que abre sí son las reales del hub. Cada texto queda por debajo de 600 caracteres (tope de la voz).
 import type { DestinoPantalla } from './PanelPantalla'
@@ -11,11 +14,140 @@ export interface PasoDemo {
   pantalla?: DestinoPantalla
   /** Muestra una misión inventada con agentes trabajando en la red */
   mision?: boolean
+  /** Demo en acción: panel con lo que va contando (datos inventados, coinciden con lo que dice) */
+  escena?: EscenaDemo
 }
+
+export interface EscenaDemo {
+  titulo: string
+  filas: { etiqueta: string; texto: string; detalle?: string }[]
+}
+
+export type TipoDemo = 'tutorial' | 'actuada'
 
 const saludoDelMomento = (h: number) => (h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches')
 
-export function pasosDemo(ahora = new Date()): PasoDemo[] {
+export function pasosDemo(tipo: TipoDemo = 'tutorial', ahora = new Date()): PasoDemo[] {
+  return tipo === 'actuada' ? pasosActuada(ahora) : pasosTutorial(ahora)
+}
+
+/** Versión actuada: el sistema funcionando a full, contado como un parte del día (todo inventado) */
+function pasosActuada(ahora: Date): PasoDemo[] {
+  return [
+    {
+      titulo: 'Parte del día',
+      escena: {
+        titulo: 'Desde anoche',
+        filas: [
+          { etiqueta: '4', texto: 'Conversaciones analizadas', detalle: 'Audios de WhatsApp, chats y un mail' },
+          { etiqueta: '1', texto: 'Mercado investigado', detalle: 'Grupo Delta y su competencia' },
+          { etiqueta: '1', texto: 'Propuesta lista', detalle: 'Esperando tu visto bueno' },
+          { etiqueta: '3', texto: 'Reuniones preparadas', detalle: 'Para hoy' },
+        ],
+      },
+      decir: `${saludoDelMomento(ahora.getHours())}, señor. Desde anoche estuve trabajando: analicé cuatro conversaciones con clientes, investigué un mercado completo y dejé lista una propuesta. Hoy viene un día movido. Te cuento.`,
+    },
+    {
+      titulo: 'Reuniones de hoy',
+      escena: {
+        titulo: 'Agenda de hoy',
+        filas: [
+          { etiqueta: '11:00', texto: 'Demo · Panadería Lumière', detalle: 'Bot de WhatsApp con IA · carpeta al día' },
+          { etiqueta: '15:00', texto: 'Llamada · Estudio Ferrari', detalle: 'Stock y facturación en un solo lugar' },
+          { etiqueta: '17:30', texto: 'Propuesta · Grupo Delta', detalle: 'Propuesta lista para presentar' },
+        ],
+      },
+      decir:
+        'Para hoy tenés tres reuniones: a las once, la demo con Panadería Lumière; a las tres, la llamada con Estudio Ferrari; y a las cinco y media, la presentación de la propuesta a Grupo Delta. Las tres ya tienen su carpeta al día.',
+    },
+    {
+      titulo: 'Conversaciones analizadas',
+      escena: {
+        titulo: 'Conversaciones analizadas',
+        filas: [
+          { etiqueta: 'Audio', texto: 'Panadería Lumière', detalle: 'Pierde pedidos: contesta WhatsApp a mano → bot con IA' },
+          { etiqueta: 'Chat', texto: 'Estudio Ferrari', detalle: 'Planillas y stock desordenado → sistema de gestión' },
+          { etiqueta: 'Audio', texto: 'Grupo Delta', detalle: 'Quiere turnos online → agenda con recordatorios' },
+          { etiqueta: 'Mail', texto: 'Café Nómade', detalle: 'Pide presupuesto de landing → cotizar esta semana' },
+        ],
+      },
+      decir:
+        'Analicé los audios y chats de ayer. Panadería Lumière pierde pedidos porque contesta WhatsApp a mano: ahí entra el bot con inteligencia artificial. Estudio Ferrari quiere dejar las planillas y controlar el stock en un solo lugar. Ya lo anoté en cada carpeta, con lo que conviene ofrecerles.',
+    },
+    {
+      titulo: 'Misión: mercado y competencia',
+      mision: true,
+      decir:
+        'Esta madrugada lancé una misión con tres agentes en paralelo. Analizamos el mercado de Grupo Delta y entendimos a su competencia: de doce empresas del rubro, solo dos tienen turnos online y ninguna responde fuera de horario. Esa es nuestra ventaja para la reunión de las cinco y media.',
+    },
+    {
+      titulo: 'Propuesta lista',
+      escena: {
+        titulo: 'Propuesta · Grupo Delta (borrador)',
+        filas: [
+          { etiqueta: 'US$ 1.800', texto: 'Sistema de gestión', detalle: '+ US$ 80 por mes' },
+          { etiqueta: 'US$ 600', texto: 'Bot de WhatsApp con IA', detalle: '+ US$ 40 por mes' },
+          { etiqueta: 'Total', texto: 'US$ 2.400 + US$ 120 por mes', detalle: 'Esperando tu visto bueno' },
+        ],
+      },
+      decir:
+        'Con eso armé la propuesta para Delta: sistema de gestión más bot de WhatsApp, dos mil cuatrocientos dólares de implementación y ciento veinte por mes. Quedó en borrador en el cotizador, esperando tu visto bueno.',
+    },
+    {
+      titulo: 'Pipeline',
+      escena: {
+        titulo: 'Movimientos del pipeline',
+        filas: [
+          { etiqueta: 'Demo', texto: 'Panadería Lumière', detalle: 'Pasó de reunión a demo' },
+          { etiqueta: 'Propuesta', texto: 'Estudio Ferrari', detalle: 'Pasó de demo a propuesta' },
+          { etiqueta: '11', texto: 'Oportunidades abiertas', detalle: 'Unos US$ 18.000 · 3 para cerrar este mes' },
+        ],
+      },
+      decir:
+        'En el pipeline pasé a Lumière a demo y a Ferrari a propuesta. Hay once oportunidades abiertas por unos dieciocho mil dólares, y tres se pueden cerrar este mes.',
+    },
+    {
+      titulo: 'Finanzas',
+      escena: {
+        titulo: 'Finanzas del mes',
+        filas: [
+          { etiqueta: 'Cobrado', texto: 'US$ 8.450', detalle: 'En lo que va del mes' },
+          { etiqueta: 'Recurrente', texto: 'US$ 2.180 por mes', detalle: 'Abonos de clientes activos' },
+          { etiqueta: 'Reclamar', texto: 'Grupo Norte', detalle: 'Abono de noviembre sin pagar' },
+        ],
+      },
+      decir:
+        'En plata: este mes cobramos ocho mil cuatrocientos cincuenta dólares y el ingreso recurrente está en dos mil ciento ochenta. Grupo Norte todavía no pagó el abono de noviembre: te sugiero recordárselo hoy.',
+    },
+    {
+      titulo: 'Meta del mes',
+      escena: {
+        titulo: 'Meta del mes',
+        filas: [
+          { etiqueta: '3 / 4', texto: 'Clientes nuevos', detalle: 'Falta uno para la meta' },
+          { etiqueta: '17:30', texto: 'Si cerramos Grupo Delta', detalle: 'Meta cumplida 9 días antes del cierre' },
+        ],
+      },
+      decir: 'Vamos tres de cuatro clientes nuevos en la meta del mes. Si cerramos Delta esta tarde, la cumplimos con nueve días de anticipación.',
+    },
+    {
+      titulo: 'Resumen',
+      escena: {
+        titulo: 'Para hoy',
+        filas: [
+          { etiqueta: '3', texto: 'Reuniones preparadas' },
+          { etiqueta: '1', texto: 'Propuesta para aprobar', detalle: 'Grupo Delta' },
+          { etiqueta: '1', texto: 'Cobro para reclamar', detalle: 'Grupo Norte' },
+        ],
+      },
+      decir:
+        'En resumen: tres reuniones preparadas, una propuesta lista para aprobar y un cobro para reclamar. Cuando quieras, arrancamos. Estoy a una palabra de distancia.',
+    },
+  ]
+}
+
+/** Versión tutorial: recorre el hub explicando cada pantalla */
+function pasosTutorial(ahora: Date): PasoDemo[] {
   return [
     {
       titulo: 'Bienvenida',
@@ -135,5 +267,12 @@ export function agentesDemo(segundos: number, inicio: number): AgenteMision[] {
   })
 }
 
-/** "Jarvis, modo demo", "hacé una demostración", "mostrame un recorrido"… */
-export const pideDemo = (texto: string) => /\bmodo demo\b|\bdemostraci[oó]n\b|\brecorrido\b|\btour\b/i.test(texto)
+/**
+ * Qué demo pide, si pide una: "Jarvis, modo show", "demo actuada", "simulá un día" → actuada;
+ * "Jarvis, modo demo", "hacé una demostración", "mostrame un recorrido" → tutorial.
+ */
+export function pideDemo(texto: string): TipoDemo | null {
+  if (/\bmodo (show|en acci[oó]n|actuad[oa])\b|\bdemo (actuada|en acci[oó]n)\b|\bsimul[aá] (un|el) d[ií]a\b/i.test(texto)) return 'actuada'
+  if (/\bmodo demo\b|\bdemostraci[oó]n\b|\brecorrido\b|\btour\b/i.test(texto)) return 'tutorial'
+  return null
+}
