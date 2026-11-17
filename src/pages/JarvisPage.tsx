@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -13,6 +13,8 @@ import {
   Volume2,
   VolumeX,
   Zap,
+  Maximize2,
+  Minimize2,
   X,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
@@ -26,7 +28,9 @@ import { useConfigVoz } from '../features/asistente/useConfigVoz'
 import { useVoz } from '../features/asistente/useVoz'
 import { useReconocimientoVoz } from '../features/asistente/useReconocimientoVoz'
 import { useManosLibres } from '../features/asistente/useManosLibres'
-import { Nucleo, Onda, type EstadoNucleo } from '../features/asistente/Nucleo'
+import { Onda, type EstadoNucleo } from '../features/asistente/Nucleo'
+import { RedNeural, type NodoRed } from '../features/asistente/RedNeural'
+import { ETAPAS_ABIERTAS } from '../types/db'
 import { useDashboard } from '../features/inicio/useDashboard'
 import { useReuniones } from '../features/calendario/useReuniones'
 import { useConfigGrabaciones } from '../features/grabaciones/useGrabaciones'
@@ -83,6 +87,27 @@ export function JarvisPage() {
   const [editandoPersonalidad, setEditandoPersonalidad] = useState(false)
   const configVoz = useConfigVoz()
   const [editandoVoz, setEditandoVoz] = useState(false)
+
+  // Pantalla completa de la red (para una tele o un monitor). En iPhone no existe: no se muestra el botón.
+  const hud = useRef<HTMLElement>(null)
+  const [pantallaCompleta, setPantallaCompleta] = useState(false)
+  const puedePantallaCompleta = typeof document !== 'undefined' && (document.fullscreenEnabled || 'webkitRequestFullscreen' in document.documentElement)
+  useEffect(() => {
+    const alCambiar = () => setPantallaCompleta(Boolean(document.fullscreenElement ?? (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement))
+    document.addEventListener('fullscreenchange', alCambiar)
+    document.addEventListener('webkitfullscreenchange', alCambiar)
+    return () => {
+      document.removeEventListener('fullscreenchange', alCambiar)
+      document.removeEventListener('webkitfullscreenchange', alCambiar)
+    }
+  }, [])
+  const alternarPantallaCompleta = useCallback(() => {
+    const el = hud.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null
+    if (!el) return
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+    else if (el.requestFullscreen) el.requestFullscreen().catch(() => {})
+    else el.webkitRequestFullscreen?.()
+  }, [])
   // Pendientes primero; después las últimas resueltas en esta sesión
   const accionesVisibles = [...acciones.filter((a) => a.estado === 'pendiente'), ...acciones.filter((a) => a.estado !== 'pendiente').slice(-3).reverse()]
   const resolver = async (id: string, que: 'confirmar' | 'cancelar') => {
@@ -194,6 +219,19 @@ export function JarvisPage() {
   const ultima = [...mensajes].reverse().find((m) => m.rol === 'asistente')
   const ultimaPregunta = [...mensajes].reverse().find((m) => m.rol === 'usuario')
   const pendientesGrab = (d.pendientes ?? []).length
+
+  // Datos del hub que orbitan en la red
+  const nodosRed = useMemo<NodoRed[]>(() => {
+    const abiertos = (d.prospectos ?? []).filter((p) => ETAPAS_ABIERTAS.includes(p.etapa)).length
+    return [
+      { etiqueta: 'Hoy', valor: `${agendaHoy.length} ${agendaHoy.length === 1 ? 'tarea' : 'tareas'}` },
+      { etiqueta: 'Clientes activos', valor: String(d.activos ?? 0) },
+      { etiqueta: 'Pipeline', valor: `${abiertos} abiertos` },
+      { etiqueta: 'Recurrente', valor: formatUSD(d.mrr ?? 0) },
+      { etiqueta: 'Pendientes', valor: String(pendientesGrab) },
+      { etiqueta: 'Memoria', valor: `${memoria.notas.length} notas` },
+    ]
+  }, [agendaHoy.length, d.prospectos, d.activos, d.mrr, pendientesGrab, memoria.notas.length])
   const saludo = ahora.getHours() < 12 ? 'Buen día' : ahora.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'
 
   return (
@@ -230,7 +268,7 @@ export function JarvisPage() {
           </div>
         </header>
 
-        <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
+        <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
           {/* Izquierda: estado */}
           <div className="order-2 flex flex-col gap-4 lg:order-1">
             <Panel titulo="Estado del sistema">
@@ -285,38 +323,79 @@ export function JarvisPage() {
 
           {/* Centro: núcleo, comandos y agenda */}
           <div className="order-1 flex min-w-0 flex-col gap-4 lg:order-2">
-            <section className="relative flex flex-col items-center rounded-2xl border border-acento/25 bg-superficie/60 px-4 pt-6 pb-5 backdrop-blur">
-              <button
-                onClick={activado ? tocarMicrofono : activar}
-                disabled={pensando}
-                className="w-full max-w-[300px] cursor-pointer rounded-full disabled:cursor-wait"
-                aria-label={activado ? (ptt.escuchando ? 'Terminar y preguntar' : 'Hablar con Jarvis') : 'Activar Jarvis'}
-              >
-                <Nucleo estado={estadoNucleo} />
-              </button>
-
-              {!activado ? (
+            <section
+              ref={hud}
+              className={cn(
+                'relative overflow-hidden bg-fondo',
+                pantallaCompleta ? 'h-dvh w-full' : 'h-[420px] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)]',
+              )}
+            >
+              <RedNeural estado={estadoNucleo} nodos={nodosRed} className="size-full">
+                {/* El núcleo se toca para activar o para hablar */}
                 <button
-                  onClick={activar}
-                  className="mt-4 inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-acento px-6 font-semibold text-white shadow-[0_0_30px_-6px_var(--color-acento)] hover:bg-acento-fuerte"
+                  onClick={activado ? tocarMicrofono : activar}
+                  disabled={pensando}
+                  className="absolute top-[47%] left-1/2 grid aspect-square w-[min(44vw,230px)] -translate-x-1/2 -translate-y-1/2 cursor-pointer place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-acento-claro disabled:cursor-wait"
+                  aria-label={activado ? (ptt.escuchando ? 'Terminar y preguntar' : 'Hablar con Jarvis') : 'Activar Jarvis'}
                 >
-                  <Zap className="size-5" /> Activar Jarvis
-                </button>
-              ) : (
-                <div className="mt-3 flex items-center gap-3">
-                  <Onda activa={estadoNucleo === 'escuchando' || estadoNucleo === 'hablando'} />
-                  <span className="text-sm font-semibold tracking-[0.15em] text-acento-claro uppercase">
-                    {estadoNucleo === 'reposo' ? (manos.activo ? 'Escuchando "Jarvis"' : 'Listo') : estadoNucleo}
+                  <span className="pointer-events-none text-center drop-shadow-[0_0_12px_var(--color-acento)]">
+                    <span className="block pl-[0.3em] font-display text-[clamp(16px,2.4vw,24px)] font-bold tracking-[0.3em] text-white">JARVIS</span>
+                    <span className="mt-0.5 block pl-[0.25em] text-[9px] font-semibold tracking-[0.25em] text-acento-claro uppercase">brixx · hub</span>
                   </span>
-                  <Onda activa={estadoNucleo === 'escuchando' || estadoNucleo === 'hablando'} />
+                </button>
+
+                {/* Pantalla completa (para una tele o un monitor) */}
+                {puedePantallaCompleta && (
+                  <button
+                    onClick={alternarPantallaCompleta}
+                    className="absolute top-3 right-3 z-10 grid size-10 cursor-pointer place-items-center rounded-[11px] border border-acento/30 bg-fondo/60 text-acento-claro backdrop-blur hover:text-white"
+                    aria-label={pantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                    title={pantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                  >
+                    {pantallaCompleta ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+                  </button>
+                )}
+
+                {pantallaCompleta && (
+                  <div className="pointer-events-none absolute top-5 left-6">
+                    <div className="text-xs font-semibold tracking-[0.3em] text-acento-claro uppercase">Centro de comando · brixx</div>
+                    <div className="tabular font-display text-4xl font-bold">{ahora.toLocaleTimeString('es-AR', { hour12: false })}</div>
+                    <div className="text-sm text-tenue">
+                      {saludo}, {miembro?.nombre.split(' ')[0]}
+                    </div>
+                  </div>
+                )}
+
+                {/* Estado / activar */}
+                <div className="absolute inset-x-0 bottom-4 flex flex-col items-center px-4">
+                  {!activado ? (
+                    <>
+                      <button
+                        onClick={activar}
+                        className="inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-acento px-6 font-semibold text-white shadow-[0_0_30px_-6px_var(--color-acento)] hover:bg-acento-fuerte"
+                      >
+                        <Zap className="size-5" /> Activar Jarvis
+                      </button>
+                      <p className="mt-2 max-w-sm text-center text-xs text-tenue">
+                        Te saluda con el briefing del día{manos.disponible ? ' y queda escuchando: decí "Jarvis" y tu pregunta.' : '. Después tocá el núcleo para hablar.'}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-full bg-fondo/50 px-3 py-1 backdrop-blur">
+                      <Onda activa={estadoNucleo === 'escuchando' || estadoNucleo === 'hablando'} />
+                      <span className="text-sm font-semibold tracking-[0.15em] text-acento-claro uppercase">
+                        {estadoNucleo === 'reposo' ? (manos.activo ? 'Escuchando "Jarvis"' : 'Listo') : estadoNucleo}
+                      </span>
+                      <Onda activa={estadoNucleo === 'escuchando' || estadoNucleo === 'hablando'} />
+                    </div>
+                  )}
+                  {pantallaCompleta && activado && (
+                    <p className="mt-3 line-clamp-2 max-w-3xl text-center text-base text-suave">
+                      {pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' || !ultima ? leyenda : ultima.texto}
+                    </p>
+                  )}
                 </div>
-              )}
-              {!activado && (
-                <p className="mt-3 max-w-sm text-center text-sm text-tenue">
-                  Te saluda con el briefing del día y queda escuchando: decí "Jarvis" y tu pregunta.
-                  {!manos.disponible && ' En este dispositivo, tocá el núcleo para hablar.'}
-                </p>
-              )}
+              </RedNeural>
             </section>
 
             {accionesVisibles.length > 0 && (
