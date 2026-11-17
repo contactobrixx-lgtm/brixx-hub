@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { agentesDemo, pasosDemo, type PasoDemo } from './demo'
+import { agentesDemo, pasosDemo, type PasoDemo, type TipoDemo } from './demo'
 import type { DestinoPantalla } from './PanelPantalla'
 import type { AgenteMision } from './useMisiones'
 
@@ -40,8 +40,8 @@ export function useDemo(voz: VozDemo, conVoz: boolean, abrir: (d: DestinoPantall
     setAgentes([])
   }, [])
 
-  const iniciar = useCallback(() => {
-    setPasos(pasosDemo())
+  const iniciar = useCallback((tipo: TipoDemo = 'tutorial') => {
+    setPasos(pasosDemo(tipo))
     setIndice(0)
   }, [])
 
