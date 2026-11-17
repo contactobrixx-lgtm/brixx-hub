@@ -122,6 +122,17 @@ export const HERRAMIENTAS_ACCIONES: Anthropic.Beta.BetaTool[] = [
   }),
 ]
 
+/** Abrir una pantalla del hub (navegar no cambia datos: no hace falta confirmar). */
+export const PANTALLAS = [
+  'inicio', 'calendario', 'pipeline', 'clientes', 'carpeta_cliente', 'cotizador', 'cotizacion_cliente', 'catalogo',
+  'finanzas', 'costos', 'grabaciones', 'ultima_grabacion', 'sistemas', 'demos',
+] as const
+export const HERRAMIENTA_PANTALLA: Anthropic.Beta.BetaTool = herramienta(
+  'mostrar_pantalla',
+  'Abre una pantalla del hub para mostrársela al socio ("mostrame…", "abrí…", "llevame a…", "quiero ver…"). En la pantalla de Jarvis se abre como panel; en el resto del hub, navega. carpeta_cliente, cotizacion_cliente (la última) y ultima_grabacion (de un cliente o la última en general) usan "cliente".',
+  { pantalla: { type: 'string', enum: [...PANTALLAS] }, cliente: opcional({ type: 'string', description: 'Nombre del cliente, si la pantalla es de un cliente.' }) },
+)
+
 const TIPOS_ACCION = new Set<string>(['agendar_reunion', 'proxima_accion', 'mover_etapa', 'nota_cliente', 'cotizacion_borrador'])
 
 /** Búsqueda y lectura web: corren en los servidores de Anthropic (no hay que ejecutarlas acá). */
@@ -149,6 +160,7 @@ export const NOMBRE_CONSULTA: Record<string, string> = {
   nota_cliente: 'carpeta del cliente',
   cotizacion_borrador: 'cotizador',
   confirmar_accion: 'acción',
+  mostrar_pantalla: 'pantallas',
   cancelar_accion: 'acción',
   web_search: 'búsqueda web',
   web_fetch: 'lectura web',
@@ -161,9 +173,21 @@ const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefi
  * Ejecuta una herramienta. Escribe solo en la memoria de Jarvis; las acciones sobre el hub
  * se preparan y se ejecutan recién cuando el socio confirma.
  */
-export async function ejecutar(hub: Hub, memoria: Memoria, acciones: Acciones, nombre: string, e: Entrada): Promise<string> {
+export async function ejecutar(
+  hub: Hub,
+  memoria: Memoria,
+  acciones: Acciones,
+  nombre: string,
+  e: Entrada,
+  mostrar: (destino: { ruta: string; titulo: string }) => void = () => {},
+): Promise<string> {
   if (TIPOS_ACCION.has(nombre)) return acciones.preparar(nombre as TipoAccion, e)
   switch (nombre) {
+    case 'mostrar_pantalla': {
+      const destino = await hub.pantalla(String(e.pantalla ?? ''), s(e.cliente))
+      mostrar(destino)
+      return `Listo: le estoy mostrando "${destino.titulo}" en pantalla. Decile en pocas palabras qué abriste (o lo más importante que se ve), sin repetir todo.`
+    }
     case 'confirmar_accion': {
       const r = await acciones.confirmar(String(e.id ?? ''))
       return `${r.estado === 'hecha' ? 'Hecha' : r.estado === 'error' ? 'Falló' : 'No se hizo'}: ${r.resultado ?? r.resumen}`

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { AudioLines, Mic, Send, Square, Trash2, Volume2, VolumeX } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
@@ -33,6 +34,7 @@ export function Asistente() {
   const [texto, setTexto] = useState('')
   const [vozActiva, setVozActiva] = useState(leerVozActiva)
   const voz = useVoz()
+  const navigate = useNavigate()
   const { mensajes, pensando, consultando, acciones, preguntar, resolverAccion, limpiar } = useAsistente()
   const resolver = async (id: string, que: 'confirmar' | 'cancelar') => {
     const a = await resolverAccion(id, que)
@@ -46,7 +48,7 @@ export function Asistente() {
     voz.callar()
     // La voz arranca con la primera oración, mientras sigue llegando el resto
     const vivo = vozActiva ? voz.enVivo() : null
-    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar() })
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: (d) => navigate(d.ruta) })
     vivo?.terminar()
   }
 

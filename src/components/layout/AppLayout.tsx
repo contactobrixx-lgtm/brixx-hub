@@ -66,6 +66,9 @@ function LinkNav({ item }: { item: Item }) {
   )
 }
 
+/** true cuando el hub está adentro de un iframe (el panel de pantallas de Jarvis) */
+const embebido = typeof window !== 'undefined' && window.self !== window.top
+
 export function AppLayout() {
   const { miembro, salir } = useAuth()
   const [masAbierto, setMasAbierto] = useState(false)
@@ -75,6 +78,15 @@ export function AppLayout() {
 
   const enMas = ![...MOVIL, '/grabar'].some((r) => pathname.startsWith(r))
   const resto = [...ESTUDIO, ...PROYECTOS].filter((i) => !MOVIL.includes(i.to))
+
+  // Abierta dentro de un panel de Jarvis ("mostrame la carpeta de Nova"): solo la pantalla, sin menú ni asistente
+  if (embebido) {
+    return (
+      <main className="h-full overflow-y-auto">
+        <Outlet />
+      </main>
+    )
+  }
 
   return (
     <div className="flex h-full">

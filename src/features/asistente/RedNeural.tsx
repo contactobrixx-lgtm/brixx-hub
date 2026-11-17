@@ -12,6 +12,10 @@ interface Props {
   /** Datos del hub que orbitan alrededor del núcleo (clientes, pipeline, hoy…) */
   nodos: NodoRed[]
   className?: string
+  /** Volumen de la voz de Jarvis ahora (0 a 1): la red "explota" a su ritmo. Sin esto, se simula. */
+  nivel?: () => number
+  /** Modo tele: más partículas, más brillo y colores más vivos */
+  intenso?: boolean
   /** Lo que va encima de la red (botón del núcleo, estado, etc.) */
   children?: ReactNode
 }
@@ -74,12 +78,16 @@ interface Onda {
  * orbitando conectados por pulsos de luz. Reacciona al estado (reposo, escuchando, pensando, hablando).
  * Canvas 2D, sin librerías. En el celular usa menos partículas; se pausa con la pestaña oculta.
  */
-export function RedNeural({ estado, nodos, className, children }: Props) {
+export function RedNeural({ estado, nodos, className, nivel: nivelVoz, intenso = false, children }: Props) {
   const lienzo = useRef<HTMLCanvasElement>(null)
   const estadoRef = useRef(estado)
   const nodosRef = useRef(nodos)
+  const nivelRef = useRef(nivelVoz)
+  const intensoRef = useRef(intenso)
   estadoRef.current = estado
   nodosRef.current = nodos
+  nivelRef.current = nivelVoz
+  intensoRef.current = intenso
 
   useEffect(() => {
     const canvas = lienzo.current
@@ -116,7 +124,8 @@ export function RedNeural({ estado, nodos, className, children }: Props) {
     let movil = false
 
     const crearParticulas = () => {
-      const cantidad = Math.round(Math.min(movil ? 650 : 1500, Math.max(320, (w * h) / (movil ? 520 : 420))))
+      const mas = intensoRef.current ? 1.35 : 1
+      const cantidad = Math.round(Math.min((movil ? 650 : 1500) * mas, Math.max(320, ((w * h) / (movil ? 520 : 420)) * mas)))
       particulas = Array.from({ length: cantidad }, () => {
         // A lo largo de todo el núcleo, con algo más de densidad al medio
         const u = Math.random() < 0.6 ? Math.random() : Math.min(1, Math.max(0, 0.5 + (Math.random() + Math.random() - 1) * 0.45))
@@ -155,6 +164,7 @@ export function RedNeural({ estado, nodos, className, children }: Props) {
     let t = 0
     let ultimo = performance.now()
     let acumuladoChispas = 0
+    let vozSuave = 0
     let acumuladoPulsos = 0
     let proximaOnda = 0
     let raf = 0
@@ -203,12 +213,16 @@ export function RedNeural({ estado, nodos, className, children }: Props) {
       const hablando = estadoRef.current === 'hablando'
       const escuchando = estadoRef.current === 'escuchando'
       // "Voz" simulada: suma de senos para que respire de forma irregular al hablar
-      const voz = hablando ? 0.5 + 0.5 * Math.sin(t * 9) * Math.sin(t * 3.7 + 1) : 0
-      const respira = 1 + Math.sin(t * 1.6) * nivel.respira + voz * 0.08
+      // Volumen de la voz real (o simulado si no se puede medir)
+      const medida = hablando ? nivelRef.current?.() : 0
+      const voz = hablando ? Math.min(1, Math.max(0, medida ?? 0.5 + 0.5 * Math.sin(t * 9) * Math.sin(t * 3.7 + 1))) : 0
+      vozSuave += (voz - vozSuave) * Math.min(1, dt * 14)
+      const fuerza = intensoRef.current ? 1.5 : 1
+      const respira = 1 + Math.sin(t * 1.6) * nivel.respira + vozSuave * 0.16 * fuerza
 
       // Estela: en vez de borrar, se tapa con el fondo semitransparente
       ctx.globalCompositeOperation = 'source-over'
-      ctx.fillStyle = rgba(fondo, reducido ? 0.5 : 0.24)
+      ctx.fillStyle = rgba(fondo, reducido ? 0.5 : intensoRef.current ? 0.2 : 0.24)
       ctx.fillRect(0, 0, w, h)
 
       // Halo del núcleo
@@ -263,14 +277,14 @@ export function RedNeural({ estado, nodos, className, children }: Props) {
         const y = g.cy + (pa.u - 0.5) * g.alto * respira + prof * r * 0.18 + Math.sin(t * 2 + pa.fase) * 1.2
         const centelleo = 0.55 + 0.45 * Math.sin(t * 3 + pa.fase)
         const eje = pa.radio < 0.3 // la columna central: más blanca y más brillante
-        const alfa = (0.2 + 0.32 * (prof + 1)) * centelleo * nivel.brillo * (eje ? 1.35 : 1)
+        const alfa = (0.2 + 0.32 * (prof + 1)) * centelleo * nivel.brillo * (eje ? 1.35 : 1) * (1 + vozSuave * 0.5) * (intensoRef.current ? 1.2 : 1)
         const tam = pa.tam * (0.7 + 0.3 * (prof + 1))
         ctx.fillStyle = rgba(eje ? mezclar(colorAltura(pa.u), blanco, 0.55) : colorAltura(pa.u), Math.min(1, alfa))
         ctx.fillRect(x - tam / 2, y - tam / 2, tam, tam)
       }
 
       // --- Chispas: salen del núcleo en arcos (o entran, al escuchar)
-      acumuladoChispas += dt * nivel.chispas * (reducido ? 0.2 : 1)
+      acumuladoChispas += dt * nivel.chispas * (reducido ? 0.2 : 1) * (1 + vozSuave * 3 * fuerza)
       const maxChispas = movil ? 160 : 380
       while (acumuladoChispas > 1) {
         acumuladoChispas -= 1
@@ -316,9 +330,10 @@ export function RedNeural({ estado, nodos, className, children }: Props) {
       }
 
       // --- Ondas al hablar
-      if (hablando && t > proximaOnda) {
-        ondas.push({ r: g.ancho * 0.8, a: 0.35 + voz * 0.3 })
-        proximaOnda = t + 0.35 + Math.random() * 0.35
+      // Una onda en cada golpe de voz (sílabas fuertes)
+      if (hablando && t > proximaOnda && vozSuave > 0.45) {
+        ondas.push({ r: g.ancho * 0.8, a: 0.25 + vozSuave * 0.4 })
+        proximaOnda = t + 0.18 + Math.random() * 0.2
       }
       ondas = ondas.filter((o) => (o.a -= dt * 0.35) > 0)
       for (const o of ondas) {

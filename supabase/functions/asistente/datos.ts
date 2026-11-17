@@ -348,6 +348,89 @@ export class Hub {
   }
 
   // ------------------------------------------------- panorama de hoy (siempre)
+  /**
+   * A qué ruta del hub ir para "mostrame…" / "abrí…". Lanza un error legible si falta o es ambiguo el cliente.
+   */
+  async pantalla(nombre: string, cliente?: string): Promise<{ ruta: string; titulo: string }> {
+    const fijas: Record<string, { ruta: string; titulo: string }> = {
+      inicio: { ruta: '/inicio', titulo: 'Inicio' },
+      calendario: { ruta: '/calendario', titulo: 'Calendario' },
+      pipeline: { ruta: '/pipeline', titulo: 'Pipeline' },
+      clientes: { ruta: '/clientes', titulo: 'Clientes' },
+      cotizador: { ruta: '/cotizador', titulo: 'Cotizaciones' },
+      catalogo: { ruta: '/cotizador?vista=servicios', titulo: 'Catálogo de servicios' },
+      finanzas: { ruta: '/finanzas', titulo: 'Finanzas' },
+      costos: { ruta: '/finanzas?vista=costos', titulo: 'Costos' },
+      grabaciones: { ruta: '/grabaciones', titulo: 'Grabaciones' },
+      sistemas: { ruta: '/sistemas', titulo: 'Sistemas' },
+      demos: { ruta: '/demos', titulo: 'Demos web' },
+    }
+    if (fijas[nombre]) return fijas[nombre]
+    let p: Fila | null = null
+    if (cliente) {
+      const ids = await this.idsPorCliente(cliente)
+      const todos = (await this.prospectos()).filter((x) => ids.includes(x.id as string))
+      const exacto = todos.filter((x) => [x.empresa, x.nombre].some((v) => typeof v === 'string' && normalizar(v) === normalizar(cliente)))
+      const elegidos = exacto.length === 1 ? exacto : todos
+      if (!elegidos.length) throw new Error(`No encontré a "${cliente}". Preguntale el nombre exacto.`)
+      if (elegidos.length > 1) throw new Error(`Hay varios que coinciden con "${cliente}": ${elegidos.map((x) => x.empresa || x.nombre).join(', ')}. Preguntale cuál.`)
+      p = elegidos[0]
+    }
+    const quien = p ? String(p.empresa || p.nombre) : ''
+    if (nombre === 'carpeta_cliente') {
+      if (!p) throw new Error('Falta el cliente. Preguntale cuál.')
+      return { ruta: `/clientes/${p.id}`, titulo: `Carpeta de ${quien}` }
+    }
+    if (nombre === 'cotizacion_cliente') {
+      if (!p) throw new Error('Falta el cliente. Preguntale cuál.')
+      const { data } = await this.db.from('cotizaciones').select('id, numero').eq('prospecto_id', p.id).order('fecha', { ascending: false }).limit(1)
+      if (!data?.length) throw new Error(`${quien} no tiene cotizaciones todavía.`)
+      return { ruta: `/cotizador?abrir=${data[0].id}`, titulo: `Cotización COT-${String(data[0].numero).padStart(4, '0')} de ${quien}` }
+    }
+    if (nombre === 'ultima_grabacion') {
+      let q = this.db.from('grabaciones').select('id, titulo').order('created_at', { ascending: false }).limit(1)
+      if (p) q = q.eq('prospecto_id', p.id)
+      const { data } = await q
+      if (!data?.length) throw new Error(p ? `${quien} no tiene grabaciones ni intervenciones.` : 'No hay grabaciones.')
+      return { ruta: `/grabaciones/${data[0].id}`, titulo: String(data[0].titulo) }
+    }
+    throw new Error(`No conozco la pantalla "${nombre}".`)
+  }
+
+  /** Los números del mes para el "recap": cobrado, clientes nuevos (y meta), prospectos, recurrente y por cobrar. */
+  async numerosMes(): Promise<string> {
+    const hoy = hoyAR()
+    const inicioMes = `${hoy.slice(0, 7)}-01`
+    const [prospectos, tc, { data: cobros }, { data: aceptadas }, { data: meta }, { data: cobrosTodos }] = await Promise.all([
+      this.prospectos(),
+      this.tipoCambio(),
+      this.db.from('cobros').select('monto, moneda').gte('fecha', inicioMes).lte('fecha', hoy),
+      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada'),
+      this.db.from('metas').select('clientes_nuevos, ingreso_recurrente').eq('tipo', 'mes').eq('periodo', inicioMes).maybeSingle(),
+      this.db.from('cobros').select('prospecto_id, monto, moneda, concepto'),
+    ])
+    const usd = (monto: number, moneda: unknown) => (moneda === 'USD' ? Number(monto) : tc ? Number(monto) / tc : 0)
+    const cobrado = (cobros ?? []).reduce((t, c) => t + usd(c.monto as number, c.moneda), 0)
+    const nuevos = prospectos.filter((p) => GANADAS.includes(p.etapa as string) && p.fecha_cierre && (p.fecha_cierre as string) >= inicioMes)
+    const prospectosNuevos = prospectos.filter((p) => String(p.created_at ?? '').slice(0, 10) >= inicioMes).length
+    const abiertos = prospectos.filter((p) => ['contacto', 'reunion', 'demo', 'propuesta'].includes(p.etapa as string)).length
+    const activos = new Set(prospectos.filter((p) => ['implementacion', 'mantenimiento'].includes(p.etapa as string)).map((p) => p.id))
+    const mrr = (aceptadas ?? []).filter((c) => activos.has(c.prospecto_id)).reduce((t, c) => t + usd(this.totales(c).mes, c.moneda), 0)
+    // Por cobrar: implementación aceptada menos lo cobrado (sin abonos) de cada cliente
+    const cobradoPorCliente = new Map<unknown, number>()
+    for (const c of cobrosTodos ?? []) if (c.concepto !== 'abono') cobradoPorCliente.set(c.prospecto_id, (cobradoPorCliente.get(c.prospecto_id) ?? 0) + usd(c.monto as number, c.moneda))
+    const implPorCliente = new Map<unknown, number>()
+    for (const c of aceptadas ?? []) implPorCliente.set(c.prospecto_id, (implPorCliente.get(c.prospecto_id) ?? 0) + usd(this.totales(c).impl, c.moneda))
+    let porCobrar = 0
+    for (const [id, impl] of implPorCliente) porCobrar += Math.max(0, impl - (cobradoPorCliente.get(id) ?? 0))
+    return [
+      `Números del mes (desde el ${inicioMes}, en USD${tc ? '' : '; sin tipo de cambio, lo que está en pesos no se suma'}):`,
+      `cobrado ${Math.round(cobrado)}; clientes nuevos ${nuevos.length}${meta?.clientes_nuevos != null ? ` de una meta de ${meta.clientes_nuevos}` : ''}${nuevos.length ? ` (${nuevos.map((p) => p.empresa || p.nombre).join(', ')})` : ''};`,
+      `prospectos nuevos ${prospectosNuevos}; prospectos abiertos en el pipeline ${abiertos};`,
+      `ingreso recurrente ${Math.round(mrr)} por mes${meta?.ingreso_recurrente != null ? ` (meta ${meta.ingreso_recurrente})` : ''}; por cobrar ${Math.round(porCobrar)}.`,
+    ].join(' ')
+  }
+
   async panorama(nombreUsuario: string): Promise<string> {
     const hoy = hoyAR()
     const prospectos = await this.prospectos()
@@ -374,6 +457,7 @@ export class Hub {
       `Cotizaciones enviadas sin respuesta hace más de una semana: ${(await Promise.all(sinRespuesta.map(async (c) => `COT-${String(c.numero).padStart(4, '0')} de ${await n(c.prospecto_id)}`))).join('; ') || 'ninguna'}.`,
       `Grabaciones sin procesar o con error: ${(pendientesGrab ?? []).map((g) => `"${g.titulo}" (${g.estado})`).join('; ') || 'ninguna'}.`,
       `Clientes activos: ${prospectos.filter((p) => GANADAS.includes(p.etapa as string)).map((p) => `${p.empresa || p.nombre} (${p.etapa})`).join(', ') || 'ninguno'}.`,
+      await this.numerosMes().catch(() => 'Números del mes: no se pudieron calcular.'),
     ]
     return out.join('\n')
   }

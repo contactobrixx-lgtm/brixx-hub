@@ -6,7 +6,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import type { Acciones, AccionVisible } from './acciones.ts'
-import { ejecutar, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import { ejecutar, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
 
 export const MODELO = 'claude-sonnet-5-5' // análisis e investigación (con búsqueda web)
 export const MODELO_RAPIDO = 'claude-haiku-5-5' // el día a día: agenda, clientes, acciones, briefing
@@ -36,6 +36,10 @@ Te hablan por voz y tu respuesta se lee en voz alta y se muestra en pantalla.
 Datos:
 - Siempre tenés el panorama de hoy (reuniones, próximas acciones, vencidos, cotizaciones sin respuesta, clientes activos) y tu memoria. \
 Para el briefing o "¿qué hay para hoy?", respondé directo con el panorama, sin consultar herramientas.
+- Recap: para "recap", "resumen", "¿cómo venimos?", "¿cómo va el mes?" usá los Números del mes del panorama: \
+3 o 4 oraciones con números concretos (cobrado, clientes nuevos contra la meta, prospectos, recurrente, por cobrar) y lo urgente al final.
+- Pantallas: si te piden mostrar, abrir o ver algo del hub ("mostrame la carpeta de Nova", "abrí el pipeline"), usá mostrar_pantalla \
+y contestá en una oración qué abriste. Si te preguntan un dato, contestá el dato; podés además abrir la pantalla si ayuda a verlo.
 - La charla previa está en los mensajes anteriores: si la pregunta actual es una respuesta a algo que preguntaste vos \
 (por ejemplo, te dicen solo "el jueves a las tres" después de que preguntaste para cuándo), continuá con eso.
 - Para todo lo demás del hub usá las herramientas: agenda, grabaciones e intervenciones (buscar y leer), clientes y prospectos \
@@ -57,6 +61,7 @@ usá confirmar_accion; si dice que no o la quiere cambiar, cancelar_accion (y pr
 
 Cómo responder:
 - En español rioplatense, con voseo, cálido y directo, como un compañero de trabajo.
+- No digas tu propio nombre ("Jarvis") en las respuestas.
 - Empezá SIEMPRE por la respuesta o la conclusión, en la primera oración. Después, el detalle.
 - Corto: 2 a 4 oraciones. Para el briefing del día, hasta 6. Para un análisis (redes, competencia, qué le conviene a un cliente), \
 hasta 10 oraciones: la voz lee el principio y en pantalla queda todo.
@@ -132,6 +137,7 @@ export type Evento =
   | { tipo: 'consulta'; nombre: string }
   | { tipo: 'nueva_vuelta' }
   | { tipo: 'accion'; accion: AccionVisible }
+  | { tipo: 'mostrar'; destino: { ruta: string; titulo: string } }
 
 export async function responder(
   hub: Hub,
@@ -186,7 +192,7 @@ export async function responder(
           // Esfuerzo bajo: en lo simple ni siquiera razona antes de contestar
           output_config: { effort: 'low' },
           // Sin búsqueda web (eso va al otro modelo)
-          tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
+          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
         })
       : client.beta.messages.stream({
           ...comun,
@@ -198,7 +204,7 @@ export async function responder(
           // bloques "thinking" y se reenvían tal cual.
           thinking: { type: 'between_tools' },
           output_config: { effort: 'low' },
-          tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
+          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
         })
     for await (const e of stream) {
       if (e.type === 'content_block_delta' && e.delta.type === 'text_delta') avisar({ tipo: 'texto', delta: e.delta.text })
@@ -224,7 +230,7 @@ export async function responder(
         usos.map(async (u): Promise<Anthropic.Beta.BetaToolResultBlockParam> => {
           anotar(u.name)
           try {
-            return { type: 'tool_result', tool_use_id: u.id, content: await ejecutar(hub, memoria, acciones, u.name, u.input as Record<string, unknown>) }
+            return { type: 'tool_result', tool_use_id: u.id, content: await ejecutar(hub, memoria, acciones, u.name, u.input as Record<string, unknown>, (destino) => avisar({ tipo: 'mostrar', destino })) }
           } catch (e) {
             return { type: 'tool_result', tool_use_id: u.id, content: `Error: ${e instanceof Error ? e.message : e}`, is_error: true }
           }
