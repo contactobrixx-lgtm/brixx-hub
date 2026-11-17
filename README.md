@@ -140,7 +140,7 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 
 **Personalidad:** en el panel "Personalidad" de Jarvis escribís cómo querés que sea (tono, qué priorizar, qué evitar). Vale para los dos socios. Las reglas de fondo no cambian: no inventa datos y no hace nada sin tu confirmación.
 
-**Velocidad:** la respuesta aparece mientras se escribe y Jarvis empieza a hablar con la primera oración. Lee hasta unos 600 caracteres; si la respuesta es más larga, el resto queda en pantalla.
+**Velocidad:** la respuesta aparece mientras se escribe y Jarvis empieza a hablar con la primera oración. Lo del día a día lo contesta un modelo rápido; cuando le pedís analizar redes, webs o competencia usa uno más capaz (tarda más). Abajo de la conversación ves cuánto tardó la última respuesta. Lee hasta unos 600 caracteres; si la respuesta es más larga, el resto queda en pantalla.
 
 **Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar; las que buscan en internet, algunos centavos más.
 
@@ -153,10 +153,10 @@ Sin configurar nada, Jarvis lee con la voz del dispositivo (la más grave en esp
 3. En Supabase: **Edge Functions → Secrets → Add new secret**. Name: `ELEVENLABS_API_KEY`; Value: la clave.
 4. Listo: en Jarvis, la fila **Voz** del estado pasa a decir **Premium**.
 
-**Cambiar la voz (opcional).** Por defecto usa "Daniel", grave y de locutor. Para elegir otra:
-1. En ElevenLabs entrá a **Voices → Voice Library**. Filtrá por idioma **Spanish** y género **Male**, y probá las que te gusten.
-2. Agregala a **My Voices**, abrila y copiá su **Voice ID**.
-3. En Supabase, sumá el secret `ELEVENLABS_VOICE_ID` con ese valor. Se aplica en la siguiente respuesta.
+**Cambiar la voz (recomendado).** Por defecto usa "Daniel", que es una voz británica: habla español con acento inglés. Para una voz argentina:
+1. En ElevenLabs entrá a **Voices → Voice Library**. Filtrá por idioma **Spanish** y acento **Argentinian** (o Latin American) y escuchá las que te gusten.
+2. Tocá **Add to My Voices**. Después, en **My Voices**, abrila y copiá su **Voice ID**.
+3. En el hub: **Jarvis → panel Voz → Cambiar**. Pegá el Voice ID, tocá **Probar** y, si te gusta, **Guardar**. Ahí también elegís el modelo: **Rápida** (recomendada para conversar) o **Más natural** (tarda más en arrancar).
 
 **Consumo.** Usa el modelo `eleven_flash_v2_5`, el más rápido: medio crédito por letra. Para cuidar los créditos:
 - En pantalla siempre aparece la respuesta completa. A ElevenLabs solo va la parte hablada.

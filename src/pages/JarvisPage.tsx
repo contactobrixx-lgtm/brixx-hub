@@ -21,6 +21,8 @@ import { useMemoria } from '../features/asistente/useMemoria'
 import { usePersonalidad } from '../features/asistente/usePersonalidad'
 import { TarjetaAccion } from '../features/asistente/TarjetaAccion'
 import { PersonalidadForm } from '../features/asistente/PersonalidadForm'
+import { VozForm } from '../features/asistente/VozForm'
+import { useConfigVoz } from '../features/asistente/useConfigVoz'
 import { useVoz } from '../features/asistente/useVoz'
 import { useReconocimientoVoz } from '../features/asistente/useReconocimientoVoz'
 import { useManosLibres } from '../features/asistente/useManosLibres'
@@ -79,6 +81,8 @@ export function JarvisPage() {
   const memoria = useMemoria()
   const personalidad = usePersonalidad()
   const [editandoPersonalidad, setEditandoPersonalidad] = useState(false)
+  const configVoz = useConfigVoz()
+  const [editandoVoz, setEditandoVoz] = useState(false)
   // Pendientes primero; después las últimas resueltas en esta sesión
   const accionesVisibles = [...acciones.filter((a) => a.estado === 'pendiente'), ...acciones.filter((a) => a.estado !== 'pendiente').slice(-3).reverse()]
   const resolver = async (id: string, que: 'confirmar' | 'cancelar') => {
@@ -410,6 +414,23 @@ export function JarvisPage() {
               </p>
             </Panel>
 
+            <Panel
+              titulo="Voz"
+              extra={
+                configVoz.disponible ? (
+                  <button onClick={() => setEditandoVoz(true)} className="cursor-pointer text-xs font-semibold text-acento-texto hover:underline">
+                    Cambiar
+                  </button>
+                ) : null
+              }
+            >
+              <p className="text-sm text-suave">
+                {configVoz.vozId ? `Voz elegida (${configVoz.vozId.slice(0, 6)}…)` : 'Daniel, la de ElevenLabs por defecto (acento británico)'}
+                {' · '}
+                {configVoz.modelo === 'eleven_multilingual_v2' ? 'más natural' : 'rápida'}
+              </p>
+            </Panel>
+
             <Panel titulo="Memoria">
               {memoria.notas.length ? (
                 <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto pr-1">
@@ -455,6 +476,7 @@ export function JarvisPage() {
                 <p className="mt-2 border-t border-borde pt-2 text-[11px] text-tenue" title={tiempos.servidor ? JSON.stringify(tiempos.servidor) : undefined}>
                   Última respuesta: {tiempos.primeraPalabra != null ? `empezó a los ${(tiempos.primeraPalabra / 1000).toFixed(1)} s · ` : ''}
                   completa a los {(tiempos.total / 1000).toFixed(1)} s
+                  {tiempos.modelo ? ` · ${tiempos.modelo.includes('haiku') ? 'modelo rápido' : 'modelo de análisis'}` : ''}
                 </p>
               )}
             </Panel>
@@ -536,6 +558,14 @@ export function JarvisPage() {
           </div>
         </section>
       </div>
+      <VozForm
+        abierto={editandoVoz}
+        vozId={configVoz.vozId}
+        modelo={configVoz.modelo}
+        onCerrar={() => setEditandoVoz(false)}
+        onGuardar={configVoz.guardar}
+        onProbar={configVoz.probar}
+      />
       <PersonalidadForm
         abierto={editandoPersonalidad}
         texto={personalidad.texto}

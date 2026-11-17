@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { modoAudio } from '../../lib/audioSession'
 
 // Tipos mínimos de la Web Speech API (no todos los navegadores la traen ni TypeScript la declara completa)
 interface ResultadoVoz {
@@ -70,6 +71,7 @@ export function useReconocimientoVoz(alTerminar: (texto: string) => void) {
     rec.current = null
     setEscuchando(false)
     setParcial('')
+    modoAudio('playback') // terminó de escuchar: el audio vuelve al parlante, fuerte
     try {
       r?.abort() // ya tenemos el texto: se corta el micrófono enseguida
     } catch {
@@ -119,6 +121,7 @@ export function useReconocimientoVoz(alTerminar: (texto: string) => void) {
     r.onend = () => entregar(mejorTexto())
     rec.current = r
     try {
+      modoAudio('play-and-record')
       r.start()
       setEscuchando(true)
       timerMaximo.current = window.setTimeout(() => entregar(mejorTexto()), MAXIMO_MS)
