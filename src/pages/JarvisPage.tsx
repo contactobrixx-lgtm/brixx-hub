@@ -31,6 +31,8 @@ import { useManosLibres } from '../features/asistente/useManosLibres'
 import { Onda, type EstadoNucleo } from '../features/asistente/Nucleo'
 import { RedNeural, type NodoRed } from '../features/asistente/RedNeural'
 import { HudTele } from '../features/asistente/HudTele'
+import { ListaAgentes, PanelMision, RegistroMision, ResultadoMision } from '../features/asistente/PanelMision'
+import { useMisiones } from '../features/asistente/useMisiones'
 import { PanelPantalla, type DestinoPantalla } from '../features/asistente/PanelPantalla'
 import { ETAPAS_ABIERTAS } from '../types/db'
 import { useDashboard } from '../features/inicio/useDashboard'
@@ -138,6 +140,11 @@ export function JarvisPage() {
     [navigate],
   )
 
+  // Misiones de agentes: al terminar, Jarvis lo dice
+  const avisarMision = useRef<(texto: string) => void>(() => {})
+  const misiones = useMisiones((m) => avisarMision.current(`Terminé la misión ${m.titulo ?? ''}. ${m.resumen ?? ''}`))
+  const agentesRed = misiones.mision && misiones.mision.estado !== 'error' && misiones.mision.estado !== 'cancelada' ? misiones.agentes : []
+
   // Pendientes primero; después las últimas resueltas en esta sesión
   const accionesVisibles = [...acciones.filter((a) => a.estado === 'pendiente'), ...acciones.filter((a) => a.estado !== 'pendiente').slice(-3).reverse()]
   const resolver = async (id: string, que: 'confirmar' | 'cancelar') => {
@@ -169,13 +176,18 @@ export function JarvisPage() {
     }
   }, [vozActiva])
 
+  // Cuando una misión termina: Jarvis lo dice (si está activo y con voz)
+  avisarMision.current = (t: string) => {
+    if (activado && vozActiva && !pensando) voz.decir(t)
+  }
+
   const enviar = async (pregunta: string) => {
     if (!pregunta.trim() || pensando) return
     setTexto('')
     voz.callar()
     // La voz arranca con la primera oración, mientras sigue llegando el resto
     const vivo = vozActiva ? voz.enVivo() : null
-    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: mostrarPantalla })
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: mostrarPantalla, alMision: misiones.seguir })
     vivo?.terminar()
     memoria.recargar() // por si guardó algo nuevo
     recargarReuniones() // por si confirmó una reunión por voz
@@ -378,7 +390,14 @@ export function JarvisPage() {
                 modoTele ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative h-[420px] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)]',
               )}
             >
-              <RedNeural estado={estadoNucleo} nodos={modoTele ? [] : nodosRed} nivel={voz.nivel} intenso={modoTele} className="size-full">
+              <RedNeural
+                estado={estadoNucleo}
+                nodos={modoTele || agentesRed.length ? [] : nodosRed}
+                agentes={agentesRed}
+                nivel={voz.nivel}
+                intenso={modoTele}
+                className="size-full"
+              >
                 {/* El núcleo se toca para activar o para hablar */}
                 <button
                   onClick={activado ? tocarMicrofono : activar}
@@ -440,6 +459,15 @@ export function JarvisPage() {
                         </div>
                       ) : null
                     }
+                    izquierda={
+                      misiones.mision ? (
+                        <div className="flex flex-col gap-2">
+                          <p className="text-sm leading-snug font-semibold">{misiones.mision.titulo ?? misiones.mision.pedido}</p>
+                          <ListaAgentes agentes={misiones.agentes} />
+                        </div>
+                      ) : undefined
+                    }
+                    derecha={misiones.activa ? <RegistroMision agentes={misiones.agentes} /> : undefined}
                     controles={
                       <>
                         {activado && ptt.disponible && (
@@ -478,6 +506,19 @@ export function JarvisPage() {
                       </>
                     }
                   />
+                )}
+
+                {/* Resultado de la misión, como panel sobre la red (modo tele) */}
+                {modoTele && !pantalla && misiones.mision?.estado === 'lista' && (
+                  <div className="absolute inset-x-2 top-24 bottom-32 z-20 flex flex-col overflow-hidden rounded-2xl border border-turquesa/40 bg-fondo/95 p-4 shadow-[0_0_60px_-15px_var(--color-turquesa)] backdrop-blur animate-aparecer md:inset-x-auto md:top-[12%] md:right-6 md:bottom-[16%] md:w-[min(46%,820px)]">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold tracking-[0.15em] text-turquesa uppercase">Misión lista · {misiones.mision.titulo}</span>
+                      <button onClick={misiones.ocultar} className="grid size-8 cursor-pointer place-items-center rounded-lg text-suave hover:bg-elevada" aria-label="Cerrar resultado">
+                        <X className="size-4" />
+                      </button>
+                    </div>
+                    <ResultadoMision mision={misiones.mision} onEscuchar={(t) => voz.decir(t)} />
+                  </div>
                 )}
 
                 {pantalla && (
@@ -531,6 +572,18 @@ export function JarvisPage() {
                 )}
               </Panel>
             )}
+
+            <Panel titulo="Misión">
+              <PanelMision
+                mision={misiones.mision}
+                agentes={misiones.agentes}
+                activa={misiones.activa}
+                onCrear={misiones.crear}
+                onCancelar={misiones.cancelar}
+                onOcultar={misiones.ocultar}
+                onEscuchar={(t) => voz.decir(t)}
+              />
+            </Panel>
 
             <Panel titulo="Comandos rápidos">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

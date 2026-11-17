@@ -146,6 +146,8 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 
 **Charla más natural (manos libres, en la compu):** después de que responde, tenés unos segundos para seguir preguntando sin decir "Jarvis". Si está hablando y le decís "Jarvis, pará" (o "Jarvis" y otra pregunta), se calla y te escucha.
 
+**Misiones (varios agentes en paralelo):** para algo grande, "Jarvis, prepará todo para la reunión con Nova" o "buscá 10 inmobiliarias de Rosario y armales un mensaje". Jarvis arma un equipo de 2 a 5 agentes (investigador, analista, redactor…) que trabajan en paralelo y en segundo plano: consultan el hub y, si hace falta, internet. En la red ves un núcleo por agente con su avance; en modo tele, la lista de agentes y el registro en vivo. En uno o dos minutos Jarvis te avisa y te muestra el resultado (con próximos pasos). También se lanzan desde el panel **Misión** de Jarvis. Los agentes solo leen: no cambian nada del hub. Cada misión cuesta algunos centavos de dólar (más si buscan en internet).
+
 **Recap:** "Jarvis, recap" o "¿cómo venimos?": cobrado del mes, clientes nuevos contra la meta, prospectos, recurrente y por cobrar, en pocas oraciones.
 
 **Velocidad:** la respuesta aparece mientras se escribe y Jarvis empieza a hablar con la primera oración. Lo del día a día lo contesta un modelo rápido; cuando le pedís analizar redes, webs o competencia usa uno más capaz (tarda más). Abajo de la conversación ves cuánto tardó la última respuesta. Lee hasta unos 600 caracteres; si la respuesta es más larga, el resto queda en pantalla.

@@ -16,6 +16,8 @@ interface Props {
   nivel?: () => number
   /** Modo tele: más partículas, más brillo y colores más vivos */
   intenso?: boolean
+  /** Agentes de una misión en marcha: el núcleo se achica y aparecen sus núcleos alrededor */
+  agentes?: { nombre: string; estado: string; progreso: number }[]
   /** Lo que va encima de la red (botón del núcleo, estado, etc.) */
   children?: ReactNode
 }
@@ -78,12 +80,14 @@ interface Onda {
  * orbitando conectados por pulsos de luz. Reacciona al estado (reposo, escuchando, pensando, hablando).
  * Canvas 2D, sin librerías. En el celular usa menos partículas; se pausa con la pestaña oculta.
  */
-export function RedNeural({ estado, nodos, className, nivel: nivelVoz, intenso = false, children }: Props) {
+export function RedNeural({ estado, nodos, className, nivel: nivelVoz, intenso = false, agentes = [], children }: Props) {
   const lienzo = useRef<HTMLCanvasElement>(null)
   const estadoRef = useRef(estado)
   const nodosRef = useRef(nodos)
   const nivelRef = useRef(nivelVoz)
   const intensoRef = useRef(intenso)
+  const agentesRef = useRef(agentes)
+  agentesRef.current = agentes
   estadoRef.current = estado
   nodosRef.current = nodos
   nivelRef.current = nivelVoz
@@ -102,6 +106,7 @@ export function RedNeural({ estado, nodos, className, nivel: nivelVoz, intenso =
     const violeta = leerColor('--color-violeta', [166, 139, 255])
     const naranja = leerColor('--color-naranja', [240, 122, 69])
     const turquesa = leerColor('--color-turquesa', [79, 201, 166])
+    const peligro = leerColor('--color-peligro', [242, 134, 123])
     const blanco: RGB = mezclar(claro, [255, 255, 255], 0.6)
 
     /** Color según la altura en el núcleo: arriba violeta/naranja, al medio blanco azulado, abajo turquesa. */
@@ -165,6 +170,17 @@ export function RedNeural({ estado, nodos, className, nivel: nivelVoz, intenso =
     let ultimo = performance.now()
     let acumuladoChispas = 0
     let vozSuave = 0
+    // Misión: el núcleo se achica y cada agente tiene su propio núcleo chico
+    let escalaNucleo = 1
+    const satelites: { ang: number; r: number; vel: number; tam: number; fase: number }[][] = []
+    const particulasSatelite = (i: number) =>
+      (satelites[i] ??= Array.from({ length: movil ? 40 : 80 }, () => ({
+        ang: Math.random() * Math.PI * 2,
+        r: Math.pow(Math.random(), 1.5),
+        vel: 0.8 + Math.random() * 1.6,
+        tam: 0.6 + Math.random() * 1.3,
+        fase: Math.random() * Math.PI * 2,
+      })))
     let acumuladoPulsos = 0
     let proximaOnda = 0
     let raf = 0
@@ -209,7 +225,10 @@ export function RedNeural({ estado, nodos, className, nivel: nivelVoz, intenso =
       const objetivo = ESTADO[estadoRef.current]
       for (const k of Object.keys(nivel) as (keyof typeof nivel)[]) nivel[k] += (objetivo[k] - nivel[k]) * Math.min(1, dt * 2.5)
 
-      const g = geometria()
+      const listaAgentes = agentesRef.current
+      escalaNucleo += ((listaAgentes.length ? 0.55 : 1) - escalaNucleo) * Math.min(1, dt * 2)
+      const g0 = geometria()
+      const g = { ...g0, alto: g0.alto * escalaNucleo, ancho: g0.ancho * escalaNucleo }
       const hablando = estadoRef.current === 'hablando'
       const escuchando = estadoRef.current === 'escuchando'
       // "Voz" simulada: suma de senos para que respire de forma irregular al hablar
@@ -343,6 +362,61 @@ export function RedNeural({ estado, nodos, className, nivel: nivelVoz, intenso =
         ctx.beginPath()
         ctx.ellipse(g.cx, g.cy, o.r, o.r * 0.82, 0, 0, Math.PI * 2)
         ctx.stroke()
+      }
+
+      // --- Agentes de la misión: un núcleo chico por agente, conectado al principal
+      if (listaAgentes.length) {
+        ctx.globalCompositeOperation = 'lighter'
+        const lado = Math.min(w, h)
+        const radio = lado * (movil ? 0.32 : 0.3)
+        listaAgentes.forEach((ag, i) => {
+          const a = (i / listaAgentes.length) * Math.PI * 2 - Math.PI / 2 + t * 0.04
+          const sx = g0.cx + Math.cos(a) * radio * (movil ? 1 : 1.25)
+          const sy = g0.cy + Math.sin(a) * radio * 0.78
+          const trabajando = ag.estado === 'trabajando'
+          const col = ag.estado === 'listo' ? turquesa : ag.estado === 'error' ? peligro : trabajando ? claro : mezclar(claro, fondo, 0.5)
+          // Filamento al núcleo y pulsos mientras trabaja
+          ctx.strokeStyle = rgba(col, 0.18)
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(g0.cx, g0.cy)
+          ctx.lineTo(sx, sy)
+          ctx.stroke()
+          if (trabajando) {
+            for (let k = 0; k < 2; k++) {
+              const s = (t * 0.6 + k * 0.5 + i * 0.17) % 1
+              ctx.fillStyle = rgba(col, 0.9 * Math.sin(Math.PI * s))
+              ctx.beginPath()
+              ctx.arc(g0.cx + (sx - g0.cx) * s, g0.cy + (sy - g0.cy) * s, movil ? 1.6 : 2, 0, Math.PI * 2)
+              ctx.fill()
+            }
+          }
+          // Núcleo chico del agente
+          const rs = lado * (movil ? 0.05 : 0.045) * (trabajando ? 1 + 0.12 * Math.sin(t * 4 + i) : 1)
+          for (const sp of particulasSatelite(i)) {
+            sp.ang += dt * sp.vel * (trabajando ? 1.6 : 0.4)
+            const px = sx + Math.cos(sp.ang) * rs * sp.r
+            const py = sy + Math.sin(sp.ang) * rs * sp.r * 0.8
+            const alfa = (0.35 + 0.4 * Math.sin(t * 3 + sp.fase)) * (ag.estado === 'esperando' ? 0.5 : 1)
+            ctx.fillStyle = rgba(sp.r < 0.35 ? mezclar(col, blanco, 0.5) : col, alfa)
+            ctx.fillRect(px - sp.tam / 2, py - sp.tam / 2, sp.tam, sp.tam)
+          }
+          // Nombre y avance
+          ctx.globalCompositeOperation = 'source-over'
+          ctx.textAlign = 'center'
+          ctx.font = `600 ${movil ? 9 : 10}px Figtree, system-ui, sans-serif`
+          ctx.fillStyle = rgba(claro, 0.85)
+          ctx.fillText(ag.nombre.toUpperCase().slice(0, 22), sx, sy + rs + 14)
+          ctx.font = `700 ${movil ? 11 : 12}px Figtree, system-ui, sans-serif`
+          ctx.fillStyle = rgba(ag.estado === 'error' ? peligro : blanco, 0.95)
+          ctx.fillText(ag.estado === 'listo' ? 'listo' : ag.estado === 'error' ? 'no terminó' : `${ag.progreso}%`, sx, sy + rs + (movil ? 27 : 29))
+          ctx.globalCompositeOperation = 'lighter'
+        })
+        ctx.globalCompositeOperation = 'source-over'
+        ctx.textAlign = 'center'
+        ctx.font = `700 ${movil ? 10 : 12}px Figtree, system-ui, sans-serif`
+        ctx.fillStyle = rgba(claro, 0.9)
+        ctx.fillText(`${listaAgentes.length} AGENTES`, g0.cx, g0.cy + g.alto * 0.5 + 22)
       }
 
       // --- Datos (nodos) con su etiqueta

@@ -6,7 +6,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import type { Acciones, AccionVisible } from './acciones.ts'
-import { ejecutar, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import { ejecutar, HERRAMIENTA_MISION, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
 
 export const MODELO = 'claude-sonnet-5-5' // análisis e investigación (con búsqueda web)
 export const MODELO_RAPIDO = 'claude-haiku-5-5' // el día a día: agenda, clientes, acciones, briefing
@@ -38,6 +38,9 @@ Datos:
 Para el briefing o "¿qué hay para hoy?", respondé directo con el panorama, sin consultar herramientas.
 - Recap: para "recap", "resumen", "¿cómo venimos?", "¿cómo va el mes?" usá los Números del mes del panorama: \
 3 o 4 oraciones con números concretos (cobrado, clientes nuevos contra la meta, prospectos, recurrente, por cobrar) y lo urgente al final.
+- Misiones: si te piden algo GRANDE de varios pasos (preparar una reunión, investigar un cliente y su competencia, buscar prospectos \
+y armarles un mensaje, armar una estrategia o un plan), usá lanzar_mision: un equipo de agentes lo trabaja en paralelo. \
+Decí en una oración que armaste el equipo. Para preguntas simples, contestá vos. Si preguntan por el resultado o el avance, usá leer_mision.
 - Pantallas: si te piden mostrar, abrir o ver algo del hub ("mostrame la carpeta de Nova", "abrí el pipeline"), usá mostrar_pantalla \
 y contestá en una oración qué abriste. Si te preguntan un dato, contestá el dato; podés además abrir la pantalla si ayuda a verlo.
 - La charla previa está en los mensajes anteriores: si la pregunta actual es una respuesta a algo que preguntaste vos \
@@ -138,6 +141,7 @@ export type Evento =
   | { tipo: 'nueva_vuelta' }
   | { tipo: 'accion'; accion: AccionVisible }
   | { tipo: 'mostrar'; destino: { ruta: string; titulo: string } }
+  | { tipo: 'mision'; id: string }
 
 export async function responder(
   hub: Hub,
@@ -147,6 +151,8 @@ export async function responder(
   pregunta: string,
   historial: Turno[],
   avisar: (e: Evento) => void = () => {},
+  /** Crea y arranca una misión de agentes; devuelve su id */
+  lanzarMision?: (pedido: string) => Promise<string>,
 ): Promise<Resultado> {
   const fin = (respuesta: string, modelo: string, consultas: string[]): Resultado => ({
     respuesta,
@@ -192,7 +198,7 @@ export async function responder(
           // Esfuerzo bajo: en lo simple ni siquiera razona antes de contestar
           output_config: { effort: 'low' },
           // Sin búsqueda web (eso va al otro modelo)
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
+          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
         })
       : client.beta.messages.stream({
           ...comun,
@@ -204,7 +210,7 @@ export async function responder(
           // bloques "thinking" y se reenvían tal cual.
           thinking: { type: 'between_tools' },
           output_config: { effort: 'low' },
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
+          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
         })
     for await (const e of stream) {
       if (e.type === 'content_block_delta' && e.delta.type === 'text_delta') avisar({ tipo: 'texto', delta: e.delta.text })
@@ -230,7 +236,22 @@ export async function responder(
         usos.map(async (u): Promise<Anthropic.Beta.BetaToolResultBlockParam> => {
           anotar(u.name)
           try {
-            return { type: 'tool_result', tool_use_id: u.id, content: await ejecutar(hub, memoria, acciones, u.name, u.input as Record<string, unknown>, (destino) => avisar({ tipo: 'mostrar', destino })) }
+            return { type: 'tool_result', tool_use_id: u.id, content: await ejecutar(
+                  hub,
+                  memoria,
+                  acciones,
+                  u.name,
+                  u.input as Record<string, unknown>,
+                  (destino) => avisar({ tipo: 'mostrar', destino }),
+                  lanzarMision
+                    ? async (pedido) => {
+                        const id = await lanzarMision(pedido)
+                        avisar({ tipo: 'mision', id })
+                        return id
+                      }
+                    : undefined,
+                ),
+              }
           } catch (e) {
             return { type: 'tool_result', tool_use_id: u.id, content: `Error: ${e instanceof Error ? e.message : e}`, is_error: true }
           }
