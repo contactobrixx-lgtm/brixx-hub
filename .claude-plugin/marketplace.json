@@ -1,0 +1,13 @@
+{
+  "name": "brixx",
+  "owner": { "name": "brixx", "email": "contactobrixx@gmail.com" },
+  "metadata": { "description": "Skills y herramientas internas de brixx para Claude Code." },
+  "plugins": [
+    {
+      "name": "brixx",
+      "source": "./plugins/brixx",
+      "description": "Skills de brixx: investigación de marca y propuesta de campaña Meta Ads con PDF editable.",
+      "version": "1.0.0"
+    }
+  ]
+}

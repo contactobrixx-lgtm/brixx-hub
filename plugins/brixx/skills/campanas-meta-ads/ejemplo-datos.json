@@ -1,0 +1,349 @@
+{
+  "cliente": "Nova Distribuidora",
+  "fecha": "15 de noviembre de 2026",
+  "contacto": "+54 9 381 582-3919",
+  "descripcion": "Envíos a todo el país · Cuotas con Mercado Pago",
+  "productos": [
+    {
+      "key": "soplador",
+      "nombre": "Soplador / ventilador portátil",
+      "codigo": "Violent Fan ZY7400",
+      "costo": "$25.800",
+      "venta": "$54.900",
+      "promo_label": "Pack x2",
+      "promo": "$99.900",
+      "cpa": "$23.600",
+      "angulos": [
+        {
+          "tipo": "video",
+          "bg": "#E8541C",
+          "nombre": "Dolor / solución",
+          "overlay": "¿Calor? Aire turbo en tu mano",
+          "brief": "Video del proveedor: aire a la cara y pelo volando; corte a la persona aliviada.",
+          "texto": "Afuera hacen 38° y el ventilador de pie no te llega 🥵\nEste soplador portátil te tira aire con potencia donde lo necesites.\n✔ Recargable, sin cables ✔ Entra en la cartera ✔ Colectivo, oficina o playa\nPedilo en novadistribuidora.shop 👉 despacho en 48 h.",
+          "titulo": "Ventilador turbo en la palma de tu mano"
+        },
+        {
+          "tipo": "imagen",
+          "pack": true,
+          "bg": "#0F5132",
+          "nombre": "Oferta / pack",
+          "overlay": "Navidad: 2 por {promo}",
+          "brief": "Estática para ChatGPT: 2 sopladores, fondo verde oscuro, moño rojo.",
+          "texto": "🎄 Uno para vos y otro para regalar.\nLlevás 2 sopladores portátiles por {promo}.\nRecargable, potente y del tamaño de una mano: el regalo que todos van a usar este verano.\nPromo de Navidad en novadistribuidora.shop 👉 pagá en cuotas.",
+          "titulo": "Navidad: 2 sopladores por {promo}"
+        },
+        {
+          "tipo": "video",
+          "bg": "#1B1B1F",
+          "nombre": "Curiosidad / demo",
+          "overlay": "Lo usamos para prender el asado",
+          "brief": "Video: el soplador aviva el carbón de la parrilla en 3 segundos.",
+          "texto": "Lo comprás para el calor… y terminás usándolo para el fuego 🔥\nCon este soplador el carbón agarra en segundos y en el día te refresca.\nEl aparato viral que todos preguntan dónde se consigue.\nConseguilo en novadistribuidora.shop 👉",
+          "titulo": "El aparato viral de este verano"
+        }
+      ],
+      "cpc": "$295",
+      "cpm": "$2.950",
+      "max_evento": "$5.900"
+    },
+    {
+      "key": "compresor",
+      "nombre": "Compresor inflador 4 en 1",
+      "codigo": "OM-058",
+      "costo": "$37.100",
+      "venta": "$74.900",
+      "promo_label": "Navidad",
+      "promo": "10% OFF transferencia",
+      "cpa": "$30.300",
+      "angulos": [
+        {
+          "tipo": "video",
+          "bg": "#0B2A4A",
+          "nombre": "Dolor / solución",
+          "overlay": "¿Goma baja? Inflala vos mismo",
+          "brief": "Video: goma baja al costado de la ruta; corte al display subiendo.",
+          "texto": "Goma baja, domingo y la gomería cerrada 😮‍💨\nCon este compresor inalámbrico la inflás vos, donde estés.\n✔ Sin cables ✔ Display con la presión ✔ Picos para auto, bici y pelota\nAntes de salir a la ruta 👉 novadistribuidora.shop",
+          "titulo": "Inflá la goma sin ir a la gomería"
+        },
+        {
+          "tipo": "imagen",
+          "bg": "#A31F1A",
+          "nombre": "Oferta / regalo",
+          "overlay": "El regalo para el que maneja",
+          "brief": "Estática: compresor con moño en el asiento del auto, sello 10% OFF.",
+          "texto": "🎁 ¿Qué le regalás al que tiene todo? Algo que lo saque de un apuro en la ruta.\nCompresor inflador 4 en 1, inalámbrico y con display.\nNavidad: 10% OFF pagando con transferencia.\nRegalalo desde novadistribuidora.shop 👉 también en cuotas.",
+          "titulo": "Compresor 4 en 1: 10% OFF transferencia"
+        },
+        {
+          "tipo": "video",
+          "bg": "#1B1B1F",
+          "nombre": "Curiosidad / demo",
+          "overlay": "Sin cables. Inflá donde estés",
+          "brief": "Video: 3 cortes de 2 s inflando auto, bici y pelota, display en primer plano.",
+          "texto": "Mirá todo lo que infla este aparato 👀\nAuto, bici, pelota… y sin enchufe.\nLo cargás en casa y lo tenés siempre a mano.\nVer precio en novadistribuidora.shop 👉",
+          "titulo": "Auto, bici y pelota: sin cables"
+        }
+      ],
+      "cpc": "$380",
+      "cpm": "$3.800",
+      "max_evento": "$7.600"
+    },
+    {
+      "key": "pistola",
+      "nombre": "Pistola masajeadora",
+      "codigo": "Bulltec MT386",
+      "costo": "$23.500",
+      "venta": "$49.900",
+      "promo_label": "Navidad",
+      "promo": "2da unidad al 50%",
+      "cpa": "$21.400",
+      "angulos": [
+        {
+          "tipo": "video",
+          "bg": "#4B2A7B",
+          "nombre": "Dolor / solución",
+          "overlay": "Masaje profundo en casa, sin turno",
+          "brief": "Video: mano en el cuello frente a la compu; corte a la pistola en el trapecio.",
+          "texto": "Cuello duro después de 8 horas en la compu 😣\nCon la pistola masajeadora te das un masaje profundo en casa, cuando quieras.\n✔ Cabezales intercambiables ✔ Varias intensidades ✔ Recargable\nPedila en novadistribuidora.shop 👉 en cuotas.",
+          "titulo": "Masajeador muscular para usar en casa"
+        },
+        {
+          "tipo": "imagen",
+          "pack": true,
+          "bg": "#A31F1A",
+          "nombre": "Oferta / pack",
+          "overlay": "Navidad: la 2da al 50%",
+          "brief": "Estática: dos pistolas cruzadas, fondo rojo, cabezales alrededor.",
+          "texto": "🎄 Una para vos y otra para quien siempre se queja de la espalda.\nEn Navidad, la segunda pistola masajeadora sale al 50%.\nEl regalo que se usa después del gym, del trabajo o del viaje.\nHasta agotar stock en novadistribuidora.shop 👉",
+          "titulo": "Regalá alivio: la 2da al 50%"
+        },
+        {
+          "tipo": "video",
+          "bg": "#1B1B1F",
+          "nombre": "Curiosidad / demo",
+          "overlay": "Mirá lo que le hace al músculo",
+          "brief": "Video en cámara lenta: el músculo ondulando con la percusión, en el segundo 0.",
+          "texto": "Esto es lo que pasa cuando la pistola trabaja sobre un músculo cargado 👀\nPercusión profunda, como la de los gimnasios, ahora en tu casa.\nProbala después de entrenar.\nConseguila en novadistribuidora.shop 👉",
+          "titulo": "Pistola masajeadora Bulltec"
+        }
+      ],
+      "cpc": "$270",
+      "cpm": "$2.700",
+      "max_evento": "$5.350"
+    },
+    {
+      "key": "smartwatch",
+      "nombre": "Smartwatch Ultra GT + 3 mallas",
+      "codigo": "Bulltec 04020016",
+      "costo": "$28.600",
+      "venta": "$59.900",
+      "promo_label": "Pack x2",
+      "promo": "$109.900",
+      "cpa": "$25.300",
+      "angulos": [
+        {
+          "tipo": "video",
+          "bg": "#10182B",
+          "nombre": "Dolor / solución",
+          "overlay": "¿No sabés qué regalar? Resuelto.",
+          "brief": "Video: manos abriendo la caja, aparece el reloj con las 3 mallas; luces de Navidad.",
+          "texto": "Faltan pocos días para Navidad y todavía no tenés el regalo 🎁\nEste smartwatch viene con 3 mallas para usarlo todos los días.\n✔ Llega en caja, listo para regalar ✔ 3 mallas incluidas ✔ Despacho en 48 h\nPedilo hoy en novadistribuidora.shop 👉 en cuotas.",
+          "titulo": "El regalo que se usa todos los días"
+        },
+        {
+          "tipo": "imagen",
+          "pack": true,
+          "bg": "#0F5132",
+          "nombre": "Oferta / pack",
+          "overlay": "Pack pareja: 2 por {promo}",
+          "brief": "Estática: dos relojes con mallas de distinto color, moño navideño.",
+          "texto": "🎄 Regalo para dos (o para vos y alguien más).\nLlevás 2 smartwatch Ultra GT con sus mallas por {promo}.\nIdeal para parejas, amigos o el amigo invisible.\nPromo de Navidad en novadistribuidora.shop 👉",
+          "titulo": "Pack pareja: 2 smartwatch {promo}"
+        },
+        {
+          "tipo": "video",
+          "bg": "#1B1B1F",
+          "nombre": "Curiosidad / demo",
+          "overlay": "1 reloj, 3 estilos",
+          "brief": "Video: cambio de malla en un clic, 3 veces; cada cambio corta a un look distinto.",
+          "texto": "Mismo reloj, tres looks distintos en 10 segundos ⌚\nLas 3 mallas vienen incluidas: una para entrenar, otra para el trabajo y otra para salir.\nMirá los colores en novadistribuidora.shop 👉",
+          "titulo": "Smartwatch + 3 mallas incluidas"
+        }
+      ],
+      "cpc": "$315",
+      "cpm": "$3.150",
+      "max_evento": "$6.300"
+    },
+    {
+      "key": "mochila",
+      "nombre": "Mochila de viaje apertura completa",
+      "codigo": "Rongchang JH-811",
+      "costo": "$21.500",
+      "venta": "$49.900",
+      "promo_label": "Pack x2",
+      "promo": "$89.900",
+      "cpa": "$23.400",
+      "angulos": [
+        {
+          "tipo": "video",
+          "bg": "#8A5A2B",
+          "nombre": "Dolor / solución",
+          "overlay": "Se abre entera, como una valija",
+          "brief": "Video: alguien revuelve una mochila común; corte a esta abriéndose entera sobre la cama.",
+          "texto": "¿Buscás el cargador y tenés que vaciar toda la mochila? 😩\nEsta mochila de viaje se abre completa, como una valija: ves todo y armás el equipaje en orden.\n✔ Apertura total ✔ Escapadas, micro o avión ✔ Despacho en 48 h\nPreparala para las vacaciones 👉 novadistribuidora.shop",
+          "titulo": "La mochila que se abre como valija"
+        },
+        {
+          "tipo": "imagen",
+          "pack": true,
+          "bg": "#2D7FB0",
+          "nombre": "Oferta / pack",
+          "overlay": "Navidad: 2 mochilas por {promo}",
+          "brief": "Estática: dos mochilas abiertas con ropa, fondo celeste de verano, moño.",
+          "texto": "🎄 Si viajan de a dos, una para cada uno.\nLlevás 2 mochilas de viaje con apertura completa por {promo}.\nEl regalo que sale de vacaciones en enero.\nPromo de Navidad en novadistribuidora.shop 👉 pagá en cuotas.",
+          "titulo": "2 mochilas de viaje por {promo}"
+        },
+        {
+          "tipo": "video",
+          "bg": "#1B1B1F",
+          "nombre": "Curiosidad / demo",
+          "overlay": "Mirá todo lo que entra",
+          "brief": "Video time-lapse: ropa, zapatillas y neceser entrando; solo lo que entra de verdad.",
+          "texto": "Ropa para el finde, zapatillas y neceser… en una sola mochila 👀\nAl abrirse entera, se arma como una valija y se lleva en la espalda.\nMirá medidas y colores en novadistribuidora.shop 👉",
+          "titulo": "Todo tu viaje en una mochila"
+        }
+      ],
+      "cpc": "$290",
+      "cpm": "$2.900",
+      "max_evento": "$5.850"
+    }
+  ],
+  "titulo": "Campaña de validación Meta Ads",
+  "subtitulo": "Navidad 2026",
+  "archivo": "Campana-Validacion-Meta-Ads-Nova.pdf",
+  "kpis": [
+    {
+      "label": "Tipo de campaña",
+      "valor": "Ventas · ABO",
+      "nota": "Presupuesto por conjunto"
+    },
+    {
+      "label": "Objetivo",
+      "valor": "Agregar al carrito",
+      "nota": "Evento de optimización"
+    },
+    {
+      "label": "Presupuesto disponible",
+      "valor": "{presupuesto_dia} / día",
+      "nota": "× {dias} días = {total}"
+    },
+    {
+      "label": "Anuncios por campaña",
+      "valor": "{anuncios} anuncios",
+      "nota": "1 por producto · 3 ángulos c/u"
+    },
+    {
+      "label": "Budget por anuncio",
+      "valor": "{por_anuncio_dia} / día",
+      "nota": "Igual para los 5 productos"
+    },
+    {
+      "label": "Público",
+      "valor": "Advantage+",
+      "nota": "Argentina · 18–65+ · ubicaciones auto."
+    }
+  ],
+  "campos": {
+    "presupuesto_dia": "$20.000",
+    "dias": "3",
+    "total": "$60.000",
+    "anuncios": "5",
+    "por_anuncio_dia": "$4.000"
+  },
+  "productos_titulo": "5 productos a validar",
+  "columna_promo": "Promo Navidad",
+  "columna_evento": "Máx. carrito",
+  "nota_productos": "Los valores con fondo azul son editables: hacé clic y escribí. Un mismo precio cambia en todo el PDF, incluidos los creativos. CPA de equilibrio = precio − costo − 10% de costos de cobro. CPC máx. = máx. por carrito × 5%; CPM máx. = CPC máx. × 10 (CTR 1%): techos para que los números cierren, no promedios del mercado.",
+  "cortes": [
+    [
+      "Gancho (vistas 3 s / impr.)",
+      "≥ 25%",
+      "< 15%"
+    ],
+    [
+      "CPM (por 1.000 impr.)",
+      "≤ CPM máx.",
+      "> 2 × máx."
+    ],
+    [
+      "CTR del enlace",
+      "≥ 1%",
+      "< 0,6% ($6.000 gastados)"
+    ],
+    [
+      "CPC del enlace",
+      "≤ CPC máx.",
+      "> 2 × máx."
+    ],
+    [
+      "Visitas página / clics",
+      "≥ 70%",
+      "< 50%"
+    ],
+    [
+      "Tasa de carrito",
+      "≥ 5%",
+      "0 con 40 visitas"
+    ],
+    [
+      "Costo por carrito",
+      "≤ máx. carrito",
+      "> 2 × máx."
+    ]
+  ],
+  "nota_cortes": "Gana el producto con menor costo por carrito que pase los cortes. Umbrales de trabajo: el día 1 muestra los números reales de la cuenta.",
+  "pasos": [
+    [
+      "Día 1",
+      "No tocar nada: Meta necesita unas 24 h para repartir el presupuesto."
+    ],
+    [
+      "Día 2",
+      "Apagar el conjunto con CTR < 0,6% y ningún carrito. El resto sigue igual."
+    ],
+    [
+      "Día 3",
+      "Ordenar por costo por carrito, ver qué ángulo ganó y elegir 1 o 2 productos."
+    ],
+    [
+      "Día 4 +",
+      "Campaña nueva con los ganadores, optimizada por Compra."
+    ]
+  ],
+  "cta": "Comprar ›",
+  "leyenda_video": "video del proveedor editado",
+  "leyenda_imagen": "pieza fija (ChatGPT / diseño)",
+  "antes_de_lanzar": [
+    "Confirmar stock y entrega en 48 h.",
+    "Verificar lo que dicen los copies; lo que no se confirme, se saca.",
+    "Cargar variantes Pack x2 y promos en la tienda.",
+    "Probar el píxel con una compra de prueba."
+  ],
+  "reglas": [
+    "Sin precios tachados falsos.",
+    "“Envío gratis” solo donde aplica.",
+    "Sin promesas médicas.",
+    "UTM por anuncio."
+  ],
+  "auditoria": {
+    "titulo": "Página de ventas · ajustes antes de lanzar",
+    "items": [
+      "El título del inicio no dice la promesa: usar el mismo gancho del anuncio.",
+      "Falta el precio del pack x2 visible arriba del botón.",
+      "Sumar 3 reseñas con foto antes del botón de compra.",
+      "Botón “Comprar” fijo en el celular.",
+      "Coincidencia anuncio-página: misma foto y misma oferta."
+    ]
+  }
+}

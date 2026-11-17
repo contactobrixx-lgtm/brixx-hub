@@ -265,3 +265,21 @@ Entrá a tu dominio, logueate, y cargá tu primera ficha con **Nuevo sistema** (
 - **"No carga dentro del hub"**: algunas apps no se dejan embeber (cabeceras `X-Frame-Options` o `frame-ancestors`). Editá la ficha y elegí **Pestaña nueva**. Si la app es tuya y está en Vercel, podés permitir el embebido quitando esas cabeceras en ese proyecto.
 - **Mails de recuperación**: Supabase usa un servidor de correo propio con límite bajo de envíos por hora. Para dos usuarios alcanza.
 - **Desarrollo local** (opcional): copiar `.env.example` a `.env.local`, completar, y `npm install && npm run dev`.
+
+---
+
+## Skills de brixx para Claude Code
+
+Este repo también es un **marketplace de plugins** de Claude Code (`.claude-plugin/marketplace.json`). El plugin `brixx` (en `plugins/brixx/`) trae los skills internos del estudio:
+
+- **`/campanas-meta-ads`**: investiga una marca, cliente o infoproducto (página de ventas, Instagram, competencia, anuncios validados) y genera la propuesta de campaña de Meta Ads en PDF editable de 3 páginas con la marca brixx. Nunca crea ni modifica campañas en Meta.
+
+Instalarlo en Claude Code (VS Code o terminal):
+
+```
+/plugin install brixx --marketplace contactobrixx-lgtm/brixx-hub
+```
+
+O en dos pasos: `/plugin marketplace add contactobrixx-lgtm/brixx-hub` y después `/plugin install brixx@brixx`. Para el PDF hace falta Python con `pip install playwright pypdf` y `python -m playwright install chromium`.
+
+Si se cambia un skill acá, hay que volver a guardarlo también en la cuenta de Claude (app de escritorio / web), que tiene su propia copia.
