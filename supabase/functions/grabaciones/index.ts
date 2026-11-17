@@ -263,13 +263,17 @@ Deno.serve(async (req) => {
     return json({ ok: true })
   }
 
-  if (!(await esMiembro(req))) return json({ error: 'No autorizado' }, 401)
   let body: { accion?: string; id?: string; prospecto_id?: string }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'Pedido inválido' }, 400)
   }
+  // El conector de Claude (función "conector") pide procesar la intervención que acaba de cargar,
+  // firmado con la clave del servidor y solo para ese id.
+  const delConector =
+    body.accion === 'procesar' && !!body.id && req.headers.get('x-brixx-token') === (await firma(body.id))
+  if (!delConector && !(await esMiembro(req))) return json({ error: 'No autorizado' }, 401)
 
   try {
     switch (body.accion) {
