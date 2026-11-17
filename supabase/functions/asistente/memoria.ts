@@ -60,6 +60,7 @@ export class Memoria {
       .select('rol, texto, created_at')
       .eq('usuario', this.usuario.email)
       .order('created_at', { ascending: false })
+      .order('rol', { ascending: true }) // mensajes viejos con la misma hora: la pregunta antes que la respuesta
       .limit(TURNOS_HISTORIAL)
     if (error || !data) return []
     return data.reverse().map((m) => ({
@@ -69,11 +70,15 @@ export class Memoria {
     }))
   }
 
-  /** Guarda la pregunta y la respuesta (si falla, no rompe la respuesta). */
-  async guardarTurno(pregunta: string, respuesta: string, consultas: string[]) {
+  /**
+   * Guarda la pregunta y la respuesta (si falla, no rompe la respuesta). Cada una con su hora:
+   * si van con la misma, al leer el historial pueden quedar al revés y Jarvis pierde el hilo.
+   */
+  async guardarTurno(pregunta: string, respuesta: string, consultas: string[], recibida: Date) {
+    const respondida = new Date(Math.max(Date.now(), recibida.getTime() + 1))
     const { error } = await this.db.from('asistente_mensajes').insert([
-      { usuario: this.usuario.email, rol: 'usuario', texto: pregunta },
-      { usuario: this.usuario.email, rol: 'asistente', texto: respuesta, consultas },
+      { usuario: this.usuario.email, rol: 'usuario', texto: pregunta, created_at: recibida.toISOString() },
+      { usuario: this.usuario.email, rol: 'asistente', texto: respuesta, consultas, created_at: respondida.toISOString() },
     ])
     if (error) console.error('No se pudo guardar la conversación:', error.message)
   }

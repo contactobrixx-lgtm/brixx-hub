@@ -75,7 +75,7 @@ export function JarvisPage() {
   const { filas: reuniones, recargar: recargarReuniones } = useReuniones()
   const config = useConfigGrabaciones()
   const voz = useVoz()
-  const { mensajes, pensando, consultando, acciones, preguntar, resolverAccion } = useAsistente()
+  const { mensajes, pensando, consultando, acciones, tiempos, preguntar, resolverAccion } = useAsistente()
   const memoria = useMemoria()
   const personalidad = usePersonalidad()
   const [editandoPersonalidad, setEditandoPersonalidad] = useState(false)
@@ -450,6 +450,12 @@ export function JarvisPage() {
                 </div>
               ) : (
                 <p className="text-sm text-tenue">Todavía no hablaron.</p>
+              )}
+              {tiempos && (
+                <p className="mt-2 border-t border-borde pt-2 text-[11px] text-tenue" title={tiempos.servidor ? JSON.stringify(tiempos.servidor) : undefined}>
+                  Última respuesta: {tiempos.primeraPalabra != null ? `empezó a los ${(tiempos.primeraPalabra / 1000).toFixed(1)} s · ` : ''}
+                  completa a los {(tiempos.total / 1000).toFixed(1)} s
+                </p>
               )}
             </Panel>
           </div>
