@@ -109,7 +109,7 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 
 ## Jarvis y el asistente de voz
 
-**Jarvis** (menú → Jarvis) es el centro de comando por voz. Muestra:
+**Jarvis** es el centro de comando por voz y la pantalla con la que abre el hub (el dashboard sigue en menú → Inicio). Muestra:
 - un núcleo animado;
 - el estado del sistema;
 - un resumen del estudio;
@@ -145,6 +145,8 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 **Abrir pantallas:** "Jarvis, mostrame la carpeta de Nova", "abrí el pipeline", "mostrame la última cotización de Napoli". En Jarvis se abre como panel encima de la red (con "Abrir" para ir a la pantalla completa); en el resto del hub te lleva directo.
 
 **Charla más natural (manos libres, en la compu):** después de que responde, tenés unos segundos para seguir preguntando sin decir "Jarvis". Si está hablando y le decís "Jarvis, pará" (o "Jarvis" y otra pregunta), se calla y te escucha.
+
+**Modo demo:** para mostrarle el hub a alguien o aprender a usarlo, decí "Jarvis, modo demo" (o tocá **Demo** en la red, o el comando rápido). Jarvis pasa a modo tele, saluda con un día inventado ("Buenas tardes, señor. Hoy tenemos tres reuniones…") y recorre el hub: va abriendo Inicio, Calendario, Pipeline, Clientes, Grabaciones, Cotizador, Finanzas y Sistemas mientras explica qué se hace en cada una y qué le podés pedir por voz, con una misión de agentes simulada en el medio. Los números y lo que dice son **inventados** (dice "datos inventados" arriba); las pantallas son las reales. Avanza solo; abajo a la derecha tenés anterior, siguiente y terminar (o "Jarvis, siguiente" / "Jarvis, pará"). No usa Claude; con la voz premium gasta unos 3.000 caracteres de ElevenLabs por recorrido completo.
 
 **Misiones (varios agentes en paralelo):** para algo grande, "Jarvis, prepará todo para la reunión con Nova" o "buscá 10 inmobiliarias de Rosario y armales un mensaje". Jarvis arma un equipo de 2 a 5 agentes (investigador, analista, redactor…) que trabajan en paralelo y en segundo plano: consultan el hub y, si hace falta, internet. En la red ves un núcleo por agente con su avance; en modo tele, la lista de agentes y el registro en vivo. En uno o dos minutos Jarvis te avisa y te muestra el resultado (con próximos pasos). También se lanzan desde el panel **Misión** de Jarvis. Los agentes solo leen: no cambian nada del hub. Cada misión cuesta algunos centavos de dólar (más si buscan en internet).
 

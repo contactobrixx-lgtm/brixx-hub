@@ -83,7 +83,7 @@ export default function App() {
         <Route path="/clientes" element={<ClientesPage />} />
         <Route path="/clientes/:id" element={<ClientePage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/inicio" replace />} />
+      <Route path="*" element={<Navigate to="/jarvis" replace />} />
     </Routes>
   )
 }

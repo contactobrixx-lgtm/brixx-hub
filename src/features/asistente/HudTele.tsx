@@ -43,13 +43,15 @@ interface Props {
   /** Misión en marcha: reemplaza los números del mes (izquierda) y el estado (derecha) */
   izquierda?: ReactNode
   derecha?: ReactNode
+  /** Hay un panel abierto a la derecha (pantalla o resultado): los subtítulos van al costado libre */
+  conPanel?: boolean
 }
 
 /**
  * Los paneles del modo tele, flotando sobre la red (como un HUD): números del mes a la izquierda,
  * estado del estudio a la derecha, reloj arriba y subtítulos abajo. En el celular se compactan.
  */
-export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, controles, confirmar, izquierda, derecha }: Props) {
+export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, controles, confirmar, izquierda, derecha, conPanel = false }: Props) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 p-3 md:p-6">
       {/* Arriba izquierda: título y números del mes */}
@@ -111,9 +113,16 @@ export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, contr
       {confirmar && <div className="pointer-events-auto absolute bottom-24 left-3 w-[min(92%,360px)] md:bottom-6 md:left-6">{confirmar}</div>}
 
       {/* Abajo: subtítulos */}
-      <div className="absolute inset-x-3 bottom-14 flex justify-center md:bottom-16">
+      <div className={cn('absolute inset-x-3 bottom-14 flex justify-center md:bottom-16', conPanel && 'md:right-[calc(min(52%,920px)+2.5rem)] md:left-6 md:bottom-24')}>
         {subtitulo && (
-          <p className="max-w-3xl rounded-xl bg-fondo/55 px-4 py-2 text-center text-base leading-snug text-texto backdrop-blur-sm md:text-xl">{subtitulo}</p>
+          <p
+            className={cn(
+              'max-w-3xl rounded-xl bg-fondo/55 px-4 py-2 text-center leading-snug text-texto backdrop-blur-sm',
+              conPanel ? 'text-sm md:text-lg' : 'text-base md:text-xl',
+            )}
+          >
+            <span className={cn('block', conPanel && 'line-clamp-4 md:line-clamp-none')}>{subtitulo}</span>
+          </p>
         )}
       </div>
 

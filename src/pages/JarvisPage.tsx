@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   CalendarClock,
+  ChevronLeft,
+  ChevronRight,
   Ear,
   EarOff,
   Info,
+  Presentation,
   Mic,
   OctagonAlert,
   Send,
@@ -33,6 +36,8 @@ import { RedNeural, type NodoRed } from '../features/asistente/RedNeural'
 import { HudTele } from '../features/asistente/HudTele'
 import { ListaAgentes, PanelMision, RegistroMision, ResultadoMision } from '../features/asistente/PanelMision'
 import { useMisiones } from '../features/asistente/useMisiones'
+import { useDemo } from '../features/asistente/useDemo'
+import { ESTADO_DEMO, METRICAS_DEMO, pideDemo } from '../features/asistente/demo'
 import { PanelPantalla, type DestinoPantalla } from '../features/asistente/PanelPantalla'
 import { ETAPAS_ABIERTAS } from '../types/db'
 import { useDashboard } from '../features/inicio/useDashboard'
@@ -47,6 +52,7 @@ const COMANDOS = [
   { label: 'Última reunión', pregunta: '¿Qué se sabe de la última reunión que grabé?' },
   { label: 'Pendientes', pregunta: '¿Qué tengo pendiente?' },
   { label: 'Meta del mes', pregunta: '¿Cómo vamos con la meta del mes?' },
+  { label: 'Modo demo', pregunta: 'Jarvis, modo demo' },
 ]
 
 const CLAVE_VOZ = 'brixx-asistente-voz'
@@ -105,7 +111,9 @@ export function JarvisPage() {
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
     else pidioPantallaCompleta.current = false
   }, [])
+  const alSalirTele = useRef<() => void>(() => {})
   const salirTele = useCallback(() => {
+    alSalirTele.current() // si estaba el demo, termina
     setModoTele(false)
     pidioPantallaCompleta.current = false
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
@@ -143,7 +151,7 @@ export function JarvisPage() {
   // Misiones de agentes: al terminar, Jarvis lo dice
   const avisarMision = useRef<(texto: string) => void>(() => {})
   const misiones = useMisiones((m) => avisarMision.current(`Terminé la misión ${m.titulo ?? ''}. ${m.resumen ?? ''}`))
-  const agentesRed = misiones.mision && misiones.mision.estado !== 'error' && misiones.mision.estado !== 'cancelada' ? misiones.agentes : []
+  const agentesMision = misiones.mision && misiones.mision.estado !== 'error' && misiones.mision.estado !== 'cancelada' ? misiones.agentes : []
 
   // Pendientes primero; después las últimas resueltas en esta sesión
   const accionesVisibles = [...acciones.filter((a) => a.estado === 'pendiente'), ...acciones.filter((a) => a.estado !== 'pendiente').slice(-3).reverse()]
@@ -164,6 +172,13 @@ export function JarvisPage() {
     }
   })
 
+  // Modo demo ("Jarvis, modo demo"): recorrido con datos inventados que va abriendo las pantallas del hub
+  const demo = useDemo(voz, vozActiva && voz.disponible, setPantalla)
+  alSalirTele.current = demo.salir
+  const demoActivo = useRef(demo.activo)
+  demoActivo.current = demo.activo
+  const agentesRed = demo.activo && demo.agentes.length ? demo.agentes : demo.activo ? [] : agentesMision
+
   useEffect(() => {
     const t = setInterval(() => setAhora(new Date()), 1000)
     return () => clearInterval(t)
@@ -181,8 +196,18 @@ export function JarvisPage() {
     if (activado && vozActiva && !pensando) voz.decir(t)
   }
 
+  const iniciarDemo = () => {
+    voz.destrabar()
+    setActivado(true)
+    setTexto('')
+    if (!modoTeleRef.current) entrarTele()
+    demo.iniciar()
+  }
+
   const enviar = async (pregunta: string) => {
+    if (pideDemo(pregunta)) return iniciarDemo()
     if (!pregunta.trim() || pensando) return
+    if (demo.activo) demo.salir()
     setTexto('')
     voz.callar()
     // La voz arranca con la primera oración, mientras sigue llegando el resto
@@ -199,11 +224,17 @@ export function JarvisPage() {
   // Manos libres: mientras Jarvis habla sigue escuchando, pero solo "Jarvis…" (para interrumpirlo)
   const alOirManosLibres = (pregunta: string) => {
     const p = pregunta.trim()
+    // En el demo: "Jarvis, siguiente" / "anterior"; cualquier otra cosa lo termina
+    if (demoActivo.current) {
+      if (/^(siguiente|segu[ií]|dale|pas[aá])\b/i.test(p)) return demo.siguiente()
+      if (/^(anterior|volv[eé]|atr[aá]s)\b/i.test(p)) return demo.anterior()
+      demo.salir()
+    }
     // "Jarvis" solo, o "Jarvis, pará": se calla y escucha
     if (!p || /^(par[aá]|basta|silencio|call[aá]te|stop|ya est[aá]|cort[aá])\b/i.test(p)) return voz.callar()
     enviar(p)
   }
-  const manos = useManosLibres(alOirManosLibres, pensando || ptt.escuchando, voz.hablando)
+  const manos = useManosLibres(alOirManosLibres, pensando || ptt.escuchando, voz.hablando || demo.activo)
   // Al terminar de hablar: unos segundos para seguir la charla sin repetir "Jarvis"
   const hablabaAntes = useRef(false)
   const manosRef = useRef(manos)
@@ -211,7 +242,7 @@ export function JarvisPage() {
   useEffect(() => {
     const terminoDeHablar = hablabaAntes.current && !voz.hablando
     hablabaAntes.current = voz.hablando
-    if (!terminoDeHablar || !manosRef.current.activo) return
+    if (!terminoDeHablar || !manosRef.current.activo || demoActivo.current) return
     const t = window.setTimeout(() => manosRef.current.esperarSeguimiento(), 350)
     return () => window.clearTimeout(t)
   }, [voz.hablando])
@@ -224,6 +255,7 @@ export function JarvisPage() {
   }
 
   const tocarMicrofono = () => {
+    if (demo.activo) demo.salir() // hablarle corta el demo
     voz.destrabar()
     voz.callar()
     if (!activado) setActivado(true)
@@ -413,21 +445,30 @@ export function JarvisPage() {
 
                 {/* Modo tele (para una tele o un monitor) */}
                 {!modoTele && (
-                  <button
-                    onClick={entrarTele}
-                    className="absolute top-3 right-3 z-10 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
-                    title="Modo tele: la red a pantalla completa con los paneles encima"
-                  >
-                    <Maximize2 className="size-4" /> Modo tele
-                  </button>
+                  <div className="absolute top-3 right-3 z-10 flex gap-2">
+                    <button
+                      onClick={iniciarDemo}
+                      className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                      title="Modo demo: un recorrido por el hub con datos inventados, para mostrarlo y aprender a usarlo"
+                    >
+                      <Presentation className="size-4" /> Demo
+                    </button>
+                    <button
+                      onClick={entrarTele}
+                      className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                      title="Modo tele: la red a pantalla completa con los paneles encima"
+                    >
+                      <Maximize2 className="size-4" /> Modo tele
+                    </button>
+                  </div>
                 )}
 
                 {modoTele && (
                   <HudTele
                     hora={ahora.toLocaleTimeString('es-AR', { hour12: false })}
                     fecha={ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
-                    saludo={`${saludo}, ${miembro?.nombre.split(' ')[0] ?? ''}`}
-                    metricas={[
+                    saludo={demo.activo ? 'Modo demo · datos inventados' : `${saludo}, ${miembro?.nombre.split(' ')[0] ?? ''}`}
+                    metricas={demo.activo ? METRICAS_DEMO : [
                       { label: 'Cobrado', valor: formatUSD(d.cobrado ?? 0) },
                       {
                         label: 'Clientes nuevos',
@@ -436,7 +477,14 @@ export function JarvisPage() {
                       { label: 'Recurrente', valor: formatUSD(d.mrr ?? 0) },
                       { label: 'Por cobrar', valor: formatUSD(d.porCobrar ?? 0) },
                     ]}
-                    filas={[
+                    filas={demo.activo ? [
+                      { label: 'Reuniones hoy', valor: String(ESTADO_DEMO.reuniones), tono: 'acento' },
+                      { label: 'Acciones de hoy', valor: String(ESTADO_DEMO.acciones), tono: 'acento' },
+                      { label: 'Pendientes', valor: String(ESTADO_DEMO.pendientes), tono: 'aviso' },
+                      { label: 'Pipeline abierto', valor: String(ESTADO_DEMO.pipeline), tono: 'neutro' },
+                      { label: 'Memoria', valor: `${ESTADO_DEMO.memoria} notas`, tono: 'neutro' },
+                      { label: 'Voz', valor: !vozActiva ? 'Silenciada' : voz.premium && voz.fuente !== 'dispositivo' ? 'Premium' : 'Dispositivo', tono: vozActiva ? 'ok' : 'aviso' },
+                    ] : [
                       { label: 'Reuniones hoy', valor: String(agendaHoy.filter((a) => a.tipo === 'reunion').length), tono: 'acento' },
                       { label: 'Acciones de hoy', valor: String(agendaHoy.filter((a) => a.tipo === 'accion').length), tono: 'acento' },
                       { label: 'Pendientes', valor: String(pendientesGrab), tono: pendientesGrab ? 'aviso' : 'ok' },
@@ -446,7 +494,7 @@ export function JarvisPage() {
                       { label: 'Voz', valor: voz.premium && voz.fuente !== 'dispositivo' ? 'Premium' : 'Dispositivo', tono: 'ok' },
                       { label: 'Escucha', valor: manos.activo ? 'Manos libres' : 'Tocar', tono: manos.activo ? 'ok' : 'neutro' },
                     ]}
-                    subtitulo={!activado ? '' : voz.hablando && voz.frase ? voz.frase : pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' ? leyenda : ''}
+                    subtitulo={demo.activo ? (voz.hablando && voz.frase ? voz.frase : !vozActiva ? (demo.paso?.decir ?? '') : '') : !activado ? '' : voz.hablando && voz.frase ? voz.frase : pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' ? leyenda : ''}
                     confirmar={
                       accionesVisibles.some((a) => a.estado === 'pendiente') ? (
                         <div className="flex flex-col gap-2">
@@ -460,15 +508,56 @@ export function JarvisPage() {
                       ) : null
                     }
                     izquierda={
-                      misiones.mision ? (
+                      demo.activo ? (
+                        demo.agentes.length ? (
+                          <div className="flex flex-col gap-2">
+                            <p className="text-sm leading-snug font-semibold">Análisis de mercado y competencia</p>
+                            <ListaAgentes agentes={demo.agentes} />
+                          </div>
+                        ) : undefined
+                      ) : misiones.mision ? (
                         <div className="flex flex-col gap-2">
                           <p className="text-sm leading-snug font-semibold">{misiones.mision.titulo ?? misiones.mision.pedido}</p>
                           <ListaAgentes agentes={misiones.agentes} />
                         </div>
                       ) : undefined
                     }
-                    derecha={misiones.activa ? <RegistroMision agentes={misiones.agentes} /> : undefined}
+                    derecha={demo.activo ? (demo.agentes.length ? <RegistroMision agentes={demo.agentes} /> : undefined) : misiones.activa ? <RegistroMision agentes={misiones.agentes} /> : undefined}
+                    conPanel={Boolean(pantalla) || (!demo.activo && misiones.mision?.estado === 'lista')}
                     controles={
+                      demo.activo ? (
+                        <>
+                          <div className="flex min-h-12 flex-col justify-center rounded-full border border-acento/40 bg-fondo/60 px-4 leading-tight backdrop-blur">
+                            <span className="text-[10px] font-semibold tracking-[0.2em] text-acento-claro uppercase">
+                              Demo {demo.numero}/{demo.total}
+                            </span>
+                            <span className="max-w-[9rem] truncate text-sm font-semibold sm:max-w-none">{demo.paso?.titulo}</span>
+                          </div>
+                          <button
+                            onClick={demo.anterior}
+                            disabled={demo.numero <= 1}
+                            className="grid size-12 cursor-pointer place-items-center rounded-full border border-acento/40 bg-fondo/60 text-acento-claro backdrop-blur hover:text-white disabled:opacity-40"
+                            aria-label="Paso anterior"
+                          >
+                            <ChevronLeft className="size-5" />
+                          </button>
+                          <button
+                            onClick={demo.siguiente}
+                            className="grid size-12 cursor-pointer place-items-center rounded-full border border-acento/40 bg-fondo/60 text-acento-claro backdrop-blur hover:text-white"
+                            aria-label="Paso siguiente"
+                          >
+                            <ChevronRight className="size-5" />
+                          </button>
+                          <button
+                            onClick={demo.salir}
+                            className="grid size-12 cursor-pointer place-items-center rounded-full border border-acento/40 bg-fondo/60 text-acento-claro backdrop-blur hover:text-white"
+                            aria-label="Terminar el demo"
+                            title="Terminar el demo"
+                          >
+                            <X className="size-5" />
+                          </button>
+                        </>
+                      ) : (
                       <>
                         {activado && ptt.disponible && (
                           <button
@@ -504,12 +593,13 @@ export function JarvisPage() {
                           <Minimize2 className="size-5" />
                         </button>
                       </>
+                      )
                     }
                   />
                 )}
 
                 {/* Resultado de la misión, como panel sobre la red (modo tele) */}
-                {modoTele && !pantalla && misiones.mision?.estado === 'lista' && (
+                {modoTele && !pantalla && !demo.activo && misiones.mision?.estado === 'lista' && (
                   <div className="absolute inset-x-2 top-24 bottom-32 z-20 flex flex-col overflow-hidden rounded-2xl border border-turquesa/40 bg-fondo/95 p-4 shadow-[0_0_60px_-15px_var(--color-turquesa)] backdrop-blur animate-aparecer md:inset-x-auto md:top-[12%] md:right-6 md:bottom-[16%] md:w-[min(46%,820px)]">
                     <div className="mb-3 flex items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-xs font-semibold tracking-[0.15em] text-turquesa uppercase">Misión lista · {misiones.mision.titulo}</span>
@@ -586,7 +676,7 @@ export function JarvisPage() {
             </Panel>
 
             <Panel titulo="Comandos rápidos">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {COMANDOS.map((c) => (
                   <button
                     key={c.label}

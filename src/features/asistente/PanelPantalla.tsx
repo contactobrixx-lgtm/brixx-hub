@@ -23,7 +23,7 @@ export function PanelPantalla({ destino, tele, onCerrar, onAbrir }: Props) {
     <div
       className={cn(
         'absolute z-20 flex flex-col overflow-hidden rounded-2xl border border-acento/40 bg-fondo/95 shadow-[0_0_60px_-15px_var(--color-acento)] backdrop-blur animate-aparecer',
-        tele ? 'inset-x-2 top-24 bottom-32 md:inset-x-auto md:top-[12%] md:right-6 md:bottom-[16%] md:w-[min(52%,920px)]' : 'inset-3 md:inset-6',
+        tele ? 'inset-x-2 top-24 bottom-44 md:inset-x-auto md:top-[12%] md:right-6 md:bottom-[16%] md:w-[min(52%,920px)]' : 'inset-3 md:inset-6',
       )}
     >
       <div className="flex items-center gap-2 border-b border-acento/25 px-3 py-2">
