@@ -30,8 +30,8 @@ interface Item {
 }
 
 const ESTUDIO: Item[] = [
-  { to: '/inicio', label: 'Inicio', icono: Home },
   { to: '/jarvis', label: 'Jarvis', icono: AudioLines },
+  { to: '/inicio', label: 'Inicio', icono: Home },
   { to: '/calendario', label: 'Calendario', icono: CalendarDays },
   { to: '/grabaciones', label: 'Grabaciones', icono: Mic },
   { to: '/pipeline', label: 'Pipeline', icono: KanbanSquare },
@@ -46,7 +46,7 @@ const PROYECTOS: Item[] = [
 ]
 
 /** En el celular, la barra inferior muestra estas y el resto va a "Más". */
-const MOVIL = ['/inicio', '/calendario', '/grabaciones', '/pipeline']
+const MOVIL = ['/jarvis', '/inicio', '/grabaciones', '/pipeline']
 
 function LinkNav({ item }: { item: Item }) {
   const Icono = item.icono
