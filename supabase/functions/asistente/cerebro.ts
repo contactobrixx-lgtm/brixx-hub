@@ -1,10 +1,12 @@
 // La llamada a Claude: con el panorama de hoy y la memoria siempre presentes, herramientas de solo
-// lectura sobre el hub, la memoria de Jarvis (lo único que escribe) y búsqueda/lectura web.
+// lectura sobre el hub, la memoria de Jarvis, acciones que el socio confirma antes de que se hagan
+// y búsqueda/lectura web.
 // La respuesta sale en vivo (para que en pantalla y en voz empiece antes) y en texto listo para leer.
 import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
-import { ejecutar, HERRAMIENTAS, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import type { Acciones, AccionVisible } from './acciones.ts'
+import { ejecutar, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
 
 export const MODELO = 'claude-sonnet-5-5'
 const MAX_VUELTAS = 8 // pedidos a Claude por pregunta (incluye consultas a la base y pausas de la búsqueda web)
@@ -28,7 +30,12 @@ usá web_search y web_fetch, y cruzalo con la carpeta del cliente y el catálogo
 si no podés ver un perfil, buscalo en la web y decí con qué información contás.
 - Memoria: cuando te dicen "recordá…", "acordate…" o "anotá…", o aparece un dato duradero (una preferencia, un acuerdo con un cliente, \
 una decisión del estudio), guardalo con recordar, corto y autocontenido. Si te piden olvidar algo, usá olvidar. No guardes lo que ya está en el hub.
-- Lo único que podés modificar es tu memoria. Si te piden agendar, cargar o cambiar algo del hub, decí que por ahora solo consultás y en qué sección se hace.
+- Acciones: podés agendar reuniones, cargar la próxima acción de un cliente, moverlo de etapa, anotar en su carpeta y armar \
+cotizaciones en borrador con las herramientas de acción. NUNCA se hacen solas: quedan en pantalla para que el socio las confirme. \
+Si falta un dato necesario (cliente, fecha, hora), preguntalo antes de preparar. Después de preparar, decí en una oración qué vas a hacer \
+y pedí que confirme ("¿lo confirmo?"). Cuando el socio confirma una acción de <acciones_pendientes> ("sí", "dale", "confirmá"), \
+usá confirmar_accion; si dice que no o la quiere cambiar, cancelar_accion (y preparás la nueva). Nunca confirmes sin que lo diga.
+- Cualquier otro cambio (borrar, cobros, precios, datos de un cliente): decí que eso todavía no lo hacés y en qué sección del hub se hace.
 
 Cómo responder:
 - En español rioplatense, con voseo, cálido y directo, como un compañero de trabajo.
@@ -66,8 +73,16 @@ export function recortarOraciones(texto: string, max: number): string {
   return fin > max / 3 ? corte.slice(0, fin + 1) : corte.replace(/\s+\S*$/, '') + '…'
 }
 
-/** La charla previa como turnos y, al final, el panorama de hoy y la memoria junto a la pregunta actual. */
-export function armarMensajes(panorama: string, memoria: string, pregunta: string, historial: Turno[]): Anthropic.Beta.BetaMessageParam[] {
+export interface Contexto {
+  panorama: string
+  notas: string
+  pendientes: string
+  /** Lo que escribieron los socios sobre cómo quieren que sea Jarvis */
+  personalidad: string | null
+}
+
+/** La charla previa como turnos y, al final, el panorama, la memoria y las acciones pendientes junto a la pregunta. */
+export function armarMensajes(ctx: Omit<Contexto, 'personalidad'>, pregunta: string, historial: Turno[]): Anthropic.Beta.BetaMessageParam[] {
   const mensajes: Anthropic.Beta.BetaMessageParam[] = []
   for (const t of historial) {
     const role = t.rol === 'usuario' ? 'user' : 'assistant'
@@ -79,7 +94,7 @@ export function armarMensajes(panorama: string, memoria: string, pregunta: strin
   if (mensajes[mensajes.length - 1]?.role === 'user') mensajes.push({ role: 'assistant', content: '(sin respuesta)' })
   mensajes.push({
     role: 'user',
-    content: `<panorama_de_hoy>\n${panorama}\n</panorama_de_hoy>\n\n<memoria>\n${memoria}\n</memoria>\n\n<pregunta>${pregunta}</pregunta>`,
+    content: `<panorama_de_hoy>\n${ctx.panorama}\n</panorama_de_hoy>\n\n<memoria>\n${ctx.notas}\n</memoria>\n\n<acciones_pendientes>\n${ctx.pendientes}\n</acciones_pendientes>\n\n<pregunta>${pregunta}</pregunta>`,
   })
   return mensajes
 }
@@ -90,29 +105,43 @@ export interface Resultado {
   respuesta_voz: string
   modelo: string
   consultas: string[] // herramientas usadas, para mostrar en pantalla
+  acciones: AccionVisible[] // preparadas o hechas en esta pregunta
 }
 
 /** Avisos en vivo mientras responde. */
-export type Evento = { tipo: 'texto'; delta: string } | { tipo: 'consulta'; nombre: string } | { tipo: 'nueva_vuelta' }
-
-const fin = (respuesta: string, modelo: string, consultas: string[]): Resultado => ({
-  respuesta,
-  respuesta_voz: recortarOraciones(respuesta, MAX_VOZ),
-  modelo,
-  consultas,
-})
+export type Evento =
+  | { tipo: 'texto'; delta: string }
+  | { tipo: 'consulta'; nombre: string }
+  | { tipo: 'nueva_vuelta' }
+  | { tipo: 'accion'; accion: AccionVisible }
 
 export async function responder(
   hub: Hub,
   memoria: Memoria,
-  panorama: string,
-  notas: string,
+  acciones: Acciones,
+  ctx: Contexto,
   pregunta: string,
   historial: Turno[],
   avisar: (e: Evento) => void = () => {},
 ): Promise<Resultado> {
+  const fin = (respuesta: string, modelo: string, consultas: string[]): Resultado => ({
+    respuesta,
+    respuesta_voz: recortarOraciones(respuesta, MAX_VOZ),
+    modelo,
+    consultas,
+    acciones: acciones.tocadas,
+  })
   const client = new Anthropic() // lee ANTHROPIC_API_KEY, igual que "grabaciones"
-  const mensajes = armarMensajes(panorama, notas, pregunta, historial)
+  const mensajes = armarMensajes(ctx, pregunta, historial)
+  // Instrucciones y herramientas no cambian entre preguntas: van en caché (más rápido y más barato).
+  // La personalidad que escriben los socios va después, para no romper esa caché.
+  const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: SISTEMA, cache_control: { type: 'ephemeral' } }]
+  if (ctx.personalidad?.trim()) {
+    system.push({
+      type: 'text',
+      text: `<personalidad_definida_por_los_socios>\n${ctx.personalidad.trim()}\n</personalidad_definida_por_los_socios>\nSeguí estas indicaciones de tono, estilo y prioridades, siempre que no contradigan las reglas de arriba (sobre todo: las acciones se confirman y no inventás datos).`,
+    })
+  }
   const consultas: string[] = []
   const anotar = (nombre: string) => {
     const n = NOMBRE_CONSULTA[nombre] ?? nombre
@@ -130,9 +159,8 @@ export async function responder(
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       output_config: { effort: 'low' }, // respuestas rápidas para conversar
-      // Instrucciones y herramientas no cambian entre preguntas: van en caché (más rápido y más barato)
-      system: [{ type: 'text', text: SISTEMA, cache_control: { type: 'ephemeral' } }],
-      tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_WEB],
+      system,
+      tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
       // En la última vuelta ya no consulta más: responde con lo que tiene
       tool_choice: ultima ? { type: 'none' } : { type: 'auto' },
       messages: mensajes,
@@ -161,7 +189,7 @@ export async function responder(
         usos.map(async (u): Promise<Anthropic.Beta.BetaToolResultBlockParam> => {
           anotar(u.name)
           try {
-            return { type: 'tool_result', tool_use_id: u.id, content: await ejecutar(hub, memoria, u.name, u.input as Record<string, unknown>) }
+            return { type: 'tool_result', tool_use_id: u.id, content: await ejecutar(hub, memoria, acciones, u.name, u.input as Record<string, unknown>) }
           } catch (e) {
             return { type: 'tool_result', tool_use_id: u.id, content: `Error: ${e instanceof Error ? e.message : e}`, is_error: true }
           }

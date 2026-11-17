@@ -135,7 +135,10 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 - Para lo demás consulta el hub: agenda, grabaciones e intervenciones, clientes y su carpeta, cotizaciones, cobros y costos, metas, catálogo y sistemas.
 - **Busca en internet**: "Jarvis, analizá el Instagram de tal y tal y decime qué le conviene a tal cliente". Lee webs y buscadores. Instagram muchas veces no se deja leer directo: en ese caso te dice con qué información contó. Estas respuestas tardan más (busca y lee varias páginas).
 - **Se acuerda**: la conversación queda guardada (cada socio ve la suya) y, si le decís "Jarvis, recordá que…", lo anota en su **memoria** y lo tiene presente siempre. La memoria se ve y se borra en el panel "Memoria" de Jarvis.
-- Del hub **solo consulta**: no agenda ni modifica nada. Lo único que escribe es su memoria.
+- **Hace cosas, siempre con tu confirmación**: "Jarvis, agendame una demo con Napoli el jueves a las 3", "cargale a Nova como próxima acción mandarle la cotización", "pasá a Alcione a propuesta", "anotá en la carpeta de Napoli que quiere envíos", "armale a Alcione una cotización con el bot y la landing". Te muestra una tarjeta con lo que va a hacer: tocás **Confirmar** (o le decís "Jarvis, sí, dale") y recién ahí se hace. Si no confirmás en 30 minutos, se descarta. Cada socio confirma solo lo que pidió.
+- Lo demás (borrar, cobros, precios, datos de clientes) todavía se hace desde cada sección.
+
+**Personalidad:** en el panel "Personalidad" de Jarvis escribís cómo querés que sea (tono, qué priorizar, qué evitar). Vale para los dos socios. Las reglas de fondo no cambian: no inventa datos y no hace nada sin tu confirmación.
 
 **Velocidad:** la respuesta aparece mientras se escribe y Jarvis empieza a hablar con la primera oración. Lee hasta unos 600 caracteres; si la respuesta es más larga, el resto queda en pantalla.
 

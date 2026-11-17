@@ -7,6 +7,7 @@ import { Spinner } from '../../components/ui/Spinner'
 import { cn } from '../../components/ui/cn'
 import { useReconocimientoVoz } from './useReconocimientoVoz'
 import { useVoz } from './useVoz'
+import { TarjetaAccion } from './TarjetaAccion'
 import { useAsistente } from './useAsistente'
 
 const SUGERENCIAS = [
@@ -32,7 +33,11 @@ export function Asistente() {
   const [texto, setTexto] = useState('')
   const [vozActiva, setVozActiva] = useState(leerVozActiva)
   const voz = useVoz()
-  const { mensajes, pensando, consultando, preguntar, limpiar } = useAsistente()
+  const { mensajes, pensando, consultando, acciones, preguntar, resolverAccion, limpiar } = useAsistente()
+  const resolver = async (id: string, que: 'confirmar' | 'cancelar') => {
+    const a = await resolverAccion(id, que)
+    if (a?.resultado && vozActiva) voz.decir(a.resultado)
+  }
   const lista = useRef<HTMLDivElement>(null)
 
   const enviar = async (pregunta: string) => {
@@ -200,6 +205,14 @@ export function Asistente() {
                 )}
               >
                 <p className="whitespace-pre-line">{m.texto}</p>
+                {(m.acciones ?? []).map((id) => {
+                  const a = acciones.find((x) => x.id === id)
+                  return a ? (
+                    <div key={id} className="mt-2">
+                      <TarjetaAccion accion={a} onResolver={resolver} compacta />
+                    </div>
+                  ) : null
+                })}
                 {m.rol === 'asistente' && !m.error && !m.enCurso && voz.disponible && (
                   <button
                     onClick={() => voz.decir(m.voz ?? m.texto)}

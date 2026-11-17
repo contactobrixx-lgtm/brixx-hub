@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { claveAnon, supabase, urlFunciones } from '../../lib/supabase'
+import type { AccionJarvis } from '../../types/db'
 
 export interface Mensaje {
   id: string
@@ -12,6 +14,8 @@ export interface Mensaje {
   consultas?: string[]
   /** Todavía está llegando */
   enCurso?: boolean
+  /** Acciones que preparó o hizo en esta respuesta */
+  acciones?: string[]
 }
 
 export interface OpcionesPregunta {
@@ -35,7 +39,8 @@ type Evento =
   | { tipo: 'texto'; delta: string }
   | { tipo: 'consulta'; nombre: string }
   | { tipo: 'nueva_vuelta' }
-  | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[] }
+  | { tipo: 'accion'; accion: AccionJarvis }
+  | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[]; acciones?: AccionJarvis[] }
   | { tipo: 'error'; error: string }
 
 /**
@@ -47,8 +52,27 @@ export function useAsistente() {
   const [pensando, setPensando] = useState(false)
   /** Qué está consultando ahora (agenda, búsqueda web…), para mostrarlo */
   const [consultando, setConsultando] = useState<string | null>(null)
+  /** Acciones de esta sesión (y las pendientes de antes), por id */
+  const [acciones, setAcciones] = useState<AccionJarvis[]>([])
   const mensajesRef = useRef(mensajes)
   mensajesRef.current = mensajes
+
+  const guardarAccion = useCallback((a: AccionJarvis) => {
+    setAcciones((lista) => (lista.some((x) => x.id === a.id) ? lista.map((x) => (x.id === a.id ? { ...x, ...a } : x)) : [...lista, a]))
+  }, [])
+
+  // Las que quedaron esperando confirmación (de los últimos 30 minutos)
+  useEffect(() => {
+    supabase
+      .from('jarvis_acciones')
+      .select('id, tipo, resumen, estado, resultado, link')
+      .eq('estado', 'pendiente')
+      .gte('created_at', new Date(Date.now() - 30 * 60_000).toISOString())
+      .order('created_at')
+      .then(({ data, error }) => {
+        if (!error && data) setAcciones((lista) => [...(data as AccionJarvis[]).filter((a) => !lista.some((x) => x.id === a.id)), ...lista])
+      })
+  }, [])
 
   // La conversación guardada (de cualquier día y equipo)
   useEffect(() => {
@@ -137,6 +161,11 @@ export function useAsistente() {
               op.alReiniciar?.()
             } else if (e.tipo === 'consulta') {
               setConsultando(e.nombre)
+            } else if (e.tipo === 'accion') {
+              guardarAccion(e.accion)
+              setMensajes((ms) =>
+                ms.map((m) => (m.id === idRespuesta && !m.acciones?.includes(e.accion.id) ? { ...m, acciones: [...(m.acciones ?? []), e.accion.id] } : m)),
+              )
             } else if (e.tipo === 'fin') {
               fin = e
             } else if (e.tipo === 'error') {
@@ -145,6 +174,7 @@ export function useAsistente() {
           }
         }
         if (!fin) throw new Error('Se cortó la respuesta. Probá de nuevo.')
+        for (const a of fin.acciones ?? []) guardarAccion(a)
         final = { respuesta: fin.respuesta, voz: fin.respuesta_voz?.trim() || fin.respuesta, consultas: fin.consultas ?? [] }
       }
       poner({ texto: final.respuesta, voz: final.voz !== final.respuesta ? final.voz : undefined, consultas: final.consultas, enCurso: false })
@@ -156,7 +186,27 @@ export function useAsistente() {
       setPensando(false)
       setConsultando(null)
     }
-  }, [])
+  }, [guardarAccion])
+
+  /** Confirma o cancela una acción con el botón. Devuelve cómo quedó (o lanza un error legible). */
+  const resolverAccion = useCallback(
+    async (id: string, que: 'confirmar' | 'cancelar'): Promise<AccionJarvis | null> => {
+      const { data, error } = await supabase.functions.invoke('asistente', { body: { accion: que, id } })
+      if (error) {
+        const cuerpo = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null
+        throw new Error(cuerpo?.error ?? 'No se pudo. Probá de nuevo.')
+      }
+      if (que === 'cancelar') {
+        const actual = acciones.find((a) => a.id === id)
+        if (actual) guardarAccion({ ...actual, estado: 'cancelada', resultado: 'Cancelada.' })
+        return null
+      }
+      const a = (data as { accion: AccionJarvis }).accion
+      guardarAccion(a)
+      return a
+    },
+    [acciones, guardarAccion],
+  )
 
   /** Borra la conversación (la propia; la memoria de Jarvis queda). */
   const limpiar = useCallback(async () => {
@@ -164,5 +214,5 @@ export function useAsistente() {
     await supabase.from('asistente_mensajes').delete().not('id', 'is', null)
   }, [])
 
-  return { mensajes, pensando, consultando, preguntar, limpiar }
+  return { mensajes, pensando, consultando, acciones, preguntar, resolverAccion, limpiar }
 }

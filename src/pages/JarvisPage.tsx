@@ -18,6 +18,9 @@ import {
 import { useAuth } from '../auth/AuthProvider'
 import { useAsistente } from '../features/asistente/useAsistente'
 import { useMemoria } from '../features/asistente/useMemoria'
+import { usePersonalidad } from '../features/asistente/usePersonalidad'
+import { TarjetaAccion } from '../features/asistente/TarjetaAccion'
+import { PersonalidadForm } from '../features/asistente/PersonalidadForm'
 import { useVoz } from '../features/asistente/useVoz'
 import { useReconocimientoVoz } from '../features/asistente/useReconocimientoVoz'
 import { useManosLibres } from '../features/asistente/useManosLibres'
@@ -69,11 +72,20 @@ const TONO = { peligro: 'text-peligro', aviso: 'text-aviso', info: 'text-acento-
 export function JarvisPage() {
   const { miembro } = useAuth()
   const d = useDashboard('mes')
-  const { filas: reuniones } = useReuniones()
+  const { filas: reuniones, recargar: recargarReuniones } = useReuniones()
   const config = useConfigGrabaciones()
   const voz = useVoz()
-  const { mensajes, pensando, consultando, preguntar } = useAsistente()
+  const { mensajes, pensando, consultando, acciones, preguntar, resolverAccion } = useAsistente()
   const memoria = useMemoria()
+  const personalidad = usePersonalidad()
+  const [editandoPersonalidad, setEditandoPersonalidad] = useState(false)
+  // Pendientes primero; después las últimas resueltas en esta sesión
+  const accionesVisibles = [...acciones.filter((a) => a.estado === 'pendiente'), ...acciones.filter((a) => a.estado !== 'pendiente').slice(-3).reverse()]
+  const resolver = async (id: string, que: 'confirmar' | 'cancelar') => {
+    const a = await resolverAccion(id, que)
+    if (a?.resultado && vozActiva) voz.decir(a.resultado)
+    if (a?.estado === 'hecha') recargarReuniones()
+  }
 
   const [activado, setActivado] = useState(false)
   const [texto, setTexto] = useState('')
@@ -107,6 +119,7 @@ export function JarvisPage() {
     await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar() })
     vivo?.terminar()
     memoria.recargar() // por si guardó algo nuevo
+    recargarReuniones() // por si confirmó una reunión por voz
   }
 
   // Tocar para hablar (en el núcleo o el botón de micrófono)
@@ -302,6 +315,19 @@ export function JarvisPage() {
               )}
             </section>
 
+            {accionesVisibles.length > 0 && (
+              <Panel titulo="Para confirmar">
+                <div className="flex flex-col gap-2">
+                  {accionesVisibles.map((a) => (
+                    <TarjetaAccion key={a.id} accion={a} onResolver={resolver} />
+                  ))}
+                </div>
+                {accionesVisibles.some((a) => a.estado === 'pendiente') && (
+                  <p className="mt-2 text-xs text-tenue">También podés decirle "Jarvis, sí, dale" o "Jarvis, cancelalo".</p>
+                )}
+              </Panel>
+            )}
+
             <Panel titulo="Comandos rápidos">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {COMANDOS.map((c) => (
@@ -367,6 +393,21 @@ export function JarvisPage() {
                   {new Date(d.proximas[0].inicio).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' })} {formatHora(new Date(d.proximas[0].inicio))}
                 </div>
               ) : null}
+            </Panel>
+
+            <Panel
+              titulo="Personalidad"
+              extra={
+                personalidad.disponible ? (
+                  <button onClick={() => setEditandoPersonalidad(true)} className="cursor-pointer text-xs font-semibold text-acento-texto hover:underline">
+                    Editar
+                  </button>
+                ) : null
+              }
+            >
+              <p className={cn('line-clamp-4 text-sm whitespace-pre-line', personalidad.texto ? 'text-suave' : 'text-tenue')}>
+                {personalidad.texto || 'Escribí cómo querés que sea Jarvis: su tono, qué priorizar, qué evitar.'}
+              </p>
             </Panel>
 
             <Panel titulo="Memoria">
@@ -489,6 +530,12 @@ export function JarvisPage() {
           </div>
         </section>
       </div>
+      <PersonalidadForm
+        abierto={editandoPersonalidad}
+        texto={personalidad.texto}
+        onCerrar={() => setEditandoPersonalidad(false)}
+        onGuardar={personalidad.guardar}
+      />
     </div>
   )
 }
