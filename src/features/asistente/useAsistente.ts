@@ -25,6 +25,8 @@ export interface OpcionesPregunta {
   alReiniciar?: () => void
   /** Jarvis quiere mostrar una pantalla del hub ("mostrame la carpeta de Nova") */
   alMostrar?: (destino: { ruta: string; titulo: string }) => void
+  /** Jarvis lanzó una misión de agentes */
+  alMision?: (id: string) => void
 }
 
 const CLAVE = 'brixx-asistente-historial'
@@ -43,6 +45,7 @@ type Evento =
   | { tipo: 'nueva_vuelta' }
   | { tipo: 'accion'; accion: AccionJarvis }
   | { tipo: 'mostrar'; destino: { ruta: string; titulo: string } }
+  | { tipo: 'mision'; id: string }
   | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[]; acciones?: AccionJarvis[]; tiempos?: Record<string, number>; modelo?: string }
   | { tipo: 'error'; error: string }
 
@@ -179,6 +182,8 @@ export function useAsistente() {
               op.alReiniciar?.()
             } else if (e.tipo === 'consulta') {
               setConsultando(e.nombre)
+            } else if (e.tipo === 'mision') {
+              op.alMision?.(e.id)
             } else if (e.tipo === 'mostrar') {
               op.alMostrar?.(e.destino)
             } else if (e.tipo === 'accion') {

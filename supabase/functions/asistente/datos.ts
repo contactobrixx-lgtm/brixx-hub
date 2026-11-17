@@ -397,6 +397,32 @@ export class Hub {
     throw new Error(`No conozco la pantalla "${nombre}".`)
   }
 
+  /** Una misión de agentes: su resultado, o el avance si todavía trabaja. Sin id, la última. */
+  async mision(id?: string): Promise<string> {
+    let q = this.db.from('jarvis_misiones').select('id, titulo, pedido, estado, resultado, resumen, error, created_at').order('created_at', { ascending: false }).limit(1)
+    if (id) q = this.db.from('jarvis_misiones').select('id, titulo, pedido, estado, resultado, resumen, error, created_at').eq('id', id).limit(1)
+    const { data } = await q
+    const m = data?.[0]
+    if (!m) return 'No hay misiones.'
+    const { data: agentes } = await this.db.from('jarvis_agentes').select('nombre, estado, progreso, resultado').eq('mision_id', m.id).order('orden')
+    const cabeza = `Misión "${m.titulo ?? m.pedido}" (${m.estado}), del ${fechaHoraAR(m.created_at as string)}. Pedido: ${m.pedido}`
+    if (m.estado === 'lista') return `${cabeza}\nResumen: ${m.resumen}\nResultado:\n${m.resultado}`
+    if (m.estado === 'error') return `${cabeza}\nFalló: ${m.error}`
+    return `${cabeza}\nAvance: ${(agentes ?? []).map((a) => `${a.nombre} ${a.estado} ${a.progreso}%`).join('; ') || 'planificando'}`
+  }
+
+  /** Misiones de las últimas 24 h, para el panorama. */
+  async misionesRecientes(): Promise<string> {
+    const { data } = await this.db
+      .from('jarvis_misiones')
+      .select('id, titulo, pedido, estado, resumen')
+      .gte('created_at', new Date(Date.now() - 864e5).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(4)
+    if (!data?.length) return 'Misiones de agentes en las últimas 24 h: ninguna.'
+    return `Misiones de agentes en las últimas 24 h: ${data.map((m) => `[${m.id}] "${m.titulo ?? m.pedido}" (${m.estado})${m.resumen ? `: ${m.resumen}` : ''}`).join('; ')}.`
+  }
+
   /** Los números del mes para el "recap": cobrado, clientes nuevos (y meta), prospectos, recurrente y por cobrar. */
   async numerosMes(): Promise<string> {
     const hoy = hoyAR()
@@ -458,6 +484,7 @@ export class Hub {
       `Grabaciones sin procesar o con error: ${(pendientesGrab ?? []).map((g) => `"${g.titulo}" (${g.estado})`).join('; ') || 'ninguna'}.`,
       `Clientes activos: ${prospectos.filter((p) => GANADAS.includes(p.etapa as string)).map((p) => `${p.empresa || p.nombre} (${p.etapa})`).join(', ') || 'ninguno'}.`,
       await this.numerosMes().catch(() => 'Números del mes: no se pudieron calcular.'),
+      await this.misionesRecientes().catch(() => ''),
     ]
     return out.join('\n')
   }

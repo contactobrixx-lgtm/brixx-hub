@@ -40,13 +40,16 @@ interface Props {
   controles: ReactNode
   /** Acciones para confirmar */
   confirmar?: ReactNode
+  /** Misión en marcha: reemplaza los números del mes (izquierda) y el estado (derecha) */
+  izquierda?: ReactNode
+  derecha?: ReactNode
 }
 
 /**
  * Los paneles del modo tele, flotando sobre la red (como un HUD): números del mes a la izquierda,
  * estado del estudio a la derecha, reloj arriba y subtítulos abajo. En el celular se compactan.
  */
-export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, controles, confirmar }: Props) {
+export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, controles, confirmar, izquierda, derecha }: Props) {
   return (
     <div className="pointer-events-none absolute inset-0 z-10 p-3 md:p-6">
       {/* Arriba izquierda: título y números del mes */}
@@ -57,7 +60,8 @@ export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, contr
           </div>
           <div className="text-sm text-tenue">{saludo}</div>
         </div>
-        <Caja titulo="Este mes" className="hidden sm:block">
+        {izquierda && <Caja titulo="Misión" className="pointer-events-auto max-h-[55vh] overflow-y-auto">{izquierda}</Caja>}
+        <Caja titulo="Este mes" className={cn('hidden', izquierda ? '' : 'sm:block')}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
             {metricas.map((m) => (
               <div key={m.label}>
@@ -76,7 +80,12 @@ export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, contr
       </div>
 
       {/* Derecha: estado del estudio */}
-      <Caja titulo="Estado" className="absolute top-24 right-3 hidden w-60 md:top-28 md:right-6 lg:block">
+      {derecha && (
+        <Caja titulo="Registro" className="absolute top-24 right-3 hidden w-72 md:top-28 md:right-6 lg:block">
+          {derecha}
+        </Caja>
+      )}
+      <Caja titulo="Estado" className={cn('absolute top-24 right-3 hidden w-60 md:top-28 md:right-6', derecha ? '' : 'lg:block')}>
         <ul className="flex flex-col gap-1.5">
           {filas.map((f) => (
             <li key={f.label} className="flex items-center gap-2 text-sm">
@@ -89,7 +98,7 @@ export function HudTele({ hora, fecha, saludo, metricas, filas, subtitulo, contr
       </Caja>
 
       {/* Celular: números del mes en una fila */}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
+      <div className={cn('mt-3 grid grid-cols-2 gap-2 sm:hidden', izquierda ? 'hidden' : '')}>
         {metricas.map((m) => (
           <div key={m.label} className="rounded-lg border border-acento/25 bg-fondo/45 px-2.5 py-1.5 backdrop-blur-sm">
             <div className="text-[9px] tracking-wider text-tenue uppercase">{m.label}</div>

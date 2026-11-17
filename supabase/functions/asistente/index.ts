@@ -116,7 +116,24 @@ Deno.serve(async (req) => {
         .then(({ data }) => (data?.jarvis_personalidad as string | null) ?? null),
     ])
     const tContexto = Date.now() - t0
-    const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar)
+    // Misión: se crea acá y la corre la función "misiones" en segundo plano (con la misma sesión del socio)
+    const lanzarMision = async (pedidoMision: string): Promise<string> => {
+      const pedidoLimpio = pedidoMision.trim().slice(0, 2000)
+      if (!pedidoLimpio) throw new Error('Falta el pedido de la misión.')
+      const { data, error } = await admin.from('jarvis_misiones').insert({ usuario: usuario.email, pedido: pedidoLimpio }).select('id').single()
+      if (error) throw new Error(`No se pudo crear la misión: ${error.message}`)
+      const res = await fetch(`${URL_SUPABASE}/functions/v1/misiones`, {
+        method: 'POST',
+        headers: { Authorization: req.headers.get('Authorization') ?? '', apikey: ANON, 'content-type': 'application/json' },
+        body: JSON.stringify({ accion: 'correr', id: data.id }),
+      })
+      if (!res.ok) {
+        await admin.from('jarvis_misiones').update({ estado: 'error', error: `No arrancó (${res.status}).` }).eq('id', data.id)
+        throw new Error('No pude arrancar la misión (¿está publicada la función "misiones"?).')
+      }
+      return data.id as string
+    }
+    const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar, lanzarMision)
     const tiempos = { sesion_ms: tAuth, contexto_ms: tContexto, primera_palabra_ms: primeraPalabra, total_ms: Date.now() - t0, consultas: r.consultas.length }
     console.log('Tiempos de Jarvis:', JSON.stringify(tiempos)) // visible en Supabase → Edge Functions → asistente → Logs
     return { ...r, tiempos }

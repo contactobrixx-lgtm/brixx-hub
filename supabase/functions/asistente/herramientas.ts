@@ -59,7 +59,17 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   herramienta('sistemas_y_demos', 'Sistemas entregados y demos web del estudio (fichas con su URL).', {
     texto: opcional({ type: 'string' }),
   }),
+  herramienta('leer_mision', 'El resultado (o el avance) de una misión de agentes. Sin id, la última.', {
+    id: opcional({ type: 'string', description: 'Id de la misión (aparece en el panorama).' }),
+  }),
 ]
+
+/** Lanzar una misión: varios agentes trabajando en paralelo en segundo plano (no modifican el hub). */
+export const HERRAMIENTA_MISION: Anthropic.Beta.BetaTool = herramienta(
+  'lanzar_mision',
+  'Lanza una misión: un equipo de 2 a 5 agentes que trabajan en paralelo y en segundo plano sobre un pedido GRANDE de varios pasos (preparar una reunión, investigar un cliente y su competencia, buscar prospectos y armarles un mensaje, armar una estrategia). Tarda uno o dos minutos y el socio ve el avance en pantalla. No la uses para preguntas simples.',
+  { pedido: { type: 'string', description: 'El pedido completo y claro, con el cliente y lo que se espera como resultado.' } },
+)
 
 /** Memoria de Jarvis: lo único que puede escribir. */
 export const HERRAMIENTAS_MEMORIA: Anthropic.Beta.BetaTool[] = [
@@ -161,6 +171,8 @@ export const NOMBRE_CONSULTA: Record<string, string> = {
   cotizacion_borrador: 'cotizador',
   confirmar_accion: 'acción',
   mostrar_pantalla: 'pantallas',
+  lanzar_mision: 'misión',
+  leer_mision: 'misión',
   cancelar_accion: 'acción',
   web_search: 'búsqueda web',
   web_fetch: 'lectura web',
@@ -180,9 +192,17 @@ export async function ejecutar(
   nombre: string,
   e: Entrada,
   mostrar: (destino: { ruta: string; titulo: string }) => void = () => {},
+  lanzarMision?: (pedido: string) => Promise<string>,
 ): Promise<string> {
   if (TIPOS_ACCION.has(nombre)) return acciones.preparar(nombre as TipoAccion, e)
   switch (nombre) {
+    case 'lanzar_mision': {
+      if (!lanzarMision) throw new Error('Desde acá no se pueden lanzar misiones.')
+      const id = await lanzarMision(String(e.pedido ?? ''))
+      return `Misión lanzada (id ${id}). Los agentes ya están trabajando en segundo plano y el socio ve el avance en pantalla. Decile en una oración que armaste el equipo y que en uno o dos minutos tiene el resultado.`
+    }
+    case 'leer_mision':
+      return hub.mision(s(e.id))
     case 'mostrar_pantalla': {
       const destino = await hub.pantalla(String(e.pantalla ?? ''), s(e.cliente))
       mostrar(destino)
