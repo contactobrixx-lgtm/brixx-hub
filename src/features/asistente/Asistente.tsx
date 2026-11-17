@@ -32,15 +32,17 @@ export function Asistente() {
   const [texto, setTexto] = useState('')
   const [vozActiva, setVozActiva] = useState(leerVozActiva)
   const voz = useVoz()
-  const { mensajes, pensando, preguntar, limpiar } = useAsistente()
+  const { mensajes, pensando, consultando, preguntar, limpiar } = useAsistente()
   const lista = useRef<HTMLDivElement>(null)
 
   const enviar = async (pregunta: string) => {
     if (!pregunta.trim() || pensando) return
     setTexto('')
     voz.callar()
-    const respuesta = await preguntar(pregunta)
-    if (respuesta && vozActiva) voz.decir(respuesta)
+    // La voz arranca con la primera oración, mientras sigue llegando el resto
+    const vivo = vozActiva ? voz.enVivo() : null
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar() })
+    vivo?.terminar()
   }
 
   const microfono = useReconocimientoVoz((dicho) => enviar(dicho))
@@ -187,7 +189,7 @@ export function Asistente() {
             </div>
           )}
 
-          {mensajes.map((m) => (
+          {mensajes.filter((m) => !(m.enCurso && !m.texto)).map((m) => (
             <div key={m.id} className={cn('flex', m.rol === 'usuario' ? 'justify-end' : 'justify-start')}>
               <div
                 className={cn(
@@ -198,7 +200,7 @@ export function Asistente() {
                 )}
               >
                 <p className="whitespace-pre-line">{m.texto}</p>
-                {m.rol === 'asistente' && !m.error && voz.disponible && (
+                {m.rol === 'asistente' && !m.error && !m.enCurso && voz.disponible && (
                   <button
                     onClick={() => voz.decir(m.voz ?? m.texto)}
                     className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs text-tenue hover:text-texto"
@@ -213,7 +215,7 @@ export function Asistente() {
 
           {pensando && (
             <div className="flex items-center gap-2 text-sm text-tenue">
-              <Spinner className="size-4" /> Pensando…
+              <Spinner className="size-4" /> {consultando ? `Consultando ${consultando}…` : 'Pensando…'}
             </div>
           )}
         </div>

@@ -13,9 +13,11 @@ import {
   Volume2,
   VolumeX,
   Zap,
+  X,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthProvider'
 import { useAsistente } from '../features/asistente/useAsistente'
+import { useMemoria } from '../features/asistente/useMemoria'
 import { useVoz } from '../features/asistente/useVoz'
 import { useReconocimientoVoz } from '../features/asistente/useReconocimientoVoz'
 import { useManosLibres } from '../features/asistente/useManosLibres'
@@ -70,7 +72,8 @@ export function JarvisPage() {
   const { filas: reuniones } = useReuniones()
   const config = useConfigGrabaciones()
   const voz = useVoz()
-  const { mensajes, pensando, preguntar } = useAsistente()
+  const { mensajes, pensando, consultando, preguntar } = useAsistente()
+  const memoria = useMemoria()
 
   const [activado, setActivado] = useState(false)
   const [texto, setTexto] = useState('')
@@ -99,8 +102,11 @@ export function JarvisPage() {
     if (!pregunta.trim() || pensando) return
     setTexto('')
     voz.callar()
-    const respuesta = await preguntar(pregunta)
-    if (respuesta && vozActiva) voz.decir(respuesta)
+    // La voz arranca con la primera oración, mientras sigue llegando el resto
+    const vivo = vozActiva ? voz.enVivo() : null
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar() })
+    vivo?.terminar()
+    memoria.recargar() // por si guardó algo nuevo
   }
 
   // Tocar para hablar (en el núcleo o el botón de micrófono)
@@ -143,7 +149,9 @@ export function JarvisPage() {
   const leyenda = !activado
     ? 'Tocá "Activar Jarvis" para empezar.'
     : pensando
-      ? 'Pensando…'
+      ? consultando
+        ? `Consultando ${consultando}…`
+        : 'Pensando…'
       : voz.hablando
         ? 'Hablando…'
         : ptt.escuchando
@@ -361,14 +369,37 @@ export function JarvisPage() {
               ) : null}
             </Panel>
 
+            <Panel titulo="Memoria">
+              {memoria.notas.length ? (
+                <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto pr-1">
+                  {memoria.notas.map((n) => (
+                    <li key={n.id} className="group flex items-start gap-2 text-sm text-suave">
+                      <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-acento-texto" aria-hidden />
+                      <span className="min-w-0 flex-1">{n.contenido}</span>
+                      <button
+                        onClick={() => memoria.borrar(n.id)}
+                        className="cursor-pointer text-tenue opacity-60 hover:text-peligro hover:opacity-100"
+                        aria-label={`Olvidar: ${n.contenido}`}
+                        title="Olvidar"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-tenue">Decile "Jarvis, recordá que…" y lo va a tener presente siempre.</p>
+              )}
+            </Panel>
+
             <Panel titulo="Conversación">
               {mensajes.length ? (
                 <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-                  {mensajes.slice(-8).map((m) => (
+                  {mensajes.filter((m) => !(m.enCurso && !m.texto)).slice(-8).map((m) => (
                     <div key={m.id} className={cn('text-sm', m.rol === 'usuario' ? 'text-acento-claro' : m.error ? 'text-peligro' : 'text-suave')}>
                       <span className="mr-1.5 text-[10px] font-bold tracking-wider uppercase opacity-70">{m.rol === 'usuario' ? 'Vos' : 'Jarvis'}</span>
                       {m.texto}
-                      {m.rol === 'asistente' && !m.error && voz.disponible && (
+                      {m.rol === 'asistente' && !m.error && !m.enCurso && voz.disponible && (
                         <button onClick={() => voz.decir(m.voz ?? m.texto)} className="ml-1.5 cursor-pointer align-middle text-tenue hover:text-texto" aria-label="Escuchar de nuevo">
                           <Volume2 className="inline size-3.5" />
                         </button>

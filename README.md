@@ -131,11 +131,15 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 **En el resto del hub** está el botón azul flotante. Lo tocás, hablás y tocás el cuadrado rojo para mandar. Ahí nunca escucha de fondo.
 
 **Qué puede responder:**
-- Siempre sabe lo de hoy.
-- Para lo demás consulta el hub: agenda, grabaciones (resumen, puntos clave, próximos pasos y, si hace falta, lo que se dijo textual), clientes y prospectos, cotizaciones, cobros y costos, metas, catálogo y sistemas.
-- **Solo consulta**: no agenda ni modifica nada.
+- Siempre sabe lo de hoy: decile "Jarvis, buen día, ¿qué hay para hacer hoy?" y te cuenta lo más importante, lo urgente primero.
+- Para lo demás consulta el hub: agenda, grabaciones e intervenciones, clientes y su carpeta, cotizaciones, cobros y costos, metas, catálogo y sistemas.
+- **Busca en internet**: "Jarvis, analizá el Instagram de tal y tal y decime qué le conviene a tal cliente". Lee webs y buscadores. Instagram muchas veces no se deja leer directo: en ese caso te dice con qué información contó. Estas respuestas tardan más (busca y lee varias páginas).
+- **Se acuerda**: la conversación queda guardada (cada socio ve la suya) y, si le decís "Jarvis, recordá que…", lo anota en su **memoria** y lo tiene presente siempre. La memoria se ve y se borra en el panel "Memoria" de Jarvis.
+- Del hub **solo consulta**: no agenda ni modifica nada. Lo único que escribe es su memoria.
 
-**Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar.
+**Velocidad:** la respuesta aparece mientras se escribe y Jarvis empieza a hablar con la primera oración. Lee hasta unos 600 caracteres; si la respuesta es más larga, el resto queda en pantalla.
+
+**Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar; las que buscan en internet, algunos centavos más.
 
 ### Voz premium (ElevenLabs, opcional)
 
@@ -151,11 +155,11 @@ Sin configurar nada, Jarvis lee con la voz del dispositivo (la más grave en esp
 2. Agregala a **My Voices**, abrila y copiá su **Voice ID**.
 3. En Supabase, sumá el secret `ELEVENLABS_VOICE_ID` con ese valor. Se aplica en la siguiente respuesta.
 
-**Consumo.** Usa el modelo `eleven_multilingual_v2`, el más natural en español: 1 crédito por letra. Para cuidar los créditos:
+**Consumo.** Usa el modelo `eleven_flash_v2_5`, el más rápido: medio crédito por letra. Para cuidar los créditos:
 - En pantalla siempre aparece la respuesta completa. A ElevenLabs solo va la parte hablada.
-- Si la respuesta pasa los 600 caracteres, Claude arma un resumen hablado de dos o tres oraciones.
-- Una respuesta típica cuesta entre 150 y 400 créditos: con el plan Free alcanza para unas 30 a 60 respuestas por mes.
-- Para gastar la mitad, sumá el secret `ELEVENLABS_MODEL` = `eleven_flash_v2_5`. Suena un poco menos natural, pero responde más rápido.
+- Jarvis lee hasta unos 600 caracteres (empieza siempre por la conclusión); el resto queda en pantalla.
+- Una respuesta típica cuesta entre 75 y 300 créditos: con el plan Free alcanza para unas 50 a 120 respuestas por mes.
+- Si preferís una voz un poco más natural (y más lenta para arrancar, al doble de créditos), sumá el secret `ELEVENLABS_MODEL` = `eleven_multilingual_v2`.
 
 **¿Está usando ElevenLabs?** Mirá la fila **Voz** del estado de Jarvis:
 - **Premium**: la última respuesta sonó con ElevenLabs.

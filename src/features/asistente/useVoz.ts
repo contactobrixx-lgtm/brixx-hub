@@ -89,6 +89,35 @@ function oraciones(texto: string): string[] {
 
 export type FuenteVoz = 'premium' | 'dispositivo'
 
+/** Voz que se va armando mientras llega la respuesta (ver enVivo). */
+export interface VozEnVivo {
+  agregar: (delta: string) => void
+  reiniciar: () => void
+  terminar: () => void
+}
+
+const MAX_VOZ_EN_VIVO = 600 // caracteres que se leen como mucho por respuesta
+const MIN_TANDA = 120 // después de la primera oración, se pide el audio de a tandas (menos pedidos)
+
+/** Restos de markdown que no se leen bien. */
+const limpiar = (t: string) => t.replace(/[*_#`>]+/g, '').replace(/\s+/g, ' ').trim()
+
+/**
+ * Índice donde termina la primera tanda de oraciones completas de al menos `minimo` caracteres
+ * (null si todavía no hay ninguna completa). Una oración termina en . ! ? … seguido de espacio o salto.
+ */
+export function buscarFinDeOracion(texto: string, minimo: number): number | null {
+  const re = /[.!?…]+["»)]*(?=\s)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(texto))) {
+    const fin = m.index + m[0].length
+    // "3.5" o "Sr." no cortan: se exige espacio después y que no sea un número decimal
+    if (/\d$/.test(texto.slice(0, m.index)) && /^\.\d/.test(texto.slice(m.index))) continue
+    if (fin >= minimo) return fin
+  }
+  return null
+}
+
 /**
  * Texto a voz. Usa la voz premium de ElevenLabs si está configurada en Supabase;
  * si no está o falla (sin créditos, sin conexión), lee con la voz del dispositivo.
@@ -182,6 +211,113 @@ export function useVoz() {
   )
 
   /**
+   * Voz en vivo: se le van pasando pedacitos de texto a medida que llega la respuesta y empieza a hablar
+   * con la primera oración, mientras pide el audio de las siguientes. Lee hasta ~600 caracteres
+   * (cuida los créditos); si la respuesta sigue, avisa que el resto quedó en pantalla.
+   */
+  const enVivo = useCallback((): VozEnVivo => {
+    callar()
+    const mio = ++turno.current
+    const vigente = () => mio === turno.current
+    setHablando(true)
+
+    let buffer = ''
+    let leidos = 0
+    let cortado = false
+    let terminado = false
+    let reproduciendo = false
+    let usarPremium: boolean | null = premium === false ? false : null // null = todavía no se sabe
+    const cola: Promise<{ url: string | null; texto: string }>[] = []
+
+    const pedir = (texto: string) =>
+      (async () => {
+        if (usarPremium === null) usarPremium = await premiumConfigurada()
+        if (!usarPremium) return { url: null, texto }
+        const url = await audioPremium(texto).catch(() => null)
+        if (!url) usarPremium = false // si falló una vez, el resto de esta respuesta con la voz del dispositivo
+        return { url, texto }
+      })()
+
+    const siguiente = async (): Promise<void> => {
+      if (!vigente()) return
+      const pieza = cola.shift()
+      if (!pieza) {
+        reproduciendo = false
+        if (terminado) setHablando(false)
+        return
+      }
+      reproduciendo = true
+      const { url, texto } = await pieza
+      if (!vigente()) return
+      if (url) {
+        const a = elemento()
+        a.onended = a.onerror = () => void siguiente()
+        a.src = url
+        try {
+          await a.play()
+          setFuente('premium')
+          return
+        } catch {
+          // el navegador no dejó reproducir: esta pieza con la voz del dispositivo
+        }
+      }
+      if (!hayVozDispositivo()) return siguiente()
+      setFuente('dispositivo')
+      const u = new SpeechSynthesisUtterance(texto)
+      u.lang = voz?.lang ?? 'es-AR'
+      if (voz) u.voice = voz
+      u.rate = 0.97
+      u.pitch = 0.85
+      u.onend = u.onerror = () => void siguiente()
+      window.speechSynthesis.speak(u)
+    }
+
+    const encolar = (texto: string) => {
+      const t = limpiar(texto)
+      if (!t || !vigente()) return
+      cola.push(pedir(t))
+      if (!reproduciendo) void siguiente()
+    }
+
+    /** Saca del buffer las oraciones completas: la primera sola (para arrancar rápido), después de a tandas. */
+    const sacarOraciones = (todo: boolean) => {
+      for (;;) {
+        if (cortado) return
+        const fin = buscarFinDeOracion(buffer, leidos === 0 ? 1 : MIN_TANDA)
+        const hasta = fin ?? (todo && buffer.trim() ? buffer.length : null)
+        if (hasta == null) return
+        const pieza = buffer.slice(0, hasta)
+        buffer = buffer.slice(hasta)
+        if (leidos > 0 && leidos + pieza.length > MAX_VOZ_EN_VIVO) {
+          cortado = true
+          encolar('El resto te lo dejé en pantalla.')
+          return
+        }
+        leidos += pieza.length
+        encolar(pieza)
+      }
+    }
+
+    return {
+      agregar: (delta) => {
+        if (!vigente() || cortado) return
+        buffer += delta
+        sacarOraciones(false)
+      },
+      reiniciar: () => {
+        // Lo que no se llegó a leer era un comentario antes de consultar datos: se descarta
+        buffer = ''
+      },
+      terminar: () => {
+        if (!vigente()) return
+        sacarOraciones(true)
+        terminado = true
+        if (!reproduciendo && !cola.length) setHablando(false)
+      },
+    }
+  }, [callar, premium, voz])
+
+  /**
    * En iPhone el navegador solo deja sonar audio si antes hubo un toque del usuario:
    * se llama al tocar un botón para "destrabar" la voz de la respuesta que llega después.
    */
@@ -210,6 +346,7 @@ export function useVoz() {
     fuente,
     nombreVoz: premium ? 'ElevenLabs' : (voz?.name ?? null),
     decir,
+    enVivo,
     callar,
     destrabar,
   }
