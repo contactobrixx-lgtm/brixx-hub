@@ -135,6 +135,12 @@ supabase/
 - **Sin dependencias innecesarias**: antes de sumar una librería, preferir lo que ya está en el stack.
 - **Deploy**: `main` se despliega a producción en Vercel y dispara las migraciones. SPA con rewrite de todas las rutas a `index.html` (`vercel.json`).
 
+## Skills de Claude Code (plugin `brixx`)
+
+- El repo es un marketplace de plugins: `.claude-plugin/marketplace.json` publica el plugin `plugins/brixx/` (`.claude-plugin/plugin.json` + `skills/<nombre>/SKILL.md`).
+- Cada skill vive en `plugins/brixx/skills/<nombre>/` con sus archivos de apoyo (por ejemplo `campanas-meta-ads/generar_pdf.py` y `ejemplo-datos.json`). No forman parte del build de Vite.
+- Al cambiar un skill, subir `version` en `plugin.json` y en `marketplace.json` y validar con `claude plugin validate .`.
+
 ## Comandos
 
 ```
