@@ -1,16 +1,22 @@
 // Edge Function "asistente": el cerebro del asistente de voz del hub.
 //
 // Pedido (POST JSON, con la sesión del usuario):
-//   { pregunta: string, historial?: { rol: "usuario" | "asistente", texto: string }[] }
-// Respuesta: { respuesta: string, respuesta_voz: string, modelo: string, consultas: string[] }
-//   respuesta: el texto completo para la pantalla; respuesta_voz: versión corta (≤600 caracteres) para leer en voz alta.
+//   { pregunta: string, stream?: boolean }
+// Respuesta: { respuesta, respuesta_voz, modelo, consultas }
+//   respuesta: el texto completo para la pantalla; respuesta_voz: el principio (≤600 caracteres) para leer en voz alta.
+// Con stream: true responde en vivo (text/event-stream), una línea "data: {json}" por evento:
+//   { tipo: "texto", delta } · { tipo: "consulta", nombre } · { tipo: "nueva_vuelta" } (descartar el texto parcial)
+//   { tipo: "fin", respuesta, respuesta_voz, modelo, consultas } · { tipo: "error", error }
+// La conversación se guarda en asistente_mensajes (la memoria de lo que se habló) y Jarvis puede guardar
+// notas en jarvis_memoria. Del resto del hub, solo lee.
 //
 // Usa el secret ANTHROPIC_API_KEY (el mismo que la función "grabaciones").
 // La clave nunca llega al navegador: todo pasa por acá.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import { Hub } from './datos.ts'
-import { responder, type Turno } from './cerebro.ts'
+import { Memoria } from './memoria.ts'
+import { responder, type Evento, type Resultado } from './cerebro.ts'
 
 const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -27,7 +33,6 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } })
 
 const MAX_PREGUNTA = 2000
-const MAX_TURNOS = 10
 
 async function usuarioMiembro(req: Request): Promise<{ email: string; nombre: string } | null> {
   const auth = req.headers.get('Authorization')
@@ -48,7 +53,7 @@ Deno.serve(async (req) => {
   const usuario = await usuarioMiembro(req)
   if (!usuario) return json({ error: 'No autorizado' }, 401)
 
-  let body: { pregunta?: unknown; historial?: unknown }
+  let body: { pregunta?: unknown; stream?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -56,27 +61,55 @@ Deno.serve(async (req) => {
   }
   const pregunta = typeof body.pregunta === 'string' ? body.pregunta.trim().slice(0, MAX_PREGUNTA) : ''
   if (!pregunta) return json({ error: 'Falta la pregunta' }, 400)
-  const historial: Turno[] = Array.isArray(body.historial)
-    ? (body.historial as Turno[])
-        .filter((t) => (t?.rol === 'usuario' || t?.rol === 'asistente') && typeof t.texto === 'string' && t.texto.trim())
-        .slice(-MAX_TURNOS)
-        .map((t) => ({ rol: t.rol, texto: t.texto.slice(0, MAX_PREGUNTA) }))
-    : []
 
   if (!Deno.env.get('ANTHROPIC_API_KEY')) {
     return json({ error: 'Falta cargar la clave de Anthropic (ANTHROPIC_API_KEY) en Supabase.', falta: 'anthropic' }, 503)
   }
 
-  try {
-    const hub = new Hub(admin) // consultas de solo lectura
-    const panorama = await hub.panorama(usuario.nombre)
-    const { respuesta, respuesta_voz, modelo, consultas } = await responder(hub, panorama, pregunta, historial)
-    return json({ respuesta, respuesta_voz, modelo, consultas })
-  } catch (e) {
-    console.error('Error del asistente:', e)
-    if (e instanceof Anthropic.AuthenticationError) return json({ error: 'La clave de Anthropic no es válida.' }, 502)
-    if (e instanceof Anthropic.RateLimitError) return json({ error: 'Anthropic está con mucho tráfico. Probá en unos segundos.' }, 503)
-    if (e instanceof Anthropic.APIError) return json({ error: `Error de Anthropic (${e.status}).` }, 502)
-    return json({ error: 'No pude armar la respuesta. Probá de nuevo.' }, 500)
+  const hub = new Hub(admin) // consultas de solo lectura
+  const memoria = new Memoria(admin, usuario)
+
+  /** Arma todo el contexto en paralelo, responde y guarda la charla. */
+  const correr = async (avisar?: (e: Evento) => void): Promise<Resultado> => {
+    const [panorama, notas, historial] = await Promise.all([hub.panorama(usuario.nombre), memoria.notas(), memoria.historial()])
+    const r = await responder(hub, memoria, panorama, notas, pregunta, historial, avisar)
+    await memoria.guardarTurno(pregunta, r.respuesta, r.consultas)
+    return r
   }
+
+  if (body.stream !== true) {
+    try {
+      return json(await correr())
+    } catch (e) {
+      const { mensaje, status } = errorLegible(e)
+      return json({ error: mensaje }, status)
+    }
+  }
+
+  // En vivo: la pantalla y la voz arrancan con la primera oración
+  const codificar = new TextEncoder()
+  const cuerpo = new ReadableStream({
+    async start(control) {
+      const enviar = (e: unknown) => control.enqueue(codificar.encode(`data: ${JSON.stringify(e)}\n\n`))
+      try {
+        const r = await correr(enviar)
+        enviar({ tipo: 'fin', ...r })
+      } catch (e) {
+        enviar({ tipo: 'error', error: errorLegible(e).mensaje })
+      } finally {
+        control.close()
+      }
+    },
+  })
+  return new Response(cuerpo, {
+    headers: { ...CORS, 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', 'x-accel-buffering': 'no' },
+  })
 })
+
+function errorLegible(e: unknown): { mensaje: string; status: number } {
+  console.error('Error del asistente:', e)
+  if (e instanceof Anthropic.AuthenticationError) return { mensaje: 'La clave de Anthropic no es válida.', status: 502 }
+  if (e instanceof Anthropic.RateLimitError) return { mensaje: 'Anthropic está con mucho tráfico. Probá en unos segundos.', status: 503 }
+  if (e instanceof Anthropic.APIError) return { mensaje: `Error de Anthropic (${e.status}).`, status: 502 }
+  return { mensaje: 'No pude armar la respuesta. Probá de nuevo.', status: 500 }
+}

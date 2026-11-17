@@ -7,8 +7,8 @@
 // Secrets en Supabase (Edge Functions → Secrets):
 //   ELEVENLABS_API_KEY   (obligatorio para la voz premium)
 //   ELEVENLABS_VOICE_ID  (opcional: la voz elegida en ElevenLabs; por defecto "Daniel")
-//   ELEVENLABS_MODEL     (opcional: por defecto eleven_multilingual_v2, el más natural en español.
-//                         Con eleven_flash_v2_5 responde más rápido y gasta la mitad de créditos)
+//   ELEVENLABS_MODEL     (opcional: por defecto eleven_flash_v2_5, el más rápido y gasta la mitad de créditos.
+//                         Con eleven_multilingual_v2 suena un poco más natural, pero tarda más en arrancar)
 //
 // Cómo cambiar la voz: en ElevenLabs → Voices → Voice Library, elegí una, agregala a "My Voices",
 // copiá su Voice ID y cargalo en Supabase como secret ELEVENLABS_VOICE_ID. No hace falta tocar el código.
@@ -19,7 +19,7 @@ const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
 
 const VOZ_POR_DEFECTO = 'onwK4e9ZLuTAKqWW03F9' // "Daniel" (voz prediseñada): grave, sobria, de locutor
-const MODELO_POR_DEFECTO = 'eleven_multilingual_v2'
+const MODELO_POR_DEFECTO = 'eleven_flash_v2_5' // Jarvis habla de a una oración: importa que arranque rápido
 // El asistente ya manda un resumen de ≤600 caracteres; esto es un tope de seguridad para cuidar los créditos
 const MAX_TEXTO = 700
 const TIMEOUT_MS = 15000

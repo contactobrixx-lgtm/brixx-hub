@@ -1,22 +1,29 @@
-import { useCallback, useEffect, useState } from 'react'
-import { FunctionsHttpError } from '@supabase/supabase-js'
-import { supabase } from '../../lib/supabase'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { claveAnon, supabase, urlFunciones } from '../../lib/supabase'
 
 export interface Mensaje {
   id: string
   rol: 'usuario' | 'asistente'
   texto: string
   error?: boolean
-  /** Versión corta para leer en voz alta (si la respuesta era larga) */
+  /** Lo que se lee en voz alta, si es distinto del texto (respuestas largas) */
   voz?: string
   /** Qué datos consultó para responder (agenda, grabaciones…) */
   consultas?: string[]
+  /** Todavía está llegando */
+  enCurso?: boolean
+}
+
+export interface OpcionesPregunta {
+  /** Cada pedacito de texto apenas llega (para empezar a hablar antes) */
+  alTexto?: (delta: string) => void
+  /** Lo que llegó hasta acá era un comentario antes de consultar datos: la respuesta empieza de nuevo */
+  alReiniciar?: () => void
 }
 
 const CLAVE = 'brixx-asistente-historial'
-const TURNOS_A_ENVIAR = 10
 
-function leerHistorial(): Mensaje[] {
+function leerCopiaLocal(): Mensaje[] {
   try {
     return JSON.parse(sessionStorage.getItem(CLAVE) ?? '[]') as Mensaje[]
   } catch {
@@ -24,68 +31,138 @@ function leerHistorial(): Mensaje[] {
   }
 }
 
-/** Conversación de esta sesión con la Edge Function "asistente" (no se guarda en la base). */
+type Evento =
+  | { tipo: 'texto'; delta: string }
+  | { tipo: 'consulta'; nombre: string }
+  | { tipo: 'nueva_vuelta' }
+  | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[] }
+  | { tipo: 'error'; error: string }
+
+/**
+ * Conversación con Jarvis (Edge Function "asistente"). La respuesta llega en vivo y la charla
+ * queda guardada en la base (asistente_mensajes), así se acuerda de lo que se habló.
+ */
 export function useAsistente() {
-  const [mensajes, setMensajes] = useState<Mensaje[]>(leerHistorial)
+  const [mensajes, setMensajes] = useState<Mensaje[]>(leerCopiaLocal)
   const [pensando, setPensando] = useState(false)
+  /** Qué está consultando ahora (agenda, búsqueda web…), para mostrarlo */
+  const [consultando, setConsultando] = useState<string | null>(null)
+  const mensajesRef = useRef(mensajes)
+  mensajesRef.current = mensajes
+
+  // La conversación guardada (de cualquier día y equipo)
+  useEffect(() => {
+    supabase
+      .from('asistente_mensajes')
+      .select('id, rol, texto, consultas, created_at')
+      .order('created_at', { ascending: false })
+      .limit(40)
+      .then(({ data, error }) => {
+        if (error || !data) return // sin la tabla todavía: queda la copia de esta pestaña
+        setMensajes((actuales) => (actuales.some((m) => m.enCurso) ? actuales : (data.reverse() as Mensaje[])))
+      })
+  }, [])
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(CLAVE, JSON.stringify(mensajes.slice(-40)))
+      sessionStorage.setItem(CLAVE, JSON.stringify(mensajes.filter((m) => !m.enCurso).slice(-40)))
     } catch {
-      /* modo privado o almacenamiento bloqueado: el historial queda solo en memoria */
+      /* modo privado o almacenamiento bloqueado */
     }
   }, [mensajes])
 
-  /**
-   * Manda una pregunta. La respuesta aparece en pantalla apenas llega;
-   * devuelve el texto para leer en voz alta (o null si falló).
-   */
-  const preguntar = useCallback(
-    async (pregunta: string): Promise<string | null> => {
-      const texto = pregunta.trim()
-      if (!texto) return null
-      const historial = mensajes
-        .filter((m) => !m.error)
-        .slice(-TURNOS_A_ENVIAR)
-        .map(({ rol, texto }) => ({ rol, texto }))
-      setMensajes((m) => [...m, { id: crypto.randomUUID(), rol: 'usuario', texto }])
-      setPensando(true)
-      try {
-        const { data, error } = await supabase.functions.invoke('asistente', { body: { pregunta: texto, historial } })
-        if (error) {
-          let mensaje = 'No me pude conectar con el asistente. Probá de nuevo.'
-          if (error instanceof FunctionsHttpError) {
-            if (error.context.status === 404) mensaje = 'El asistente todavía no está publicado en Supabase.'
-            else {
-              const cuerpo = await error.context.json().catch(() => null)
-              if (cuerpo?.error) mensaje = cuerpo.error
+  /** Manda una pregunta. Devuelve el texto para leer en voz alta (o null si falló). */
+  const preguntar = useCallback(async (pregunta: string, op: OpcionesPregunta = {}): Promise<string | null> => {
+    const texto = pregunta.trim()
+    if (!texto) return null
+    const idRespuesta = crypto.randomUUID()
+    const poner = (cambios: Partial<Mensaje>) => setMensajes((ms) => ms.map((m) => (m.id === idRespuesta ? { ...m, ...cambios } : m)))
+    // Por compatibilidad con la versión anterior de la función (que recibía el historial)
+    const historial = mensajesRef.current
+      .filter((m) => !m.error && !m.enCurso)
+      .slice(-10)
+      .map(({ rol, texto }) => ({ rol, texto }))
+    setMensajes((m) => [
+      ...m,
+      { id: crypto.randomUUID(), rol: 'usuario', texto },
+      { id: idRespuesta, rol: 'asistente', texto: '', enCurso: true },
+    ])
+    setPensando(true)
+    setConsultando(null)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const res = await fetch(`${urlFunciones}/asistente`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${data.session?.access_token ?? claveAnon}`,
+          apikey: claveAnon,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ pregunta: texto, stream: true, historial }),
+      })
+      if (!res.ok) {
+        if (res.status === 404) throw new Error('El asistente todavía no está publicado en Supabase.')
+        const cuerpo = await res.json().catch(() => null)
+        throw new Error(cuerpo?.error ?? 'No me pude conectar con el asistente. Probá de nuevo.')
+      }
+
+      let final: { respuesta: string; voz: string; consultas: string[] }
+      if (!(res.headers.get('content-type') ?? '').includes('text/event-stream') || !res.body) {
+        // Versión anterior de la función: responde todo junto
+        const d = (await res.json()) as { respuesta?: string; respuesta_voz?: string; consultas?: string[] }
+        final = { respuesta: String(d.respuesta ?? ''), voz: d.respuesta_voz?.trim() || String(d.respuesta ?? ''), consultas: d.consultas ?? [] }
+        op.alTexto?.(final.voz)
+      } else {
+        let acumulado = ''
+        let fin: Extract<Evento, { tipo: 'fin' }> | null = null
+        const lector = res.body.pipeThrough(new TextDecoderStream()).getReader()
+        let resto = ''
+        for (;;) {
+          const { value, done } = await lector.read()
+          if (done) break
+          resto += value
+          const bloques = resto.split('\n\n')
+          resto = bloques.pop() ?? ''
+          for (const b of bloques) {
+            const linea = b.split('\n').find((l) => l.startsWith('data: '))
+            if (!linea) continue
+            const e = JSON.parse(linea.slice(6)) as Evento
+            if (e.tipo === 'texto') {
+              acumulado += e.delta
+              poner({ texto: acumulado })
+              op.alTexto?.(e.delta)
+            } else if (e.tipo === 'nueva_vuelta') {
+              acumulado = ''
+              poner({ texto: '' })
+              op.alReiniciar?.()
+            } else if (e.tipo === 'consulta') {
+              setConsultando(e.nombre)
+            } else if (e.tipo === 'fin') {
+              fin = e
+            } else if (e.tipo === 'error') {
+              throw new Error(e.error)
             }
           }
-          throw new Error(mensaje)
         }
-        const d = data as { respuesta?: string; respuesta_voz?: string; consultas?: string[] }
-        const respuesta = String(d.respuesta ?? '')
-        const hablada = d.respuesta_voz?.trim() || respuesta
-        setMensajes((m) => [
-          ...m,
-          { id: crypto.randomUUID(), rol: 'asistente', texto: respuesta, voz: hablada !== respuesta ? hablada : undefined, consultas: d.consultas },
-        ])
-        return hablada
-      } catch (e) {
-        setMensajes((m) => [
-          ...m,
-          { id: crypto.randomUUID(), rol: 'asistente', texto: e instanceof Error ? e.message : 'Algo salió mal.', error: true },
-        ])
-        return null
-      } finally {
-        setPensando(false)
+        if (!fin) throw new Error('Se cortó la respuesta. Probá de nuevo.')
+        final = { respuesta: fin.respuesta, voz: fin.respuesta_voz?.trim() || fin.respuesta, consultas: fin.consultas ?? [] }
       }
-    },
-    [mensajes],
-  )
+      poner({ texto: final.respuesta, voz: final.voz !== final.respuesta ? final.voz : undefined, consultas: final.consultas, enCurso: false })
+      return final.voz
+    } catch (e) {
+      poner({ texto: e instanceof Error ? e.message : 'Algo salió mal.', error: true, enCurso: false })
+      return null
+    } finally {
+      setPensando(false)
+      setConsultando(null)
+    }
+  }, [])
 
-  const limpiar = useCallback(() => setMensajes([]), [])
+  /** Borra la conversación (la propia; la memoria de Jarvis queda). */
+  const limpiar = useCallback(async () => {
+    setMensajes([])
+    await supabase.from('asistente_mensajes').delete().not('id', 'is', null)
+  }, [])
 
-  return { mensajes, pensando, preguntar, limpiar }
+  return { mensajes, pensando, consultando, preguntar, limpiar }
 }

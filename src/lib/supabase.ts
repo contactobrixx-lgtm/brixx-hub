@@ -13,3 +13,7 @@ export const supabase = createClient(
 )
 
 export const BUCKET_CAPTURAS = 'capturas'
+
+/** Para llamar a una Edge Function con fetch (cuando hace falta leer la respuesta en vivo). */
+export const urlFunciones = `${url ?? 'https://falta-configurar.supabase.co'}/functions/v1`
+export const claveAnon = anonKey ?? 'falta-configurar'

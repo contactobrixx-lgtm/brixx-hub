@@ -1,6 +1,8 @@
-// Herramientas de SOLO LECTURA que Claude puede usar para consultar el hub.
+// Herramientas que Claude puede usar: consultas de SOLO LECTURA sobre el hub, su memoria
+// (lo único que escribe) y, del lado de Anthropic, búsqueda y lectura web.
 import type Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
+import type { Memoria } from './memoria.ts'
 
 const fecha = { type: 'string', description: 'Fecha en formato AAAA-MM-DD (hora de Argentina).' }
 const opcional = (t: Record<string, unknown>) => ({ anyOf: [t, { type: 'null' }] })
@@ -57,12 +59,51 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   }),
 ]
 
+/** Memoria de Jarvis: lo único que puede escribir. */
+export const HERRAMIENTAS_MEMORIA: Anthropic.Beta.BetaTool[] = [
+  herramienta(
+    'recordar',
+    'Guarda una nota en la memoria de Jarvis para tenerla siempre presente en las próximas charlas. Usala cuando te dicen "recordá…", "acordate…", "anotá…", o cuando aparece un dato duradero que conviene no olvidar (una preferencia, un acuerdo con un cliente, una decisión del estudio).',
+    { nota: { type: 'string', description: 'La nota, corta y autocontenida (que se entienda sin la charla). Incluí nombres y fechas si las hay.' } },
+  ),
+  herramienta('olvidar', 'Borra una nota de la memoria, por su id (aparece entre corchetes en la memoria). Usala cuando te piden olvidar algo o cuando una nota quedó vieja o equivocada.', {
+    id: { type: 'string', description: 'Id de la nota.' },
+  }),
+]
+
+/** Búsqueda y lectura web: corren en los servidores de Anthropic (no hay que ejecutarlas acá). */
+export const HERRAMIENTAS_WEB: Anthropic.Beta.BetaToolUnion[] = [
+  { type: 'web_search_20260209', name: 'web_search', max_uses: 5, user_location: { type: 'approximate', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' } },
+  { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 },
+]
+
+/** Nombres para mostrar en pantalla mientras consulta */
+export const NOMBRE_CONSULTA: Record<string, string> = {
+  agenda: 'agenda',
+  buscar_grabaciones: 'grabaciones',
+  leer_grabacion: 'grabación',
+  clientes_y_prospectos: 'clientes',
+  cotizaciones: 'cotizaciones',
+  finanzas: 'finanzas',
+  metas: 'metas',
+  catalogo_servicios: 'catálogo',
+  sistemas_y_demos: 'sistemas y demos',
+  recordar: 'memoria',
+  olvidar: 'memoria',
+  web_search: 'búsqueda web',
+  web_fetch: 'lectura web',
+}
+
 type Entrada = Record<string, unknown>
 const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
 
-/** Ejecuta una herramienta. Nunca escribe en la base. */
-export async function ejecutar(hub: Hub, nombre: string, e: Entrada): Promise<string> {
+/** Ejecuta una herramienta. Lo único que escribe es la memoria de Jarvis. */
+export async function ejecutar(hub: Hub, memoria: Memoria, nombre: string, e: Entrada): Promise<string> {
   switch (nombre) {
+    case 'recordar':
+      return memoria.recordar(String(e.nota ?? ''))
+    case 'olvidar':
+      return memoria.olvidar(String(e.id ?? ''))
     case 'agenda':
       return hub.agenda(String(e.desde), String(e.hasta))
     case 'buscar_grabaciones':
