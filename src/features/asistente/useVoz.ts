@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { modoAudio } from '../../lib/audioSession'
 
 const hayNavegador = () => typeof window !== 'undefined'
 const hayVozDispositivo = () => hayNavegador() && 'speechSynthesis' in window
@@ -35,6 +36,12 @@ function guardarEnCache(texto: string, url: string) {
 const TIMEOUT_PREMIUM_MS = 12000
 // Tope de seguridad para cuidar los créditos (el asistente ya manda un resumen corto)
 const MAX_PREMIUM = 700
+
+/** Borra los audios guardados (por ejemplo, al cambiar de voz). */
+export function limpiarCacheVoz() {
+  for (const url of cacheAudio.values()) URL.revokeObjectURL(url)
+  cacheAudio.clear()
+}
 
 async function audioPremium(texto: string): Promise<string | null> {
   const enCache = cacheAudio.get(texto)
@@ -175,6 +182,7 @@ export function useVoz() {
         }
         u.onend = fin
         u.onerror = fin
+        modoAudio('playback')
         window.speechSynthesis.speak(u)
       }
     },
@@ -196,7 +204,8 @@ export function useVoz() {
           a.onended = a.onerror = () => mio === turno.current && setHablando(false)
           a.src = url
           try {
-            await a.play()
+            modoAudio('playback') // que no salga bajito después de usar el micrófono (iPhone)
+          await a.play()
             setFuente('premium')
             return
           } catch {
@@ -254,6 +263,7 @@ export function useVoz() {
         a.onended = a.onerror = () => void siguiente()
         a.src = url
         try {
+          modoAudio('playback') // que no salga bajito después de usar el micrófono (iPhone)
           await a.play()
           setFuente('premium')
           return
@@ -269,7 +279,8 @@ export function useVoz() {
       u.rate = 0.97
       u.pitch = 0.85
       u.onend = u.onerror = () => void siguiente()
-      window.speechSynthesis.speak(u)
+      modoAudio('playback')
+        window.speechSynthesis.speak(u)
     }
 
     const encolar = (texto: string) => {
@@ -333,7 +344,8 @@ export function useVoz() {
     if (hayVozDispositivo()) {
       const u = new SpeechSynthesisUtterance('')
       u.volume = 0
-      window.speechSynthesis.speak(u)
+      modoAudio('playback')
+        window.speechSynthesis.speak(u)
     }
   }, [])
 

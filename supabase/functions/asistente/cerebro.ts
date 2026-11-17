@@ -8,7 +8,21 @@ import type { Memoria } from './memoria.ts'
 import type { Acciones, AccionVisible } from './acciones.ts'
 import { ejecutar, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
 
-export const MODELO = 'claude-sonnet-5-5'
+export const MODELO = 'claude-sonnet-5-5' // análisis e investigación (con búsqueda web)
+export const MODELO_RAPIDO = 'claude-haiku-5-5' // el día a día: agenda, clientes, acciones, briefing
+
+/**
+ * Elige el modelo según la pregunta: lo cotidiano va al rápido; analizar redes, webs, competencia o armar
+ * una estrategia va al más capaz (y es el único que tiene búsqueda web).
+ * Con el secret JARVIS_MODELO = "sonnet" se usa siempre el más capaz.
+ */
+export function elegirModelo(pregunta: string): string {
+  if ((Deno.env.get('JARVIS_MODELO') ?? '').toLowerCase().includes('sonnet')) return MODELO
+  const t = pregunta.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const investigar =
+    /\b(analiz|investig|averigu|busca(me|lo|la)? en|buscar en|internet|google|web|pagina|sitio|instagram|redes|tiktok|facebook|linkedin|competencia|competidor|mercado|tendencia|estrategia|compara|que le conviene|recomenda|recomendacion|propuesta comercial|plan de)/
+  return investigar.test(t) ? MODELO : MODELO_RAPIDO
+}
 const MAX_VUELTAS = 8 // pedidos a Claude por pregunta (incluye consultas a la base y pausas de la búsqueda web)
 
 export interface Turno {
@@ -30,7 +44,8 @@ No adivines: si un dato no está en el panorama, consultalo.
 - Para "¿qué se sabe de X?": buscá sus grabaciones e intervenciones y leelas. Pedí la transcripción solo si te preguntan qué se dijo exactamente.
 - Para analizar redes sociales, webs o competidores (por ejemplo "analizá el Instagram de tal y tal y decime qué le conviene a tal cliente"): \
 usá web_search y web_fetch, y cruzalo con la carpeta del cliente y el catálogo. Instagram y otras redes suelen no dejarse leer directo: \
-si no podés ver un perfil, buscalo en la web y decí con qué información contás.
+si no podés ver un perfil, buscalo en la web y decí con qué información contás. Si en esta respuesta no tenés web_search, \
+decí que para eso te lo pidan como "buscá en internet…" o "analizá…".
 - Memoria: cuando te dicen "recordá…", "acordate…" o "anotá…", o aparece un dato duradero (una preferencia, un acuerdo con un cliente, \
 una decisión del estudio), guardalo con recordar, corto y autocontenido. Si te piden olvidar algo, usá olvidar. No guardes lo que ya está en el hub.
 - Acciones: podés agendar reuniones, cargar la próxima acción de un cliente, moverlo de etapa, anotar en su carpeta y armar \
@@ -152,25 +167,39 @@ export async function responder(
     avisar({ tipo: 'consulta', nombre: n })
   }
 
+  const modelo = elegirModelo(pregunta)
+  const rapido = modelo === MODELO_RAPIDO
   for (let vuelta = 1; vuelta <= MAX_VUELTAS; vuelta++) {
     const ultima = vuelta === MAX_VUELTAS
     if (vuelta > 1) avisar({ tipo: 'nueva_vuelta' })
-    const stream = client.beta.messages.stream({
-      model: MODELO,
+    const comun = {
       max_tokens: 8000,
-      // Si el modelo rechaza el pedido, la API lo reintenta sola con un modelo de respaldo.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      // Para conversar importa la velocidad: sin fase de razonamiento previa (es lo que más demoraba)
-      // y esfuerzo bajo. Las notas entre consultas vuelven como bloques "thinking" y se reenvían tal cual.
-      thinking: { type: 'between_tools' },
-      output_config: { effort: 'low' },
       system,
-      tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
       // En la última vuelta ya no consulta más: responde con lo que tiene
-      tool_choice: ultima ? { type: 'none' } : { type: 'auto' },
+      tool_choice: ultima ? { type: 'none' as const } : { type: 'auto' as const },
       messages: mensajes,
-    })
+    }
+    const stream = rapido
+      ? client.beta.messages.stream({
+          ...comun,
+          model: MODELO_RAPIDO,
+          // Esfuerzo bajo: en lo simple ni siquiera razona antes de contestar
+          output_config: { effort: 'low' },
+          // Sin búsqueda web (eso va al otro modelo)
+          tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
+        })
+      : client.beta.messages.stream({
+          ...comun,
+          model: MODELO,
+          // Si el modelo rechaza el pedido, la API lo reintenta sola con un modelo de respaldo.
+          betas: ['server-side-fallback-2026-07-01'],
+          fallbacks: 'default',
+          // Sin fase de razonamiento previa y esfuerzo bajo. Las notas entre consultas vuelven como
+          // bloques "thinking" y se reenvían tal cual.
+          thinking: { type: 'between_tools' },
+          output_config: { effort: 'low' },
+          tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
+        })
     for await (const e of stream) {
       if (e.type === 'content_block_delta' && e.delta.type === 'text_delta') avisar({ tipo: 'texto', delta: e.delta.text })
       else if (e.type === 'content_block_start' && e.content_block.type === 'server_tool_use') anotar(e.content_block.name)
@@ -211,5 +240,5 @@ export async function responder(
       .join('') // con búsqueda web, el texto viene partido en varios bloques (por las citas)
     return fin(limpiarParaVoz(texto) || 'No me salió una respuesta. ¿Me lo repetís?', response.model, consultas)
   }
-  return fin('Me enredé buscando los datos. ¿Me lo preguntás de otra forma?', MODELO, consultas)
+  return fin('Me enredé buscando los datos. ¿Me lo preguntás de otra forma?', modelo, consultas)
 }

@@ -100,6 +100,10 @@ export interface Ajustes {
   tasa_propuesta_cierre: number
   /** Cómo quieren los socios que sea Jarvis (tono, reglas, prioridades). Se edita en /jarvis. */
   jarvis_personalidad?: string | null
+  /** Voice ID de ElevenLabs elegido en /jarvis (vacío = el del secret o la voz por defecto) */
+  jarvis_voz_id?: string | null
+  /** 'eleven_flash_v2_5' (rápida) | 'eleven_multilingual_v2' (más natural) */
+  jarvis_voz_modelo?: string | null
 }
 
 /** Una acción que Jarvis preparó y espera confirmación (o ya se hizo). Ver supabase/functions/asistente/acciones.ts. */

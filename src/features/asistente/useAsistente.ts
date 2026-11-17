@@ -40,7 +40,7 @@ type Evento =
   | { tipo: 'consulta'; nombre: string }
   | { tipo: 'nueva_vuelta' }
   | { tipo: 'accion'; accion: AccionJarvis }
-  | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[]; acciones?: AccionJarvis[]; tiempos?: Record<string, number> }
+  | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[]; acciones?: AccionJarvis[]; tiempos?: Record<string, number>; modelo?: string }
   | { tipo: 'error'; error: string }
 
 /**
@@ -53,7 +53,7 @@ export function useAsistente() {
   /** Qué está consultando ahora (agenda, búsqueda web…), para mostrarlo */
   const [consultando, setConsultando] = useState<string | null>(null)
   /** Cuánto tardó la última respuesta, medido desde acá (en ms) */
-  const [tiempos, setTiempos] = useState<{ primeraPalabra: number | null; total: number; servidor?: Record<string, number> } | null>(null)
+  const [tiempos, setTiempos] = useState<{ primeraPalabra: number | null; total: number; servidor?: Record<string, number>; modelo?: string } | null>(null)
   /** Acciones de esta sesión (y las pendientes de antes), por id */
   const [acciones, setAcciones] = useState<AccionJarvis[]>([])
   const mensajesRef = useRef(mensajes)
@@ -189,7 +189,7 @@ export function useAsistente() {
           }
         }
         if (!fin) throw new Error('Se cortó la respuesta. Probá de nuevo.')
-        setTiempos({ primeraPalabra, total: performance.now() - inicio, servidor: fin.tiempos })
+        setTiempos({ primeraPalabra, total: performance.now() - inicio, servidor: fin.tiempos, modelo: fin.modelo })
         for (const a of fin.acciones ?? []) guardarAccion(a)
         final = { respuesta: fin.respuesta, voz: fin.respuesta_voz?.trim() || fin.respuesta, consultas: fin.consultas ?? [] }
       }

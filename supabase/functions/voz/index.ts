@@ -13,7 +13,7 @@
 // Cómo cambiar la voz: en ElevenLabs → Voices → Voice Library, elegí una, agregala a "My Voices",
 // copiá su Voice ID y cargalo en Supabase como secret ELEVENLABS_VOICE_ID. No hace falta tocar el código.
 // Si falta la clave, responde 503 y el hub usa la voz del dispositivo.
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -41,13 +41,33 @@ function recortar(texto: string): string {
   return fin > MAX_TEXTO / 3 ? corte.slice(0, fin + 1) : corte
 }
 
-async function esMiembro(req: Request): Promise<boolean> {
+// deno-lint-ignore no-explicit-any
+type Cliente = SupabaseClient<any, any, any>
+
+/** Devuelve el cliente con la sesión del socio, o null si no es miembro. */
+async function miembro(req: Request): Promise<Cliente | null> {
   const auth = req.headers.get('Authorization')
-  if (!auth) return false
+  if (!auth) return null
   const cliente = createClient(URL_SUPABASE, ANON, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } })
   const { data, error } = await cliente.rpc('es_miembro')
-  return !error && data === true
+  return !error && data === true ? cliente : null
 }
+
+// La voz elegida en el hub (/jarvis → Voz). Se guarda un minuto para no consultar la base en cada oración.
+let elegida: { voz: string | null; modelo: string | null; hasta: number } | null = null
+async function vozElegida(cliente: Cliente): Promise<{ voz: string | null; modelo: string | null }> {
+  if (elegida && elegida.hasta > Date.now()) return elegida
+  const { data } = await cliente.from('ajustes').select('*').maybeSingle()
+  const d = (data ?? {}) as Record<string, unknown>
+  elegida = {
+    voz: typeof d.jarvis_voz_id === 'string' && d.jarvis_voz_id.trim() ? d.jarvis_voz_id.trim() : null,
+    modelo: typeof d.jarvis_voz_modelo === 'string' && d.jarvis_voz_modelo.trim() ? d.jarvis_voz_modelo.trim() : null,
+    hasta: Date.now() + 60_000,
+  }
+  return elegida
+}
+
+const MODELOS = ['eleven_flash_v2_5', 'eleven_multilingual_v2', 'eleven_turbo_v2_5']
 
 /** Pide el audio a ElevenLabs. Los modelos v2.5 aceptan forzar el idioma; si lo rechazan, reintenta sin él. */
 export async function sintetizar(texto: string, clave: string, vozId: string, modelo: string): Promise<Response> {
@@ -73,9 +93,11 @@ export async function sintetizar(texto: string, clave: string, vozId: string, mo
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
-  if (!(await esMiembro(req))) return json({ error: 'No autorizado' }, 401)
+  const cliente = await miembro(req)
+  if (!cliente) return json({ error: 'No autorizado' }, 401)
 
-  let body: { accion?: string; texto?: unknown }
+  // voz_id / modelo: para "Probar" una voz antes de guardarla
+  let body: { accion?: string; texto?: unknown; voz_id?: unknown; modelo?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -90,11 +112,15 @@ Deno.serve(async (req) => {
   if (!texto) return json({ error: 'Falta el texto' }, 400)
 
   try {
+    // Prioridad: lo que se prueba > lo elegido en el hub > los secrets > la voz por defecto
+    const hub = await vozElegida(cliente)
+    const vozPrueba = typeof body.voz_id === 'string' && /^[A-Za-z0-9]{10,40}$/.test(body.voz_id.trim()) ? body.voz_id.trim() : null
+    const modeloPrueba = typeof body.modelo === 'string' && MODELOS.includes(body.modelo) ? body.modelo : null
     const res = await sintetizar(
       texto,
       clave,
-      Deno.env.get('ELEVENLABS_VOICE_ID') || VOZ_POR_DEFECTO,
-      Deno.env.get('ELEVENLABS_MODEL') || MODELO_POR_DEFECTO,
+      vozPrueba || hub.voz || Deno.env.get('ELEVENLABS_VOICE_ID') || VOZ_POR_DEFECTO,
+      modeloPrueba || (hub.modelo && MODELOS.includes(hub.modelo) ? hub.modelo : null) || Deno.env.get('ELEVENLABS_MODEL') || MODELO_POR_DEFECTO,
     )
     if (!res.ok) {
       const detalle = await res.text().catch(() => '')
@@ -104,7 +130,11 @@ Deno.serve(async (req) => {
           ? 'La clave de ElevenLabs no es válida.'
           : res.status === 429 || /quota|credits/i.test(detalle)
             ? 'Se terminaron los créditos de ElevenLabs de este mes.'
-            : `ElevenLabs respondió ${res.status}.`
+            : res.status === 404 || /voice_not_found|voice not found/i.test(detalle)
+              ? 'No encontré esa voz en tu cuenta de ElevenLabs: agregala a "My Voices" y copiá su Voice ID.'
+              : /voice.*(permission|library|tier|subscription)|paid/i.test(detalle)
+                ? 'Esa voz no está disponible en tu plan de ElevenLabs.'
+                : `ElevenLabs respondió ${res.status}.`
       return json({ error: motivo }, 502)
     }
     // octet-stream: así el cliente de Supabase lo entrega como Blob (con audio/mpeg lo leería como texto)
