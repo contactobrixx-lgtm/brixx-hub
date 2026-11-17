@@ -37,6 +37,38 @@ const TIMEOUT_PREMIUM_MS = 12000
 // Tope de seguridad para cuidar los créditos (el asistente ya manda un resumen corto)
 const MAX_PREMIUM = 700
 
+// Envolvente de volumen de cada audio (cada 50 ms, de 0 a 1): para que la red "explote" al ritmo de la voz real.
+// Se calcula decodificando el MP3 aparte, sin tocar la reproducción (así no se arriesga el sonido en iPhone).
+const envolventes = new Map<string, Float32Array>()
+const PASO_ENV = 0.05
+async function envolvente(url: string): Promise<Float32Array | null> {
+  const guardada = envolventes.get(url)
+  if (guardada) return guardada
+  try {
+    const Ctx = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext
+    if (!Ctx) return null
+    const datos = await (await fetch(url)).arrayBuffer()
+    const audio = await new Ctx(1, 2, 44100).decodeAudioData(datos)
+    const canal = audio.getChannelData(0)
+    const paso = Math.max(1, Math.floor(audio.sampleRate * PASO_ENV))
+    const env = new Float32Array(Math.ceil(canal.length / paso))
+    let max = 0
+    for (let i = 0; i < env.length; i++) {
+      let suma = 0
+      const fin = Math.min(canal.length, (i + 1) * paso)
+      for (let j = i * paso; j < fin; j++) suma += canal[j] * canal[j]
+      env[i] = Math.sqrt(suma / Math.max(1, fin - i * paso))
+      if (env[i] > max) max = env[i]
+    }
+    if (max > 0) for (let i = 0; i < env.length; i++) env[i] /= max
+    envolventes.set(url, env)
+    if (envolventes.size > 20) envolventes.delete(envolventes.keys().next().value as string)
+    return env
+  } catch {
+    return null
+  }
+}
+
 /** Borra los audios guardados (por ejemplo, al cambiar de voz). */
 export function limpiarCacheVoz() {
   for (const url of cacheAudio.values()) URL.revokeObjectURL(url)
@@ -131,6 +163,41 @@ export function buscarFinDeOracion(texto: string, minimo: number): number | null
  */
 export function useVoz() {
   const [hablando, setHablando] = useState(false)
+  /** Lo que está diciendo ahora (para los subtítulos) */
+  const [frase, setFrase] = useState('')
+  const envActual = useRef<Float32Array | null>(null)
+  const fuenteNivel = useRef<'audio' | 'dispositivo' | null>(null)
+  useEffect(() => {
+    if (!hablando) {
+      setFrase('')
+      fuenteNivel.current = null
+    }
+  }, [hablando])
+
+  /** Arranca a seguir el volumen de un audio (la envolvente llega un instante después). */
+  const seguirAudio = (url: string, texto: string) => {
+    setFrase(texto)
+    fuenteNivel.current = 'audio'
+    envActual.current = null
+    envolvente(url).then((e) => {
+      if (audio.current?.src === url) envActual.current = e
+    })
+  }
+
+  /** Volumen de lo que está diciendo ahora, de 0 a 1 (la red lo lee en cada cuadro). */
+  const nivel = useCallback((): number => {
+    const ahora = performance.now()
+    if (fuenteNivel.current === 'audio' && audio.current && !audio.current.paused) {
+      const env = envActual.current
+      if (!env) return 0.45 + 0.3 * Math.sin(ahora / 90) * Math.sin(ahora / 230)
+      return env[Math.min(env.length - 1, Math.floor(audio.current.currentTime / PASO_ENV))] ?? 0
+    }
+    // Voz del dispositivo: no se puede medir, se simula
+    if (fuenteNivel.current === 'dispositivo' && hayVozDispositivo() && window.speechSynthesis.speaking) {
+      return Math.max(0, 0.5 + 0.35 * Math.sin(ahora / 80) * Math.sin(ahora / 190))
+    }
+    return 0
+  }, [])
   const [voz, setVoz] = useState<SpeechSynthesisVoice | null>(null)
   const [premium, setPremium] = useState<boolean | null>(null)
   const [fuente, setFuente] = useState<FuenteVoz | null>(null)
@@ -168,6 +235,8 @@ export function useVoz() {
     (texto: string) => {
       if (!hayVozDispositivo()) return setHablando(false)
       setFuente('dispositivo')
+      setFrase(texto)
+      fuenteNivel.current = 'dispositivo'
       const partes = oraciones(texto)
       pendientes.current = partes.length
       for (const parte of partes) {
@@ -203,6 +272,7 @@ export function useVoz() {
           const a = elemento()
           a.onended = a.onerror = () => mio === turno.current && setHablando(false)
           a.src = url
+          seguirAudio(url, texto)
           try {
             modoAudio('playback') // que no salga bajito después de usar el micrófono (iPhone)
           await a.play()
@@ -262,6 +332,7 @@ export function useVoz() {
         const a = elemento()
         a.onended = a.onerror = () => void siguiente()
         a.src = url
+        seguirAudio(url, texto)
         try {
           modoAudio('playback') // que no salga bajito después de usar el micrófono (iPhone)
           await a.play()
@@ -273,6 +344,8 @@ export function useVoz() {
       }
       if (!hayVozDispositivo()) return siguiente()
       setFuente('dispositivo')
+      setFrase(texto)
+      fuenteNivel.current = 'dispositivo'
       const u = new SpeechSynthesisUtterance(texto)
       u.lang = voz?.lang ?? 'es-AR'
       if (voz) u.voice = voz
@@ -359,6 +432,8 @@ export function useVoz() {
     nombreVoz: premium ? 'ElevenLabs' : (voz?.name ?? null),
     decir,
     enVivo,
+    frase,
+    nivel,
     callar,
     destrabar,
   }

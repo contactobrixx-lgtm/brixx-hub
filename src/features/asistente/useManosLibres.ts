@@ -37,9 +37,12 @@ export type EstadoManosLibres = 'apagado' | 'esperando_palabra' | 'escuchando_pr
 
 /**
  * Modo manos libres: escucha de forma continua SOLO mientras está activado y la pestaña está visible.
- * Cuando oye "Jarvis…", toma lo que sigue como pregunta. Se pausa mientras Jarvis piensa o habla.
+ * Cuando oye "Jarvis…", toma lo que sigue como pregunta. Se pausa mientras Jarvis piensa.
+ * Mientras Jarvis habla sigue escuchando, pero solo reacciona a "Jarvis…" (para poder interrumpirlo:
+ * su propia voz no dispara nada porque nunca dice su nombre). Después de cada respuesta, con
+ * `esperarSeguimiento()` acepta unos segundos una pregunta sin tener que decir "Jarvis".
  */
-export function useManosLibres(alPreguntar: (pregunta: string) => void, pausar: boolean) {
+export function useManosLibres(alPreguntar: (pregunta: string) => void, pausar: boolean, soloConPalabra = false) {
   const [activo, setActivo] = useState(false)
   const [estado, setEstado] = useState<EstadoManosLibres>('apagado')
   const [parcial, setParcial] = useState('')
@@ -51,6 +54,8 @@ export function useManosLibres(alPreguntar: (pregunta: string) => void, pausar: 
   const quiereEscuchar = useRef(false)
   const callback = useRef(alPreguntar)
   callback.current = alPreguntar
+  const soloPalabra = useRef(soloConPalabra)
+  soloPalabra.current = soloConPalabra
 
   const dejarDeEsperar = () => {
     esperandoPregunta.current = false
@@ -67,7 +72,10 @@ export function useManosLibres(alPreguntar: (pregunta: string) => void, pausar: 
         callback.current(texto.slice(texto.length - despues.length).trim() || despues)
         return
       }
-      // Dijo solo "Jarvis": esperar la pregunta unos segundos
+      // Dijo solo "Jarvis": esperar la pregunta unos segundos (si estaba hablando, lo interrumpe)
+      if (soloPalabra.current) {
+        callback.current('')
+      }
       esperandoPregunta.current = true
       setEstado('escuchando_pregunta')
       window.clearTimeout(timeoutPregunta.current)
@@ -78,7 +86,7 @@ export function useManosLibres(alPreguntar: (pregunta: string) => void, pausar: 
       }, 8000)
       return
     }
-    if (esperandoPregunta.current && t.length > 2) {
+    if (esperandoPregunta.current && !soloPalabra.current && t.length > 2) {
       dejarDeEsperar()
       callback.current(texto.trim())
     }
@@ -162,7 +170,21 @@ export function useManosLibres(alPreguntar: (pregunta: string) => void, pausar: 
     }
   }, [detener])
 
+  /** Después de una respuesta: unos segundos para seguir la charla sin decir "Jarvis". */
+  const esperarSeguimiento = useCallback((ms = 8000) => {
+    if (!quiereEscuchar.current) return
+    esperandoPregunta.current = true
+    setEstado('escuchando_pregunta')
+    window.clearTimeout(timeoutPregunta.current)
+    timeoutPregunta.current = window.setTimeout(() => {
+      esperandoPregunta.current = false
+      setEstado('esperando_palabra')
+      setParcial('')
+    }, ms)
+  }, [])
+
   return {
+    esperarSeguimiento,
     disponible: manosLibresDisponible(),
     activo,
     estado,

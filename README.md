@@ -140,6 +140,14 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 
 **Personalidad:** en el panel "Personalidad" de Jarvis escribís cómo querés que sea (tono, qué priorizar, qué evitar). Vale para los dos socios. Las reglas de fondo no cambian: no inventa datos y no hace nada sin tu confirmación.
 
+**Modo tele:** en la red de Jarvis, el botón **Modo tele** la pone a pantalla completa con paneles flotando encima: números del mes, estado del estudio, reloj y subtítulos de lo que dice Jarvis. La red late al ritmo de su voz. Ideal para una compu conectada a una tele. Para salir: el botón de abajo a la derecha o Esc.
+
+**Abrir pantallas:** "Jarvis, mostrame la carpeta de Nova", "abrí el pipeline", "mostrame la última cotización de Napoli". En Jarvis se abre como panel encima de la red (con "Abrir" para ir a la pantalla completa); en el resto del hub te lleva directo.
+
+**Charla más natural (manos libres, en la compu):** después de que responde, tenés unos segundos para seguir preguntando sin decir "Jarvis". Si está hablando y le decís "Jarvis, pará" (o "Jarvis" y otra pregunta), se calla y te escucha.
+
+**Recap:** "Jarvis, recap" o "¿cómo venimos?": cobrado del mes, clientes nuevos contra la meta, prospectos, recurrente y por cobrar, en pocas oraciones.
+
 **Velocidad:** la respuesta aparece mientras se escribe y Jarvis empieza a hablar con la primera oración. Lo del día a día lo contesta un modelo rápido; cuando le pedís analizar redes, webs o competencia usa uno más capaz (tarda más). Abajo de la conversación ves cuánto tardó la última respuesta. Lee hasta unos 600 caracteres; si la respuesta es más larga, el resto queda en pantalla.
 
 **Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar; las que buscan en internet, algunos centavos más.

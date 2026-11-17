@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   CalendarClock,
@@ -30,6 +30,8 @@ import { useReconocimientoVoz } from '../features/asistente/useReconocimientoVoz
 import { useManosLibres } from '../features/asistente/useManosLibres'
 import { Onda, type EstadoNucleo } from '../features/asistente/Nucleo'
 import { RedNeural, type NodoRed } from '../features/asistente/RedNeural'
+import { HudTele } from '../features/asistente/HudTele'
+import { PanelPantalla, type DestinoPantalla } from '../features/asistente/PanelPantalla'
 import { ETAPAS_ABIERTAS } from '../types/db'
 import { useDashboard } from '../features/inicio/useDashboard'
 import { useReuniones } from '../features/calendario/useReuniones'
@@ -88,26 +90,54 @@ export function JarvisPage() {
   const configVoz = useConfigVoz()
   const [editandoVoz, setEditandoVoz] = useState(false)
 
-  // Pantalla completa de la red (para una tele o un monitor). En iPhone no existe: no se muestra el botón.
+  // Modo tele: la red ocupa toda la pantalla con los paneles flotando encima (para una tele o un monitor).
+  // Si el navegador deja, además pide pantalla completa (en iPhone no existe: queda como pantalla fija igual).
   const hud = useRef<HTMLElement>(null)
-  const [pantallaCompleta, setPantallaCompleta] = useState(false)
-  const puedePantallaCompleta = typeof document !== 'undefined' && (document.fullscreenEnabled || 'webkitRequestFullscreen' in document.documentElement)
+  const [modoTele, setModoTele] = useState(false)
+  const pidioPantallaCompleta = useRef(false)
+  const entrarTele = useCallback(() => {
+    setModoTele(true)
+    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => void }
+    pidioPantallaCompleta.current = true
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => (pidioPantallaCompleta.current = false))
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
+    else pidioPantallaCompleta.current = false
+  }, [])
+  const salirTele = useCallback(() => {
+    setModoTele(false)
+    pidioPantallaCompleta.current = false
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+  }, [])
   useEffect(() => {
-    const alCambiar = () => setPantallaCompleta(Boolean(document.fullscreenElement ?? (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement))
+    // Si sale de pantalla completa (Esc del navegador), sale también del modo tele
+    const alCambiar = () => {
+      const enPantallaCompleta = Boolean(document.fullscreenElement ?? (document as unknown as { webkitFullscreenElement?: Element }).webkitFullscreenElement)
+      if (!enPantallaCompleta && pidioPantallaCompleta.current) salirTele()
+    }
+    const alTecla = (e: KeyboardEvent) => e.key === 'Escape' && salirTele()
     document.addEventListener('fullscreenchange', alCambiar)
     document.addEventListener('webkitfullscreenchange', alCambiar)
+    window.addEventListener('keydown', alTecla)
     return () => {
       document.removeEventListener('fullscreenchange', alCambiar)
       document.removeEventListener('webkitfullscreenchange', alCambiar)
+      window.removeEventListener('keydown', alTecla)
     }
-  }, [])
-  const alternarPantallaCompleta = useCallback(() => {
-    const el = hud.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null
-    if (!el) return
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-    else if (el.requestFullscreen) el.requestFullscreen().catch(() => {})
-    else el.webkitRequestFullscreen?.()
-  }, [])
+  }, [salirTele])
+
+  // Pantallas que abre Jarvis ("mostrame la carpeta de Nova"): panel sobre la red en compu o modo tele; en el celular navega
+  const navigate = useNavigate()
+  const [pantalla, setPantalla] = useState<DestinoPantalla | null>(null)
+  const modoTeleRef = useRef(modoTele)
+  modoTeleRef.current = modoTele
+  const mostrarPantalla = useCallback(
+    (d: DestinoPantalla) => {
+      if (modoTeleRef.current || window.matchMedia('(min-width: 1024px)').matches) setPantalla(d)
+      else navigate(d.ruta)
+    },
+    [navigate],
+  )
+
   // Pendientes primero; después las últimas resueltas en esta sesión
   const accionesVisibles = [...acciones.filter((a) => a.estado === 'pendiente'), ...acciones.filter((a) => a.estado !== 'pendiente').slice(-3).reverse()]
   const resolver = async (id: string, que: 'confirmar' | 'cancelar') => {
@@ -145,7 +175,7 @@ export function JarvisPage() {
     voz.callar()
     // La voz arranca con la primera oración, mientras sigue llegando el resto
     const vivo = vozActiva ? voz.enVivo() : null
-    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar() })
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: mostrarPantalla })
     vivo?.terminar()
     memoria.recargar() // por si guardó algo nuevo
     recargarReuniones() // por si confirmó una reunión por voz
@@ -154,7 +184,25 @@ export function JarvisPage() {
   // Tocar para hablar (en el núcleo o el botón de micrófono)
   const ptt = useReconocimientoVoz((dicho) => enviar(dicho))
   // Manos libres: se pausa mientras piensa, habla o se usa "tocar para hablar"
-  const manos = useManosLibres((pregunta) => enviar(pregunta), pensando || voz.hablando || ptt.escuchando)
+  // Manos libres: mientras Jarvis habla sigue escuchando, pero solo "Jarvis…" (para interrumpirlo)
+  const alOirManosLibres = (pregunta: string) => {
+    const p = pregunta.trim()
+    // "Jarvis" solo, o "Jarvis, pará": se calla y escucha
+    if (!p || /^(par[aá]|basta|silencio|call[aá]te|stop|ya est[aá]|cort[aá])\b/i.test(p)) return voz.callar()
+    enviar(p)
+  }
+  const manos = useManosLibres(alOirManosLibres, pensando || ptt.escuchando, voz.hablando)
+  // Al terminar de hablar: unos segundos para seguir la charla sin repetir "Jarvis"
+  const hablabaAntes = useRef(false)
+  const manosRef = useRef(manos)
+  manosRef.current = manos
+  useEffect(() => {
+    const terminoDeHablar = hablabaAntes.current && !voz.hablando
+    hablabaAntes.current = voz.hablando
+    if (!terminoDeHablar || !manosRef.current.activo) return
+    const t = window.setTimeout(() => manosRef.current.esperarSeguimiento(), 350)
+    return () => window.clearTimeout(t)
+  }, [voz.hablando])
 
   const activar = () => {
     voz.destrabar()
@@ -326,11 +374,11 @@ export function JarvisPage() {
             <section
               ref={hud}
               className={cn(
-                'relative overflow-hidden bg-fondo',
-                pantallaCompleta ? 'h-dvh w-full' : 'h-[420px] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)]',
+                'overflow-hidden bg-fondo',
+                modoTele ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative h-[420px] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)]',
               )}
             >
-              <RedNeural estado={estadoNucleo} nodos={nodosRed} className="size-full">
+              <RedNeural estado={estadoNucleo} nodos={modoTele ? [] : nodosRed} nivel={voz.nivel} intenso={modoTele} className="size-full">
                 {/* El núcleo se toca para activar o para hablar */}
                 <button
                   onClick={activado ? tocarMicrofono : activar}
@@ -344,26 +392,104 @@ export function JarvisPage() {
                   </span>
                 </button>
 
-                {/* Pantalla completa (para una tele o un monitor) */}
-                {puedePantallaCompleta && (
+                {/* Modo tele (para una tele o un monitor) */}
+                {!modoTele && (
                   <button
-                    onClick={alternarPantallaCompleta}
-                    className="absolute top-3 right-3 z-10 grid size-10 cursor-pointer place-items-center rounded-[11px] border border-acento/30 bg-fondo/60 text-acento-claro backdrop-blur hover:text-white"
-                    aria-label={pantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}
-                    title={pantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                    onClick={entrarTele}
+                    className="absolute top-3 right-3 z-10 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                    title="Modo tele: la red a pantalla completa con los paneles encima"
                   >
-                    {pantallaCompleta ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+                    <Maximize2 className="size-4" /> Modo tele
                   </button>
                 )}
 
-                {pantallaCompleta && (
-                  <div className="pointer-events-none absolute top-5 left-6">
-                    <div className="text-xs font-semibold tracking-[0.3em] text-acento-claro uppercase">Centro de comando · brixx</div>
-                    <div className="tabular font-display text-4xl font-bold">{ahora.toLocaleTimeString('es-AR', { hour12: false })}</div>
-                    <div className="text-sm text-tenue">
-                      {saludo}, {miembro?.nombre.split(' ')[0]}
-                    </div>
-                  </div>
+                {modoTele && (
+                  <HudTele
+                    hora={ahora.toLocaleTimeString('es-AR', { hour12: false })}
+                    fecha={ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(/^./, (c) => c.toUpperCase())}
+                    saludo={`${saludo}, ${miembro?.nombre.split(' ')[0] ?? ''}`}
+                    metricas={[
+                      { label: 'Cobrado', valor: formatUSD(d.cobrado ?? 0) },
+                      {
+                        label: 'Clientes nuevos',
+                        valor: d.metasMes ? `${d.metasMes.clientes.actual}${d.metasMes.clientes.objetivo != null ? ` / ${d.metasMes.clientes.objetivo}` : ''}` : '—',
+                      },
+                      { label: 'Recurrente', valor: formatUSD(d.mrr ?? 0) },
+                      { label: 'Por cobrar', valor: formatUSD(d.porCobrar ?? 0) },
+                    ]}
+                    filas={[
+                      { label: 'Reuniones hoy', valor: String(agendaHoy.filter((a) => a.tipo === 'reunion').length), tono: 'acento' },
+                      { label: 'Acciones de hoy', valor: String(agendaHoy.filter((a) => a.tipo === 'accion').length), tono: 'acento' },
+                      { label: 'Pendientes', valor: String(pendientesGrab), tono: pendientesGrab ? 'aviso' : 'ok' },
+                      { label: 'Para confirmar', valor: String(acciones.filter((a) => a.estado === 'pendiente').length), tono: acciones.some((a) => a.estado === 'pendiente') ? 'aviso' : 'ok' },
+                      { label: 'Pipeline abierto', valor: String(d.abiertos ?? 0), tono: 'neutro' },
+                      { label: 'Memoria', valor: `${memoria.notas.length} notas`, tono: 'neutro' },
+                      { label: 'Voz', valor: voz.premium && voz.fuente !== 'dispositivo' ? 'Premium' : 'Dispositivo', tono: 'ok' },
+                      { label: 'Escucha', valor: manos.activo ? 'Manos libres' : 'Tocar', tono: manos.activo ? 'ok' : 'neutro' },
+                    ]}
+                    subtitulo={!activado ? '' : voz.hablando && voz.frase ? voz.frase : pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' ? leyenda : ''}
+                    confirmar={
+                      accionesVisibles.some((a) => a.estado === 'pendiente') ? (
+                        <div className="flex flex-col gap-2">
+                          {accionesVisibles
+                            .filter((a) => a.estado === 'pendiente')
+                            .slice(0, 2)
+                            .map((a) => (
+                              <TarjetaAccion key={a.id} accion={a} onResolver={resolver} compacta />
+                            ))}
+                        </div>
+                      ) : null
+                    }
+                    controles={
+                      <>
+                        {activado && ptt.disponible && (
+                          <button
+                            onClick={tocarMicrofono}
+                            disabled={pensando}
+                            className={cn(
+                              'grid size-12 cursor-pointer place-items-center rounded-full border backdrop-blur disabled:opacity-50',
+                              ptt.escuchando ? 'border-peligro bg-peligro/80 text-white' : 'border-acento/40 bg-fondo/60 text-acento-claro',
+                            )}
+                            aria-label={ptt.escuchando ? 'Terminar y preguntar' : 'Hablar'}
+                          >
+                            {ptt.escuchando ? <Square className="size-4" /> : <Mic className="size-5" />}
+                          </button>
+                        )}
+                        {activado && manos.disponible && (
+                          <button
+                            onClick={() => (manos.activo ? manos.desactivar() : manos.activar())}
+                            className={cn(
+                              'grid size-12 cursor-pointer place-items-center rounded-full border backdrop-blur',
+                              manos.activo ? 'border-ok/60 bg-ok-tenue text-ok' : 'border-acento/40 bg-fondo/60 text-acento-claro',
+                            )}
+                            aria-label={manos.activo ? 'Apagar manos libres' : 'Prender manos libres'}
+                          >
+                            {manos.activo ? <Ear className="size-5" /> : <EarOff className="size-5" />}
+                          </button>
+                        )}
+                        <button
+                          onClick={salirTele}
+                          className="grid size-12 cursor-pointer place-items-center rounded-full border border-acento/40 bg-fondo/60 text-acento-claro backdrop-blur hover:text-white"
+                          aria-label="Salir del modo tele"
+                          title="Salir del modo tele"
+                        >
+                          <Minimize2 className="size-5" />
+                        </button>
+                      </>
+                    }
+                  />
+                )}
+
+                {pantalla && (
+                  <PanelPantalla
+                    destino={pantalla}
+                    tele={modoTele}
+                    onCerrar={() => setPantalla(null)}
+                    onAbrir={() => {
+                      salirTele()
+                      navigate(pantalla.ruta)
+                    }}
+                  />
                 )}
 
                 {/* Estado / activar */}
@@ -381,18 +507,13 @@ export function JarvisPage() {
                       </p>
                     </>
                   ) : (
-                    <div className="flex items-center gap-3 rounded-full bg-fondo/50 px-3 py-1 backdrop-blur">
+                    <div className={cn('items-center gap-3 rounded-full bg-fondo/50 px-3 py-1 backdrop-blur', modoTele ? 'hidden md:flex' : 'flex')}>
                       <Onda activa={estadoNucleo === 'escuchando' || estadoNucleo === 'hablando'} />
                       <span className="text-sm font-semibold tracking-[0.15em] text-acento-claro uppercase">
                         {estadoNucleo === 'reposo' ? (manos.activo ? 'Escuchando "Jarvis"' : 'Listo') : estadoNucleo}
                       </span>
                       <Onda activa={estadoNucleo === 'escuchando' || estadoNucleo === 'hablando'} />
                     </div>
-                  )}
-                  {pantallaCompleta && activado && (
-                    <p className="mt-3 line-clamp-2 max-w-3xl text-center text-base text-suave">
-                      {pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' || !ultima ? leyenda : ultima.texto}
-                    </p>
                   )}
                 </div>
               </RedNeural>
