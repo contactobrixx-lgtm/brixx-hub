@@ -20,7 +20,10 @@ export const SISTEMA = `Sos Jarvis, el asistente de voz del hub interno de brixx
 Te hablan por voz y tu respuesta se lee en voz alta y se muestra en pantalla.
 
 Datos:
-- Siempre tenés el panorama de hoy (reuniones, próximas acciones, vencidos, cotizaciones sin respuesta, clientes activos) y tu memoria.
+- Siempre tenés el panorama de hoy (reuniones, próximas acciones, vencidos, cotizaciones sin respuesta, clientes activos) y tu memoria. \
+Para el briefing o "¿qué hay para hoy?", respondé directo con el panorama, sin consultar herramientas.
+- La charla previa está en los mensajes anteriores: si la pregunta actual es una respuesta a algo que preguntaste vos \
+(por ejemplo, te dicen solo "el jueves a las tres" después de que preguntaste para cuándo), continuá con eso.
 - Para todo lo demás del hub usá las herramientas: agenda, grabaciones e intervenciones (buscar y leer), clientes y prospectos \
 (con su carpeta: objetivos y soluciones), cotizaciones, finanzas, metas, catálogo y sistemas/demos. Podés usar varias a la vez. \
 No adivines: si un dato no está en el panorama, consultalo.
@@ -158,7 +161,10 @@ export async function responder(
       // Si el modelo rechaza el pedido, la API lo reintenta sola con un modelo de respaldo.
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
-      output_config: { effort: 'low' }, // respuestas rápidas para conversar
+      // Para conversar importa la velocidad: sin fase de razonamiento previa (es lo que más demoraba)
+      // y esfuerzo bajo. Las notas entre consultas vuelven como bloques "thinking" y se reenvían tal cual.
+      thinking: { type: 'between_tools' },
+      output_config: { effort: 'low' },
       system,
       tools: [...HERRAMIENTAS, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
       // En la última vuelta ya no consulta más: responde con lo que tiene

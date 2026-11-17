@@ -40,7 +40,7 @@ type Evento =
   | { tipo: 'consulta'; nombre: string }
   | { tipo: 'nueva_vuelta' }
   | { tipo: 'accion'; accion: AccionJarvis }
-  | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[]; acciones?: AccionJarvis[] }
+  | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[]; acciones?: AccionJarvis[]; tiempos?: Record<string, number> }
   | { tipo: 'error'; error: string }
 
 /**
@@ -52,6 +52,8 @@ export function useAsistente() {
   const [pensando, setPensando] = useState(false)
   /** Qué está consultando ahora (agenda, búsqueda web…), para mostrarlo */
   const [consultando, setConsultando] = useState<string | null>(null)
+  /** Cuánto tardó la última respuesta, medido desde acá (en ms) */
+  const [tiempos, setTiempos] = useState<{ primeraPalabra: number | null; total: number; servidor?: Record<string, number> } | null>(null)
   /** Acciones de esta sesión (y las pendientes de antes), por id */
   const [acciones, setAcciones] = useState<AccionJarvis[]>([])
   const mensajesRef = useRef(mensajes)
@@ -59,6 +61,15 @@ export function useAsistente() {
 
   const guardarAccion = useCallback((a: AccionJarvis) => {
     setAcciones((lista) => (lista.some((x) => x.id === a.id) ? lista.map((x) => (x.id === a.id ? { ...x, ...a } : x)) : [...lista, a]))
+  }, [])
+
+  // Despierta la función apenas se abre el hub: la primera pregunta no espera el arranque en frío
+  useEffect(() => {
+    fetch(`${urlFunciones}/asistente`, {
+      method: 'POST',
+      headers: { apikey: claveAnon, Authorization: `Bearer ${claveAnon}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ accion: 'calentar' }),
+    }).catch(() => {})
   }, [])
 
   // Las que quedaron esperando confirmación (de los últimos 30 minutos)
@@ -80,6 +91,7 @@ export function useAsistente() {
       .from('asistente_mensajes')
       .select('id, rol, texto, consultas, created_at')
       .order('created_at', { ascending: false })
+      .order('rol', { ascending: true }) // mensajes viejos con la misma hora: la pregunta antes que la respuesta
       .limit(40)
       .then(({ data, error }) => {
         if (error || !data) return // sin la tabla todavía: queda la copia de esta pestaña
@@ -113,6 +125,8 @@ export function useAsistente() {
     ])
     setPensando(true)
     setConsultando(null)
+    const inicio = performance.now()
+    let primeraPalabra: number | null = null
     try {
       const { data } = await supabase.auth.getSession()
       const res = await fetch(`${urlFunciones}/asistente`, {
@@ -152,6 +166,7 @@ export function useAsistente() {
             if (!linea) continue
             const e = JSON.parse(linea.slice(6)) as Evento
             if (e.tipo === 'texto') {
+              primeraPalabra ??= performance.now() - inicio
               acumulado += e.delta
               poner({ texto: acumulado })
               op.alTexto?.(e.delta)
@@ -174,6 +189,7 @@ export function useAsistente() {
           }
         }
         if (!fin) throw new Error('Se cortó la respuesta. Probá de nuevo.')
+        setTiempos({ primeraPalabra, total: performance.now() - inicio, servidor: fin.tiempos })
         for (const a of fin.acciones ?? []) guardarAccion(a)
         final = { respuesta: fin.respuesta, voz: fin.respuesta_voz?.trim() || fin.respuesta, consultas: fin.consultas ?? [] }
       }
@@ -214,5 +230,5 @@ export function useAsistente() {
     await supabase.from('asistente_mensajes').delete().not('id', 'is', null)
   }, [])
 
-  return { mensajes, pensando, consultando, acciones, preguntar, resolverAccion, limpiar }
+  return { mensajes, pensando, consultando, acciones, tiempos, preguntar, resolverAccion, limpiar }
 }

@@ -8,6 +8,8 @@
 //   { tipo: "texto", delta } · { tipo: "consulta", nombre } · { tipo: "nueva_vuelta" } (descartar el texto parcial)
 //   { tipo: "accion", accion: { id, tipo, resumen, estado, resultado?, link? } } (preparada, hecha o cancelada)
 //   { tipo: "fin", respuesta, respuesta_voz, modelo, consultas, acciones } · { tipo: "error", error }
+// Precalentar (al abrir Jarvis, para que la primera pregunta no espere el arranque en frío):
+//   { accion: "calentar" } → { ok: true }   (no lee ningún dato, no hace falta sesión)
 // Botones de las acciones (sin pasar por Claude):
 //   { accion: "confirmar", id } → { accion: {…} }   ·   { accion: "cancelar", id } → { mensaje }
 // Las acciones sobre el hub (agendar, próxima acción, etapa, nota, cotización en borrador) se ejecutan
@@ -44,9 +46,9 @@ async function usuarioMiembro(req: Request): Promise<{ email: string; nombre: st
   const auth = req.headers.get('Authorization')
   if (!auth) return null
   const cliente = createClient(URL_SUPABASE, ANON, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } })
-  const { data: esMiembro, error } = await cliente.rpc('es_miembro')
+  // En paralelo: cada consulta es un viaje a la base
+  const [{ data: esMiembro, error }, { data: user }] = await Promise.all([cliente.rpc('es_miembro'), cliente.auth.getUser()])
   if (error || esMiembro !== true) return null
-  const { data: user } = await cliente.auth.getUser()
   const email = user.user?.email ?? ''
   const { data: m } = await admin.from('miembros').select('nombre').ilike('email', email).maybeSingle()
   return { email, nombre: (m?.nombre as string) ?? email }
@@ -55,9 +57,8 @@ async function usuarioMiembro(req: Request): Promise<{ email: string; nombre: st
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
-
-  const usuario = await usuarioMiembro(req)
-  if (!usuario) return json({ error: 'No autorizado' }, 401)
+  const t0 = Date.now()
+  const recibida = new Date()
 
   let body: { pregunta?: unknown; stream?: unknown; accion?: unknown; id?: unknown }
   try {
@@ -65,6 +66,12 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'Pedido inválido' }, 400)
   }
+  // Solo despierta la función: no lee datos
+  if (body.accion === 'calentar') return json({ ok: true })
+
+  const usuario = await usuarioMiembro(req)
+  if (!usuario) return json({ error: 'No autorizado' }, 401)
+  const tAuth = Date.now() - t0
 
   // Confirmar o cancelar una acción con el botón
   if (body.accion === 'confirmar' || body.accion === 'cancelar') {
@@ -89,9 +96,14 @@ Deno.serve(async (req) => {
   const hub = new Hub(admin) // consultas de solo lectura
   const memoria = new Memoria(admin, usuario)
 
-  /** Arma todo el contexto en paralelo, responde y guarda la charla. */
-  const correr = async (avisar?: (e: Evento) => void): Promise<Resultado> => {
-    const acciones = new Acciones(admin, hub, usuario, (accion: AccionVisible) => avisar?.({ tipo: 'accion', accion }))
+  /** Arma todo el contexto en paralelo y responde. Devuelve también cuánto tardó cada parte. */
+  const correr = async (avisarAfuera?: (e: Evento) => void): Promise<Resultado & { tiempos: Record<string, number> }> => {
+    let primeraPalabra = 0
+    const avisar = (e: Evento) => {
+      if (e.tipo === 'texto' && !primeraPalabra) primeraPalabra = Date.now() - t0
+      avisarAfuera?.(e)
+    }
+    const acciones = new Acciones(admin, hub, usuario, (accion: AccionVisible) => avisar({ tipo: 'accion', accion }))
     const [panorama, notas, historial, pendientes, personalidad] = await Promise.all([
       hub.panorama(usuario.nombre),
       memoria.notas(),
@@ -103,14 +115,20 @@ Deno.serve(async (req) => {
         .maybeSingle()
         .then(({ data }) => (data?.jarvis_personalidad as string | null) ?? null),
     ])
+    const tContexto = Date.now() - t0
     const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar)
-    await memoria.guardarTurno(pregunta, r.respuesta, r.consultas)
-    return r
+    const tiempos = { sesion_ms: tAuth, contexto_ms: tContexto, primera_palabra_ms: primeraPalabra, total_ms: Date.now() - t0, consultas: r.consultas.length }
+    console.log('Tiempos de Jarvis:', JSON.stringify(tiempos)) // visible en Supabase → Edge Functions → asistente → Logs
+    return { ...r, tiempos }
   }
+  /** La charla se guarda después de responder: no hace esperar a nadie. */
+  const guardar = (r: Resultado) => memoria.guardarTurno(pregunta, r.respuesta, r.consultas, recibida)
 
   if (body.stream !== true) {
     try {
-      return json(await correr())
+      const r = await correr()
+      await guardar(r)
+      return json(r)
     } catch (e) {
       const { mensaje, status } = errorLegible(e)
       return json({ error: mensaje }, status)
@@ -125,6 +143,7 @@ Deno.serve(async (req) => {
       try {
         const r = await correr(enviar)
         enviar({ tipo: 'fin', ...r })
+        await guardar(r)
       } catch (e) {
         enviar({ tipo: 'error', error: errorLegible(e).mensaje })
       } finally {
