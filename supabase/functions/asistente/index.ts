@@ -6,7 +6,12 @@
 //   respuesta: el texto completo para la pantalla; respuesta_voz: el principio (≤600 caracteres) para leer en voz alta.
 // Con stream: true responde en vivo (text/event-stream), una línea "data: {json}" por evento:
 //   { tipo: "texto", delta } · { tipo: "consulta", nombre } · { tipo: "nueva_vuelta" } (descartar el texto parcial)
-//   { tipo: "fin", respuesta, respuesta_voz, modelo, consultas } · { tipo: "error", error }
+//   { tipo: "accion", accion: { id, tipo, resumen, estado, resultado?, link? } } (preparada, hecha o cancelada)
+//   { tipo: "fin", respuesta, respuesta_voz, modelo, consultas, acciones } · { tipo: "error", error }
+// Botones de las acciones (sin pasar por Claude):
+//   { accion: "confirmar", id } → { accion: {…} }   ·   { accion: "cancelar", id } → { mensaje }
+// Las acciones sobre el hub (agendar, próxima acción, etapa, nota, cotización en borrador) se ejecutan
+// recién cuando el socio las confirma.
 // La conversación se guarda en asistente_mensajes (la memoria de lo que se habló) y Jarvis puede guardar
 // notas en jarvis_memoria. Del resto del hub, solo lee.
 //
@@ -16,6 +21,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import { Hub } from './datos.ts'
 import { Memoria } from './memoria.ts'
+import { Acciones, type AccionVisible } from './acciones.ts'
 import { responder, type Evento, type Resultado } from './cerebro.ts'
 
 const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
@@ -53,12 +59,26 @@ Deno.serve(async (req) => {
   const usuario = await usuarioMiembro(req)
   if (!usuario) return json({ error: 'No autorizado' }, 401)
 
-  let body: { pregunta?: unknown; stream?: unknown }
+  let body: { pregunta?: unknown; stream?: unknown; accion?: unknown; id?: unknown }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'Pedido inválido' }, 400)
   }
+
+  // Confirmar o cancelar una acción con el botón
+  if (body.accion === 'confirmar' || body.accion === 'cancelar') {
+    const id = typeof body.id === 'string' ? body.id : ''
+    if (!id) return json({ error: 'Falta la acción.' }, 400)
+    const acciones = new Acciones(admin, new Hub(admin), usuario)
+    try {
+      if (body.accion === 'cancelar') return json({ mensaje: await acciones.cancelar(id) })
+      return json({ accion: await acciones.confirmar(id) })
+    } catch (e) {
+      return json({ error: e instanceof Error ? e.message : 'No se pudo.' }, 400)
+    }
+  }
+
   const pregunta = typeof body.pregunta === 'string' ? body.pregunta.trim().slice(0, MAX_PREGUNTA) : ''
   if (!pregunta) return json({ error: 'Falta la pregunta' }, 400)
 
@@ -71,8 +91,19 @@ Deno.serve(async (req) => {
 
   /** Arma todo el contexto en paralelo, responde y guarda la charla. */
   const correr = async (avisar?: (e: Evento) => void): Promise<Resultado> => {
-    const [panorama, notas, historial] = await Promise.all([hub.panorama(usuario.nombre), memoria.notas(), memoria.historial()])
-    const r = await responder(hub, memoria, panorama, notas, pregunta, historial, avisar)
+    const acciones = new Acciones(admin, hub, usuario, (accion: AccionVisible) => avisar?.({ tipo: 'accion', accion }))
+    const [panorama, notas, historial, pendientes, personalidad] = await Promise.all([
+      hub.panorama(usuario.nombre),
+      memoria.notas(),
+      memoria.historial(),
+      acciones.pendientes(),
+      admin
+        .from('ajustes')
+        .select('*')
+        .maybeSingle()
+        .then(({ data }) => (data?.jarvis_personalidad as string | null) ?? null),
+    ])
+    const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar)
     await memoria.guardarTurno(pregunta, r.respuesta, r.consultas)
     return r
   }

@@ -1,8 +1,10 @@
-// Herramientas que Claude puede usar: consultas de SOLO LECTURA sobre el hub, su memoria
-// (lo único que escribe) y, del lado de Anthropic, búsqueda y lectura web.
+// Herramientas que Claude puede usar: consultas de SOLO LECTURA sobre el hub, su memoria,
+// acciones que el socio tiene que confirmar antes de que se hagan y, del lado de Anthropic,
+// búsqueda y lectura web.
 import type Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
+import { ETAPAS, type Acciones, type TipoAccion } from './acciones.ts'
 
 const fecha = { type: 'string', description: 'Fecha en formato AAAA-MM-DD (hora de Argentina).' }
 const opcional = (t: Record<string, unknown>) => ({ anyOf: [t, { type: 'null' }] })
@@ -71,6 +73,57 @@ export const HERRAMIENTAS_MEMORIA: Anthropic.Beta.BetaTool[] = [
   }),
 ]
 
+const cliente = { type: 'string', description: 'Nombre del cliente, empresa o contacto, como figura en el hub.' }
+const PREPARA = ' NO se hace sola: queda en pantalla para que el socio la confirme.'
+
+/** Acciones sobre el hub: se preparan y esperan la confirmación del socio. */
+export const HERRAMIENTAS_ACCIONES: Anthropic.Beta.BetaTool[] = [
+  herramienta('agendar_reunion', `Prepara una reunión nueva en el calendario.${PREPARA}`, {
+    cliente: opcional({ ...cliente, description: 'Cliente o prospecto con el que es la reunión (null si es interna).' }),
+    titulo: { type: 'string', description: 'Título corto, por ejemplo "Demo del bot".' },
+    fecha,
+    hora: { type: 'string', description: 'Hora de inicio en formato HH:MM de 24 h (hora de Argentina).' },
+    duracion_min: opcional({ type: 'integer', description: 'Duración en minutos (por defecto 60).' }),
+    lugar: opcional({ type: 'string', description: 'Lugar o link de la videollamada.' }),
+  }),
+  herramienta('proxima_accion', `Prepara la próxima acción de un cliente en el pipeline (reemplaza la que tenga).${PREPARA}`, {
+    cliente,
+    accion: { type: 'string', description: 'Qué hay que hacer, empezando con un verbo ("Mandarle la cotización").' },
+    fecha: opcional(fecha),
+  }),
+  herramienta('mover_etapa', `Prepara el cambio de etapa de un cliente en el pipeline.${PREPARA}`, {
+    cliente,
+    etapa: { type: 'string', enum: [...ETAPAS] },
+    motivo_perdida: opcional({ type: 'string', description: 'Solo si pasa a perdido.' }),
+  }),
+  herramienta('nota_cliente', `Prepara una nota para la carpeta del cliente (se agrega a sus notas con fecha).${PREPARA}`, {
+    cliente,
+    nota: { type: 'string', description: 'La nota, corta y autocontenida.' },
+  }),
+  herramienta('cotizacion_borrador', `Prepara una cotización en borrador con servicios del catálogo (precios del catálogo).${PREPARA}`, {
+    cliente,
+    titulo: opcional({ type: 'string', description: 'Título de la cotización.' }),
+    servicios: {
+      type: 'array',
+      description: 'Servicios del catálogo (nombre exacto o id). Consultá el catálogo antes si no lo tenés.',
+      items: {
+        type: 'object',
+        properties: { servicio: { type: 'string' }, cantidad: opcional({ type: 'number' }) },
+        required: ['servicio', 'cantidad'],
+        additionalProperties: false,
+      },
+    },
+  }),
+  herramienta('confirmar_accion', 'Ejecuta una acción pendiente. Usala SOLO cuando el socio la confirma explícitamente ("sí", "dale", "confirmá").', {
+    id: { type: 'string', description: 'Id de la acción (está en <acciones_pendientes>).' },
+  }),
+  herramienta('cancelar_accion', 'Cancela una acción pendiente (cuando el socio dice que no o la quiere cambiar).', {
+    id: { type: 'string', description: 'Id de la acción.' },
+  }),
+]
+
+const TIPOS_ACCION = new Set<string>(['agendar_reunion', 'proxima_accion', 'mover_etapa', 'nota_cliente', 'cotizacion_borrador'])
+
 /** Búsqueda y lectura web: corren en los servidores de Anthropic (no hay que ejecutarlas acá). */
 export const HERRAMIENTAS_WEB: Anthropic.Beta.BetaToolUnion[] = [
   { type: 'web_search_20260209', name: 'web_search', max_uses: 5, user_location: { type: 'approximate', country: 'AR', timezone: 'America/Argentina/Buenos_Aires' } },
@@ -90,6 +143,13 @@ export const NOMBRE_CONSULTA: Record<string, string> = {
   sistemas_y_demos: 'sistemas y demos',
   recordar: 'memoria',
   olvidar: 'memoria',
+  agendar_reunion: 'calendario',
+  proxima_accion: 'pipeline',
+  mover_etapa: 'pipeline',
+  nota_cliente: 'carpeta del cliente',
+  cotizacion_borrador: 'cotizador',
+  confirmar_accion: 'acción',
+  cancelar_accion: 'acción',
   web_search: 'búsqueda web',
   web_fetch: 'lectura web',
 }
@@ -97,9 +157,19 @@ export const NOMBRE_CONSULTA: Record<string, string> = {
 type Entrada = Record<string, unknown>
 const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
 
-/** Ejecuta una herramienta. Lo único que escribe es la memoria de Jarvis. */
-export async function ejecutar(hub: Hub, memoria: Memoria, nombre: string, e: Entrada): Promise<string> {
+/**
+ * Ejecuta una herramienta. Escribe solo en la memoria de Jarvis; las acciones sobre el hub
+ * se preparan y se ejecutan recién cuando el socio confirma.
+ */
+export async function ejecutar(hub: Hub, memoria: Memoria, acciones: Acciones, nombre: string, e: Entrada): Promise<string> {
+  if (TIPOS_ACCION.has(nombre)) return acciones.preparar(nombre as TipoAccion, e)
   switch (nombre) {
+    case 'confirmar_accion': {
+      const r = await acciones.confirmar(String(e.id ?? ''))
+      return `${r.estado === 'hecha' ? 'Hecha' : r.estado === 'error' ? 'Falló' : 'No se hizo'}: ${r.resultado ?? r.resumen}`
+    }
+    case 'cancelar_accion':
+      return acciones.cancelar(String(e.id ?? ''))
     case 'recordar':
       return memoria.recordar(String(e.nota ?? ''))
     case 'olvidar':

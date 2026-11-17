@@ -98,6 +98,18 @@ export interface Ajustes {
   /** Tasas iniciales del embudo (se usan hasta tener datos reales). */
   tasa_reunion_propuesta: number
   tasa_propuesta_cierre: number
+  /** Cómo quieren los socios que sea Jarvis (tono, reglas, prioridades). Se edita en /jarvis. */
+  jarvis_personalidad?: string | null
+}
+
+/** Una acción que Jarvis preparó y espera confirmación (o ya se hizo). Ver supabase/functions/asistente/acciones.ts. */
+export interface AccionJarvis {
+  id: string
+  tipo: 'agendar_reunion' | 'proxima_accion' | 'mover_etapa' | 'nota_cliente' | 'cotizacion_borrador'
+  resumen: string
+  estado: 'pendiente' | 'hecha' | 'cancelada' | 'error'
+  resultado?: string | null
+  link?: string | null
 }
 
 export type TipoMeta = 'mes' | 'trimestre'
