@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Copy, FolderOpen, MessageCircle, Trash2 } from 'lucide-react'
+import { Calculator, Check, Copy, FolderOpen, Megaphone, MessageCircle, Printer, Trash2 } from 'lucide-react'
 import type { ClientePostventa, InformeAgente, MensajeAgente } from '../../types/db'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 import { ErrorBox } from '../../components/ui/ErrorBox'
 import { Spinner } from '../../components/ui/Spinner'
 import { DESCRIPCION } from './catalogo'
-import { linkWhatsApp } from './useAgentes'
+import { colgado, linkWhatsApp } from './useAgentes'
 
 function Copiar({ texto }: { texto: string }) {
   const [hecho, setHecho] = useState(false)
@@ -32,7 +32,19 @@ function Copiar({ texto }: { texto: string }) {
 }
 
 /** Un mensaje redactado por un agente, para copiar o abrir en WhatsApp (lo manda el socio). */
-function Mensaje({ cliente, prospectoId, telefono, encabezado, texto }: { cliente: string; prospectoId: string; telefono: string | null; encabezado?: ReactNode; texto: string }) {
+function Mensaje({
+  cliente,
+  prospectoId,
+  telefono,
+  encabezado,
+  texto,
+}: {
+  cliente: string
+  prospectoId: string
+  telefono: string | null
+  encabezado?: ReactNode
+  texto: string
+}) {
   return (
     <div className="rounded-xl border border-borde bg-superficie p-3.5">
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -110,9 +122,11 @@ export function InformeDetalle({ informe, onCerrar, onBorrar }: Props) {
           {informe.pedido_por ? ' · pedido a mano' : ' · solo'}
         </p>
 
-        {informe.estado === 'trabajando' && (
+        {colgado(informe) && <ErrorBox mensaje="Este agente se cortó antes de terminar (tardó demasiado). Borralo y volvé a correrlo." />}
+        {informe.estado === 'trabajando' && !colgado(informe) && (
           <div className="flex items-center gap-2.5 rounded-xl bg-acento-tenue/60 px-3.5 py-3 text-sm text-acento-texto">
-            <Spinner className="size-4" /> Trabajando: puede tardar un par de minutos. Podés cerrar esto, el informe queda guardado.
+            <Spinner className="size-4" /> Trabajando: puede tardar {informe.agente === 'meta_ads' ? 'unos 3 minutos' : 'un par de minutos'}. Podés cerrar esto,
+            el informe queda guardado.
           </div>
         )}
         {informe.estado === 'error' && <ErrorBox mensaje={`No pudo terminar: ${informe.error ?? 'error desconocido'}`} />}
@@ -139,6 +153,37 @@ export function InformeDetalle({ informe, onCerrar, onBorrar }: Props) {
           </div>
         )}
 
+        {informe.datos?.campana && (
+          <Link to={`/informes/${informe.id}/campana`} target="_blank" className="block">
+            <div className="flex items-center gap-3 rounded-xl border border-acento/40 bg-acento-tenue/50 p-4 transition-colors hover:border-acento">
+              <Megaphone className="size-6 shrink-0 text-acento-texto" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Abrir la propuesta de campaña</span>
+                <span className="block text-sm text-tenue">3 páginas: números, cortes, plan y creativos. Editás precios y la guardás en PDF.</span>
+              </span>
+            </div>
+          </Link>
+        )}
+
+        {informe.datos?.cotizacion_id && (
+          <div className="flex flex-wrap gap-2">
+            <Link to={`/cotizador?abrir=${informe.datos.cotizacion_id}`}>
+              <Button size="sm">
+                <Calculator className="size-4" /> Revisar {informe.datos.numero ?? 'la cotización'} en el cotizador
+              </Button>
+            </Link>
+            <Link to={`/cotizaciones/${informe.datos.cotizacion_id}/imprimir`} target="_blank">
+              <Button size="sm" variant="secundario">
+                <Printer className="size-4" /> Versión para imprimir
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        {informe.contenido && informe.agente !== 'cobranzas' && informe.agente !== 'postventa' && (
+          <div className="rounded-xl border border-borde bg-superficie p-4 text-[15px] leading-relaxed whitespace-pre-line text-suave">{informe.contenido}</div>
+        )}
+
         {mensajes.length > 0 && (
           <div className="flex flex-col gap-3">
             {mensajes.map((m, i) => (
@@ -152,10 +197,6 @@ export function InformeDetalle({ informe, onCerrar, onBorrar }: Props) {
               />
             ))}
           </div>
-        )}
-
-        {informe.contenido && !clientes.length && !mensajes.length && (
-          <div className="rounded-xl border border-borde bg-superficie p-4 text-[15px] leading-relaxed whitespace-pre-line text-suave">{informe.contenido}</div>
         )}
 
         <div className="flex flex-wrap gap-2">

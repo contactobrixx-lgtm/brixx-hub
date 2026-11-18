@@ -46,6 +46,19 @@
   --color-tinta: #16181d;
   --color-tinta-suave: #5b5e66;
   --color-linea: #e2ded3;
+
+  /* Propuesta de campaña de Meta Ads (mismo diseño que el PDF del skill campanas-meta-ads) */
+  --color-papel-calido: #f4f4f1;
+  --color-papel-tabla: #fafaf7;
+  --color-tinta-media: #3a3a40;
+  --color-hero-acento: #8fa8ff;
+  --color-ok-papel: #15803d;
+  --color-peligro-papel: #b42318;
+  --color-chip-video: #e0362c;
+  --color-campo-fondo: #eef2ff;
+  --color-campo-borde: #9db0ff;
+  --color-aud-fondo: #f5f7ff;
+  --color-sin-imagen: #eef0f6;
 }
 
 @layer base {

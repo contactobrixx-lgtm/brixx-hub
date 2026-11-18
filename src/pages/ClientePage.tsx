@@ -13,6 +13,7 @@ import { IntervencionForm } from '../features/grabaciones/IntervencionForm'
 import { ESTADO_GRABACION, lineaDeAnalisis, ORIGEN_GRABACION } from '../features/grabaciones/estados'
 import { actualizarSintesis, dominio, useHistoriaClientes, usuarioInstagram } from '../features/clientes/useClientes'
 import { LinksCliente } from '../features/clientes/LinksCliente'
+import { AgentesCliente } from '../features/agentes/AgentesCliente'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorBox } from '../components/ui/ErrorBox'
@@ -260,7 +261,7 @@ export function ClientePage() {
           </Bloque>
         </div>
 
-        <aside className="flex flex-col gap-4">
+        <aside className="flex min-w-0 flex-col gap-4">
           <Bloque titulo="Datos">
             <Dato label="Contacto" valor={p.nombre} />
             <Dato label="Empresa" valor={p.empresa} />
@@ -279,6 +280,7 @@ export function ClientePage() {
             <Dato label="Valor" valor={p.valor_estimado != null ? formatMonto(Number(p.valor_estimado), p.moneda) : null} />
             <Dato label="Próxima" valor={p.proxima_accion ? `${p.proxima_accion}${p.fecha_proxima_accion ? ` · ${formatFecha(p.fecha_proxima_accion)}` : ''}` : null} />
           </Bloque>
+          <AgentesCliente p={p} />
           {p.notas && (
             <Bloque titulo="Notas">
               <p className="text-sm whitespace-pre-line text-suave">{p.notas}</p>

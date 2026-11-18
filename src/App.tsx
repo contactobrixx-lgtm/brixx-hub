@@ -18,6 +18,7 @@ import { GrabacionesPage } from './pages/GrabacionesPage'
 import { GrabacionPage } from './pages/GrabacionPage'
 import { JarvisPage } from './pages/JarvisPage'
 import { AgentesPage } from './pages/AgentesPage'
+import { CampanaImprimiblePage } from './pages/CampanaImprimiblePage'
 import { supabaseConfigurado } from './lib/supabase'
 
 export default function App() {
@@ -60,6 +61,14 @@ export default function App() {
         element={
           <RequireAuth>
             <CotizacionImprimiblePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/informes/:id/campana"
+        element={
+          <RequireAuth>
+            <CampanaImprimiblePage />
           </RequireAuth>
         }
       />
