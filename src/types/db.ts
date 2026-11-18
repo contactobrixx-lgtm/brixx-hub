@@ -108,7 +108,11 @@ export interface Ajustes {
   jarvis_voz_id?: string | null
   /** 'eleven_flash_v2_5' (rápida) | 'eleven_multilingual_v2' (más natural) */
   jarvis_voz_modelo?: string | null
+  /** 'calmo' | 'animado' | 'energico' (vacío = calmo): expresividad y velocidad de la voz */
+  jarvis_voz_energia?: EnergiaVoz | null
 }
+
+export type EnergiaVoz = 'calmo' | 'animado' | 'energico'
 
 /** Una acción que Jarvis preparó y espera confirmación (o ya se hizo). Ver supabase/functions/asistente/acciones.ts. */
 export interface AccionJarvis {

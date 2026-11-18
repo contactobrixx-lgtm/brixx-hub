@@ -27,7 +27,7 @@ import { usePersonalidad } from '../features/asistente/usePersonalidad'
 import { TarjetaAccion } from '../features/asistente/TarjetaAccion'
 import { PersonalidadForm } from '../features/asistente/PersonalidadForm'
 import { VozForm } from '../features/asistente/VozForm'
-import { useConfigVoz } from '../features/asistente/useConfigVoz'
+import { ENERGIAS_VOZ, useConfigVoz } from '../features/asistente/useConfigVoz'
 import { useVoz } from '../features/asistente/useVoz'
 import { useReconocimientoVoz } from '../features/asistente/useReconocimientoVoz'
 import { useManosLibres } from '../features/asistente/useManosLibres'
@@ -817,9 +817,11 @@ export function JarvisPage() {
               }
             >
               <p className="text-sm text-suave">
-                {configVoz.vozId ? `Voz elegida (${configVoz.vozId.slice(0, 6)}…)` : 'Daniel, la de ElevenLabs por defecto (acento británico)'}
+                {configVoz.vozId === 'KuCuu213C5LmCbAvbEb8' ? 'Luis (español neutro)' : configVoz.vozId ? `Voz elegida (${configVoz.vozId.slice(0, 6)}…)` : 'Daniel, la de ElevenLabs por defecto (acento británico)'}
                 {' · '}
                 {configVoz.modelo === 'eleven_multilingual_v2' ? 'más natural' : 'rápida'}
+                {' · '}
+                {ENERGIAS_VOZ.find((e) => e.valor === configVoz.energia)?.label.toLowerCase()}
               </p>
             </Panel>
 
@@ -954,6 +956,7 @@ export function JarvisPage() {
         abierto={editandoVoz}
         vozId={configVoz.vozId}
         modelo={configVoz.modelo}
+        energia={configVoz.energia}
         onCerrar={() => setEditandoVoz(false)}
         onGuardar={configVoz.guardar}
         onProbar={configVoz.probar}
