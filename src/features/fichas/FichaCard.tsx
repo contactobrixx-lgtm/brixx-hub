@@ -14,6 +14,7 @@ interface Props {
 }
 
 function dominio(url: string) {
+  if (url.startsWith('/')) return 'en el hub'
   try {
     return new URL(url).host.replace(/^www\./, '')
   } catch {

@@ -106,6 +106,8 @@ export function iniciales(texto: string): string {
 export function normalizarUrl(url: string): string {
   const t = url.trim()
   if (!t) return t
+  // Una ruta del propio hub ("/material/video.html") queda tal cual
+  if (t.startsWith('/') && !t.startsWith('//')) return t
   return /^https?:\/\//i.test(t) ? t : `https://${t}`
 }
 
