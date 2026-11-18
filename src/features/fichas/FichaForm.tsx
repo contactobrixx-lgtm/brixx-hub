@@ -12,7 +12,7 @@ import type { CambioImagen } from './useFichas'
 
 const CATEGORIAS: Record<Seccion, string[]> = {
   sistema: ['ERP', 'POS', 'CRM', 'Stock', 'Panel admin'],
-  demo: ['Menú digital', 'Cotizador', 'Landing', 'Catálogo', 'Reservas'],
+  demo: ['Menú digital', 'Cotizador', 'Landing', 'Catálogo', 'Reservas', 'Video'],
 }
 
 interface Props {
@@ -68,7 +68,7 @@ function FormInterno({
     if (!nombre.trim() || !url.trim()) return setError('Nombre y URL son obligatorios.')
     const urlFinal = normalizarUrl(url)
     try {
-      new URL(urlFinal)
+      new URL(urlFinal, window.location.origin)
     } catch {
       return setError('La URL no es válida.')
     }

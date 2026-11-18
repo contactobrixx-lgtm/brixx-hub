@@ -10,8 +10,8 @@
 //   ELEVENLABS_MODEL     (opcional: por defecto eleven_flash_v2_5, el más rápido y gasta la mitad de créditos.
 //                         Con eleven_multilingual_v2 suena un poco más natural, pero tarda más en arrancar)
 //
-// Cómo cambiar la voz: en ElevenLabs → Voices → Voice Library, elegí una, agregala a "My Voices",
-// copiá su Voice ID y cargalo en Supabase como secret ELEVENLABS_VOICE_ID. No hace falta tocar el código.
+// Cómo cambiar la voz: desde el hub, en /jarvis → Voz (Voice ID, modelo y energía). También se puede
+// cargar el secret ELEVENLABS_VOICE_ID. No hace falta tocar el código.
 // Si falta la clave, responde 503 y el hub usa la voz del dispositivo.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
@@ -54,14 +54,15 @@ async function miembro(req: Request): Promise<Cliente | null> {
 }
 
 // La voz elegida en el hub (/jarvis → Voz). Se guarda un minuto para no consultar la base en cada oración.
-let elegida: { voz: string | null; modelo: string | null; hasta: number } | null = null
-async function vozElegida(cliente: Cliente): Promise<{ voz: string | null; modelo: string | null }> {
+let elegida: { voz: string | null; modelo: string | null; energia: Energia | null; hasta: number } | null = null
+async function vozElegida(cliente: Cliente): Promise<{ voz: string | null; modelo: string | null; energia: Energia | null }> {
   if (elegida && elegida.hasta > Date.now()) return elegida
   const { data } = await cliente.from('ajustes').select('*').maybeSingle()
   const d = (data ?? {}) as Record<string, unknown>
   elegida = {
     voz: typeof d.jarvis_voz_id === 'string' && d.jarvis_voz_id.trim() ? d.jarvis_voz_id.trim() : null,
     modelo: typeof d.jarvis_voz_modelo === 'string' && d.jarvis_voz_modelo.trim() ? d.jarvis_voz_modelo.trim() : null,
+    energia: esEnergia(d.jarvis_voz_energia) ? d.jarvis_voz_energia : null,
     hasta: Date.now() + 60_000,
   }
   return elegida
@@ -69,8 +70,17 @@ async function vozElegida(cliente: Cliente): Promise<{ voz: string | null; model
 
 const MODELOS = ['eleven_flash_v2_5', 'eleven_multilingual_v2', 'eleven_turbo_v2_5']
 
+/** Energía de la voz (/jarvis → Voz): más expresión y un poco más de velocidad a medida que sube. */
+export type Energia = 'calmo' | 'animado' | 'energico'
+const AJUSTES_ENERGIA: Record<Energia, Record<string, number | boolean>> = {
+  calmo: { stability: 0.55, similarity_boost: 0.75, style: 0.15, use_speaker_boost: true, speed: 1 },
+  animado: { stability: 0.42, similarity_boost: 0.8, style: 0.35, use_speaker_boost: true, speed: 1.05 },
+  energico: { stability: 0.32, similarity_boost: 0.8, style: 0.5, use_speaker_boost: true, speed: 1.1 },
+}
+const esEnergia = (x: unknown): x is Energia => typeof x === 'string' && x in AJUSTES_ENERGIA
+
 /** Pide el audio a ElevenLabs. Los modelos v2.5 aceptan forzar el idioma; si lo rechazan, reintenta sin él. */
-export async function sintetizar(texto: string, clave: string, vozId: string, modelo: string): Promise<Response> {
+export async function sintetizar(texto: string, clave: string, vozId: string, modelo: string, energia: Energia = 'calmo'): Promise<Response> {
   const aceptaIdioma = /v2_5|v3/.test(modelo)
   const pedir = (conIdioma: boolean) =>
     fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(vozId)}?output_format=mp3_44100_128`, {
@@ -81,8 +91,7 @@ export async function sintetizar(texto: string, clave: string, vozId: string, mo
         text: texto,
         model_id: modelo,
         ...(conIdioma ? { language_code: 'es' } : {}),
-        // Calma y consistente, con un poco de expresión
-        voice_settings: { stability: 0.55, similarity_boost: 0.75, style: 0.15, use_speaker_boost: true },
+        voice_settings: AJUSTES_ENERGIA[energia],
       }),
     })
   let res = await pedir(aceptaIdioma)
@@ -96,8 +105,8 @@ Deno.serve(async (req) => {
   const cliente = await miembro(req)
   if (!cliente) return json({ error: 'No autorizado' }, 401)
 
-  // voz_id / modelo: para "Probar" una voz antes de guardarla
-  let body: { accion?: string; texto?: unknown; voz_id?: unknown; modelo?: unknown }
+  // voz_id / modelo / energia: para "Probar" una voz antes de guardarla
+  let body: { accion?: string; texto?: unknown; voz_id?: unknown; modelo?: unknown; energia?: unknown }
   try {
     body = await req.json()
   } catch {
@@ -121,6 +130,7 @@ Deno.serve(async (req) => {
       clave,
       vozPrueba || hub.voz || Deno.env.get('ELEVENLABS_VOICE_ID') || VOZ_POR_DEFECTO,
       modeloPrueba || (hub.modelo && MODELOS.includes(hub.modelo) ? hub.modelo : null) || Deno.env.get('ELEVENLABS_MODEL') || MODELO_POR_DEFECTO,
+      esEnergia(body.energia) ? body.energia : hub.energia ?? 'calmo',
     )
     if (!res.ok) {
       const detalle = await res.text().catch(() => '')
