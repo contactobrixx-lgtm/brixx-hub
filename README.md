@@ -166,6 +166,10 @@ En **Agentes** (menú) hay cuatro agentes que trabajan sin que se lo pidas y te 
 - **Postventa**: una vez por semana revisa a cada cliente activo. Te dice quién está en riesgo, qué otro servicio le serviría, y te deja un mensaje sugerido.
 - **Monitor**: cada hora revisa que respondan los sistemas y las demos. Si alguno se cae, te avisa y la ficha muestra "Caída".
 
+Dos analistas corren solos **una vez por mes** (o con "Correr ahora"):
+- **Analista financiero**: muestra cobrado, costos y margen de los últimos 6 meses, cuánto se va en IA y de qué clientes dependen. También cuánto cubre el recurrente de los costos fijos, cuánto falta cobrar, la proyección del mes y recomendaciones.
+- **Aprendizaje de ventas**: compara lo ganado contra lo perdido por servicio, rubro y precio, y junta los motivos de pérdida y las objeciones que se repiten. Al final te dice qué cambiar y en qué rubros buscar clientes.
+
 Y tres más que se corren **a pedido desde la carpeta de cada cliente** (bloque "Agentes"):
 - **Armador de propuestas**: con todo lo que se sabe del cliente elige servicios del catálogo, deja la cotización en **borrador** en el Cotizador y te redacta el mensaje para mandarla.
 - **Auditor de redes y web**: diagnóstico de su web, Instagram, atención y venta online, con puntaje, mejoras rápidas, qué le ofreceríamos y un mensaje para regalarle el diagnóstico.

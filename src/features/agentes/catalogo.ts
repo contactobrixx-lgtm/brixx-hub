@@ -1,4 +1,4 @@
-import { BellRing, BriefcaseBusiness, FileSignature, HeartHandshake, Megaphone, Radar, ScanSearch, type LucideIcon } from 'lucide-react'
+import { BellRing, BriefcaseBusiness, ChartLine, FileSignature, HeartHandshake, Lightbulb, Megaphone, Radar, ScanSearch, type LucideIcon } from 'lucide-react'
 import type { IdAgente } from '../../types/db'
 
 export interface DescripcionAgente {
@@ -52,6 +52,24 @@ export const AGENTES: DescripcionAgente[] = [
     cuando: 'Cada hora',
     conHora: false,
     correrAhora: 'Revisar ahora',
+  },
+  {
+    id: 'financiero',
+    nombre: 'Analista financiero',
+    icono: ChartLine,
+    queHace: 'Cobrado, costos y margen de los últimos 6 meses, cuánto se va en IA, de qué clientes dependen, cuánto cubre el recurrente y la proyección del mes, con recomendaciones.',
+    cuando: 'Una vez por mes',
+    conHora: true,
+    correrAhora: 'Analizar ahora',
+  },
+  {
+    id: 'ventas',
+    nombre: 'Aprendizaje de ventas',
+    icono: Lightbulb,
+    queHace: 'Compara lo ganado contra lo perdido por servicio, rubro y precio, junta los motivos de pérdida y las objeciones que se repiten, y te dice qué cambiar.',
+    cuando: 'Una vez por mes',
+    conHora: true,
+    correrAhora: 'Analizar ahora',
   },
   {
     id: 'propuesta',
