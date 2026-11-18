@@ -303,7 +303,7 @@ export interface Grabacion {
 }
 
 /** Agentes de Jarvis que trabajan solos (0018). */
-export type IdAgente = 'preparador' | 'postventa' | 'monitor' | 'cobranzas'
+export type IdAgente = 'preparador' | 'postventa' | 'monitor' | 'cobranzas' | 'propuesta' | 'auditor' | 'meta_ads'
 
 export interface AgenteConfig {
   agente: IdAgente
@@ -339,7 +339,7 @@ export interface InformeAgente {
   titulo: string
   resumen: string | null
   contenido: string | null
-  datos: { mensajes?: MensajeAgente[]; clientes?: ClientePostventa[]; url?: string; detalle?: string }
+  datos: { mensajes?: MensajeAgente[]; clientes?: ClientePostventa[]; url?: string; detalle?: string; cotizacion_id?: string; numero?: string; campana?: CampanaMeta }
   prospecto_id: string | null
   reunion_id: string | null
   estado: 'trabajando' | 'lista' | 'error'
@@ -347,4 +347,54 @@ export interface InformeAgente {
   leido: boolean
   pedido_por: string | null
   created_at: string
+}
+
+/** Propuesta de campaña de Meta Ads (misma estructura que ejemplo-datos.json del skill campanas-meta-ads). */
+export interface AnguloMeta {
+  tipo: 'video' | 'imagen'
+  pack?: boolean
+  bg: string
+  nombre: string
+  overlay: string
+  brief: string
+  texto: string
+  titulo: string
+}
+export interface ProductoMeta {
+  key: string
+  nombre: string
+  codigo: string
+  costo: string
+  venta: string
+  promo_label: string
+  promo: string
+  cpa: string
+  max_evento: string
+  cpc: string
+  cpm: string
+  angulos: AnguloMeta[]
+}
+export interface CampanaMeta {
+  cliente: string
+  fecha: string
+  contacto: string
+  titulo: string
+  subtitulo: string
+  descripcion: string
+  cta: string
+  leyenda_video: string
+  leyenda_imagen: string
+  campos: Record<string, string>
+  kpis: { label: string; valor: string; nota: string }[]
+  productos_titulo: string
+  columna_promo: string
+  columna_evento: string
+  nota_productos: string
+  cortes: [string, string, string][]
+  nota_cortes: string
+  pasos: [string, string][]
+  antes_de_lanzar: string[]
+  reglas: string[]
+  auditoria: { titulo: string; items: string[] } | null
+  productos: ProductoMeta[]
 }

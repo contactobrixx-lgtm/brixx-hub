@@ -3,18 +3,25 @@
 // Pedidos (POST JSON):
 //   { accion: "tic" }                          → corre lo que toque ahora (lo llama el programador de la base
 //                                                cada 15 min con su token, o el hub al abrirse) → { ok, corridos }
-//   { accion: "correr", agente, reunion_id? }  → corre un agente ya (a pedido de un socio) → { ok, id?, resumen? }
+//   { accion: "correr", agente, reunion_id?, prospecto_id?, grabacion_id?, parametros? }
+//                                              → corre un agente ya (a pedido de un socio) → { ok, id?, resumen? }
+//   { accion: "continuar_meta", id }           → segundo paso de la campaña de Meta Ads (se llama sola)
 //   { accion: "estado" }                       → agentes, última corrida y si el programador está andando
 //
-// Agentes: preparador (brief antes de cada reunión), postventa (semanal), monitor (cada hora),
-// cobranzas (diario). Solo LEEN el hub y escriben su informe en agentes_informes: nunca le mandan
-// nada a un cliente ni cambian datos. Usa ANTHROPIC_API_KEY (el monitor no la necesita).
+// Programados: preparador (brief antes de cada reunión), postventa (semanal), monitor (cada hora),
+// cobranzas (diario). A pedido, desde la carpeta del cliente: propuesta (cotización en borrador +
+// mensaje), auditor (redes y web) y meta_ads (propuesta de campaña). Solo LEEN el hub y escriben su
+// informe (la propuesta, además, deja la cotización en BORRADOR): nunca le mandan nada a un cliente ni
+// tocan Meta. Usa ANTHROPIC_API_KEY (el monitor no la necesita).
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { ahoraAR, nuevoContexto, type Contexto } from './comun.ts'
 import { correrMonitor } from './monitor.ts'
 import { correrCobranzas } from './cobranzas.ts'
 import { correrPostventa } from './postventa.ts'
 import { prepararReunion, proximaReunion, reunionesPorPreparar } from './preparador.ts'
+import { armarPropuesta } from './propuesta.ts'
+import { auditar } from './auditor.ts'
+import { armarMeta, empezarMeta, leerParametros } from './meta.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -30,10 +37,12 @@ const CORS = {
 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } })
 
-const AGENTES = ['preparador', 'postventa', 'monitor', 'cobranzas'] as const
+const AGENTES = ['preparador', 'postventa', 'monitor', 'cobranzas', 'propuesta', 'auditor', 'meta_ads'] as const
 type Agente = (typeof AGENTES)[number]
 /** Los que necesitan Claude (el monitor no) */
-const CON_IA: Agente[] = ['preparador', 'postventa', 'cobranzas']
+const CON_IA: Agente[] = ['preparador', 'postventa', 'cobranzas', 'propuesta', 'auditor', 'meta_ads']
+/** Los que trabajan sobre un cliente puntual */
+const POR_CLIENTE: Agente[] = ['propuesta', 'auditor', 'meta_ads']
 
 /** Quién llama: un socio (con su sesión) o el programador de la base (con el token interno) */
 async function quien(req: Request): Promise<{ socio: string | null } | null> {
@@ -121,7 +130,7 @@ Deno.serve(async (req) => {
   const llamador = await quien(req)
   if (!llamador) return json({ error: 'No autorizado' }, 401)
 
-  let body: { accion?: string; agente?: string; reunion_id?: string }
+  let body: { accion?: string; agente?: string; reunion_id?: string; prospecto_id?: string; grabacion_id?: string; parametros?: Record<string, unknown>; id?: string }
   try {
     body = await req.json()
   } catch {
@@ -142,11 +151,38 @@ Deno.serve(async (req) => {
       return json({ agentes: config ?? [], programados, claude: hayClaude() })
     }
 
+    if (body.accion === 'continuar_meta') {
+      if (!llamador.socio || !body.id) return json({ error: 'Pedido inválido.' }, 400)
+      enSegundoPlano(ctx.hub.tipoCambio().then((tc) => armarMeta(ctx, body.id!, tc)))
+      return json({ ok: true })
+    }
+
     if (body.accion === 'correr') {
       if (!llamador.socio) return json({ error: 'Solo a pedido de un socio.' }, 403)
       const agente = body.agente as Agente
       if (!AGENTES.includes(agente)) return json({ error: 'Agente desconocido.' }, 400)
       if (CON_IA.includes(agente) && !hayClaude()) return json({ error: 'Falta cargar la clave de Anthropic.', falta: 'anthropic' }, 503)
+      if (POR_CLIENTE.includes(agente)) {
+        if (!body.prospecto_id) return json({ error: 'Falta el cliente.' }, 400)
+        let p
+        if (agente === 'propuesta') p = await armarPropuesta(ctx, body.prospecto_id, body.grabacion_id ?? null)
+        else if (agente === 'auditor') p = await auditar(ctx, body.prospecto_id)
+        else {
+          // El segundo paso va en otra llamada a la función (con la misma sesión del socio), por el tope de tiempo
+          const auth = req.headers.get('Authorization') ?? ''
+          const continuar = async (id: string) => {
+            const r = await fetch(`${URL_SUPABASE}/functions/v1/agentes`, {
+              method: 'POST',
+              headers: { Authorization: auth, apikey: ANON, 'content-type': 'application/json' },
+              body: JSON.stringify({ accion: 'continuar_meta', id }),
+            })
+            if (!r.ok) throw new Error(`No arrancó el segundo paso (${r.status}).`)
+          }
+          p = await empezarMeta(ctx, body.prospecto_id, leerParametros(body.parametros ?? {}), continuar)
+        }
+        enSegundoPlano(p.trabajo)
+        return json({ ok: true, id: p.id })
+      }
 
       if (agente === 'monitor') return json({ ok: true, resumen: await correrMonitor(ctx) })
       if (agente === 'preparador') {

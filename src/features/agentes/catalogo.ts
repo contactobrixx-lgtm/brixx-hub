@@ -1,4 +1,4 @@
-import { BellRing, BriefcaseBusiness, HeartHandshake, Radar, type LucideIcon } from 'lucide-react'
+import { BellRing, BriefcaseBusiness, FileSignature, HeartHandshake, Megaphone, Radar, ScanSearch, type LucideIcon } from 'lucide-react'
 import type { IdAgente } from '../../types/db'
 
 export interface DescripcionAgente {
@@ -11,9 +11,11 @@ export interface DescripcionAgente {
   conHora: boolean
   /** Qué hace el botón "Correr ahora" */
   correrAhora: string
+  /** Se corre a pedido desde la carpeta de un cliente (no tiene programación) */
+  porCliente?: boolean
 }
 
-/** Los agentes de la tanda 1, en el orden en que se muestran. */
+/** Los agentes, en el orden en que se muestran: primero los que trabajan solos, después los de cada cliente. */
 export const AGENTES: DescripcionAgente[] = [
   {
     id: 'preparador',
@@ -50,6 +52,36 @@ export const AGENTES: DescripcionAgente[] = [
     cuando: 'Cada hora',
     conHora: false,
     correrAhora: 'Revisar ahora',
+  },
+  {
+    id: 'propuesta',
+    nombre: 'Armador de propuestas',
+    icono: FileSignature,
+    queHace: 'Con todo lo que se sabe del cliente elige servicios del catálogo, deja la cotización en borrador y te redacta el mensaje para mandarla.',
+    cuando: 'A pedido, desde la carpeta del cliente',
+    conHora: false,
+    correrAhora: 'Armar propuesta',
+    porCliente: true,
+  },
+  {
+    id: 'auditor',
+    nombre: 'Auditor de redes y web',
+    icono: ScanSearch,
+    queHace: 'Diagnóstico de la web, el Instagram, la atención y la venta online, con puntaje, mejoras rápidas y un mensaje para regalárselo al cliente.',
+    cuando: 'A pedido, desde la carpeta del cliente',
+    conHora: false,
+    correrAhora: 'Auditar redes y web',
+    porCliente: true,
+  },
+  {
+    id: 'meta_ads',
+    nombre: 'Campaña de Meta Ads',
+    icono: Megaphone,
+    queHace: 'Investiga marca, competencia y ofertas, y arma la propuesta de campaña de validación (productos, 3 ángulos, cortes y plan) lista para imprimir. Nunca toca Meta.',
+    cuando: 'A pedido, desde la carpeta del cliente',
+    conHora: false,
+    correrAhora: 'Armar campaña',
+    porCliente: true,
   },
 ]
 

@@ -1,0 +1,522 @@
+/* Propuesta de campaña de Meta Ads: el diseño del PDF del skill campanas-meta-ads (generar_pdf.py),
+   en el hub. A4 horizontal, una hoja por .page. Solo aplica dentro de .campana. */
+@page campana {
+  size: A4 landscape;
+  margin: 0;
+}
+.campana {
+  --ink: var(--color-tinta);
+  --paper: var(--color-papel-calido);
+  --line: var(--color-linea);
+  --muted: var(--color-tinta-suave);
+  --nova: var(--color-acento);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 7.5pt;
+  line-height: 1.35;
+  color-scheme: light;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.campana * {
+  box-sizing: border-box;
+}
+.campana .page {
+  page: campana;
+  width: 297mm;
+  height: 210mm;
+  position: relative;
+  overflow: hidden;
+  background: var(--paper);
+  padding: 8mm 10mm 0;
+  margin: 0 auto 6mm;
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
+  break-after: page;
+}
+.campana .page:last-child {
+  break-after: auto;
+}
+@media print {
+  .campana .page {
+    margin: 0;
+    box-shadow: none;
+  }
+}
+.campana .D {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+.campana .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+.campana .logo svg {
+  height: 0.95em;
+  width: auto;
+}
+.campana .eyebrow {
+  font-size: 6.5pt;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nova);
+}
+.campana .foot {
+  position: absolute;
+  left: 10mm;
+  right: 10mm;
+  bottom: 4.5mm;
+  display: flex;
+  justify-content: space-between;
+  font-size: 6.5pt;
+  color: var(--muted);
+}
+.campana .hero {
+  background: var(--ink);
+  color: var(--color-papel);
+  border-radius: 4mm;
+  padding: 6mm 7mm;
+}
+.campana .hero .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 7pt;
+  color: rgb(255 255 255 / 0.65);
+}
+.campana .hero h1 {
+  font-size: 22pt;
+  line-height: 1.05;
+  margin: 3mm 0 4.5mm;
+  font-weight: 700;
+  color: var(--color-papel);
+}
+.campana .hero h1 span {
+  color: var(--color-hero-acento);
+}
+.campana .kpis {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 2.5mm;
+}
+.campana .kpi {
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 2.5mm;
+  padding: 2.6mm 3mm;
+}
+.campana .kpi small {
+  display: block;
+  font-size: 5.8pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.6);
+  font-weight: 600;
+  margin-bottom: 1mm;
+}
+.campana .kpi b {
+  font-size: 11pt;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  display: block;
+}
+.campana .kpi em {
+  font-style: normal;
+  display: block;
+  font-size: 6.4pt;
+  color: rgb(255 255 255 / 0.7);
+  margin-top: 0.6mm;
+}
+.campana .grid1 {
+  display: grid;
+  grid-template-columns: 1.62fr 1fr;
+  gap: 4.5mm;
+  margin-top: 4.5mm;
+}
+.campana h2 {
+  font-size: 11.5pt;
+  letter-spacing: -0.02em;
+  margin: 1mm 0 2mm;
+}
+.campana table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-papel);
+  border-radius: 2.5mm;
+  overflow: hidden;
+}
+.campana th {
+  font-size: 5.8pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  padding: 1.8mm 2mm;
+  background: var(--color-papel-tabla);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.campana td {
+  padding: 1.3mm 2mm;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+  font-size: 7.4pt;
+}
+.campana td.r,
+.campana th.r {
+  text-align: right;
+}
+.campana .prod {
+  display: flex;
+  align-items: center;
+  gap: 2.2mm;
+  min-width: 50mm;
+}
+.campana .prod b {
+  display: block;
+  font-weight: 600;
+}
+.campana .prod small {
+  color: var(--muted);
+  font-size: 6.2pt;
+  white-space: nowrap;
+}
+/* Campo editable: un input con el mismo nombre en todo el documento */
+.campana .edit {
+  background: var(--color-campo-fondo);
+  border: 1px dashed var(--color-campo-borde);
+  border-radius: 1.2mm;
+  padding: 0.3mm 1.2mm;
+  font-weight: 700;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  field-sizing: content;
+  min-width: 6mm;
+  max-width: 100%;
+}
+.campana .edit:focus {
+  outline: 1px solid var(--nova);
+}
+.campana .note {
+  font-size: 6.4pt;
+  color: var(--muted);
+  margin-top: 1.6mm;
+}
+.campana .cut td {
+  font-size: 6.6pt;
+  padding: 1.2mm 2mm;
+}
+.campana .ok {
+  color: var(--color-ok-papel);
+  font-weight: 600;
+}
+.campana .bad {
+  color: var(--color-peligro-papel);
+  font-weight: 600;
+}
+.campana .steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2.5mm;
+  margin-top: 3.5mm;
+}
+.campana .step {
+  background: var(--color-papel);
+  border: 1px solid var(--line);
+  border-radius: 2.5mm;
+  padding: 2.5mm 3mm;
+}
+.campana .step b {
+  display: block;
+  font-size: 8.5pt;
+  margin-bottom: 0.6mm;
+}
+.campana .step b i {
+  font-style: normal;
+  color: var(--nova);
+  margin-right: 1.2mm;
+}
+.campana .step span {
+  font-size: 6.6pt;
+  color: var(--color-tinta-media);
+}
+.campana .ph {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 2.4mm;
+}
+.campana .ph h2 {
+  margin: 0;
+}
+.campana .ph .sub {
+  font-size: 6.6pt;
+  color: var(--muted);
+  margin-top: 0.6mm;
+}
+.campana .ph .sub b {
+  color: var(--ink);
+}
+.campana .legend {
+  display: flex;
+  gap: 4mm;
+  font-size: 6.6pt;
+  color: var(--muted);
+  align-items: center;
+}
+.campana .chip {
+  display: inline-block;
+  padding: 0.4mm 1.6mm;
+  border-radius: 1mm;
+  font-size: 5.8pt;
+  font-weight: 700;
+  color: var(--color-papel);
+  letter-spacing: 0.06em;
+}
+.campana .chip.v {
+  background: var(--color-chip-video);
+}
+.campana .chip.i {
+  background: var(--nova);
+}
+.campana .row {
+  display: grid;
+  grid-template-columns: 31mm 1fr 1fr 1fr;
+  gap: 2.4mm;
+  background: var(--color-papel);
+  border: 1px solid var(--line);
+  border-radius: 3mm;
+  padding: 2.2mm;
+  margin-bottom: 2.2mm;
+  height: 55mm;
+}
+.campana .info {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4mm;
+  border-right: 1px solid var(--line);
+  padding-right: 2.4mm;
+  min-width: 0;
+}
+.campana .info h3 {
+  font-size: 9pt;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+.campana .info small {
+  color: var(--muted);
+  font-size: 6pt;
+}
+.campana .info .pr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1mm;
+  font-size: 6.6pt;
+}
+.campana .info .pr.st {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5mm;
+}
+.campana .ang {
+  display: grid;
+  grid-template-columns: 28mm 1fr;
+  gap: 2.4mm;
+  min-width: 0;
+}
+.campana .mock {
+  position: relative;
+  width: 28mm;
+  height: 49.8mm;
+  border-radius: 2.6mm;
+  overflow: hidden;
+  background: var(--bg);
+}
+.campana .mock .ov {
+  position: absolute;
+  left: 2mm;
+  right: 2mm;
+  top: 3.2mm;
+  text-align: center;
+  color: var(--color-papel);
+  font-weight: 800;
+  font-size: 7.6pt;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0.3mm 1mm rgb(0 0 0 / 0.35);
+}
+.campana .mock .ov .edit {
+  background: transparent;
+  border-color: rgb(255 255 255 / 0.5);
+  color: inherit;
+}
+.campana .mock .card {
+  position: absolute;
+  left: 2.4mm;
+  right: 2.4mm;
+  top: 15mm;
+  height: 25mm;
+  background: var(--color-papel);
+  border-radius: 2mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6mm;
+  padding: 1mm;
+}
+.campana .mock .play {
+  position: absolute;
+  left: 50%;
+  top: 27.5mm;
+  width: 8mm;
+  height: 8mm;
+  margin: -4mm 0 0 -4mm;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  border: 0.5mm solid var(--color-papel);
+}
+.campana .mock .play::after {
+  content: '';
+  position: absolute;
+  left: 3mm;
+  top: 2mm;
+  border-left: 2.6mm solid var(--color-papel);
+  border-top: 1.6mm solid transparent;
+  border-bottom: 1.6mm solid transparent;
+}
+.campana .mock .cta {
+  position: absolute;
+  left: 2.5mm;
+  right: 2.5mm;
+  bottom: 6.6mm;
+  height: 4.4mm;
+  border-radius: 1mm;
+  background: rgb(255 255 255 / 0.95);
+  color: var(--ink);
+  font-size: 5.6pt;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.campana .mock .fmt {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1.6mm;
+  text-align: center;
+  font-size: 5.2pt;
+  color: rgb(255 255 255 / 0.85);
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.campana .copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  min-width: 0;
+}
+.campana .copy .an {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1mm;
+}
+.campana .copy .an b {
+  font-size: 7pt;
+}
+.campana .copy .pt {
+  font-size: 6.2pt;
+  line-height: 1.3;
+  color: var(--ink);
+  white-space: pre-line;
+}
+.campana .copy .lbl {
+  font-size: 5.4pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+.campana .copy .tt {
+  font-size: 7pt;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.campana .copy .br {
+  font-size: 5.9pt;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.25;
+  margin-top: auto;
+  border-top: 1px dashed var(--line);
+  padding-top: 1mm;
+}
+.campana .next {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 4mm;
+}
+.campana .next.three {
+  grid-template-columns: 1fr 1fr 1.15fr;
+}
+.campana .box {
+  background: var(--color-papel);
+  border: 1px solid var(--line);
+  border-radius: 3mm;
+  padding: 3mm 4mm;
+}
+.campana .box.aud {
+  border-color: var(--color-campo-borde);
+  background: var(--color-aud-fondo);
+}
+.campana .box ul {
+  padding-left: 3.6mm;
+  font-size: 6.8pt;
+  display: grid;
+  gap: 0.8mm;
+  list-style: disc;
+}
+.campana .box h3 {
+  font-size: 9pt;
+  margin-bottom: 1.6mm;
+}
+.campana .noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--color-sin-imagen);
+  color: var(--color-tinta-media);
+  font-size: 6pt;
+  font-weight: 700;
+  border-radius: 1.5mm;
+  padding: 1mm;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.campana .prod .noimg {
+  width: 9mm;
+  height: 9mm;
+  flex: none;
+  font-size: 0;
+}
+.campana .info .noimg.pic {
+  height: 19mm;
+  font-size: 7pt;
+  flex: none;
+}
+.campana .hero .edit {
+  background: rgb(255 255 255 / 0.12);
+  border-color: rgb(255 255 255 / 0.4);
+  color: inherit;
+}

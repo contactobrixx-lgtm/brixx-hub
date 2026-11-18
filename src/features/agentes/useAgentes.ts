@@ -56,7 +56,7 @@ export function useAgentes() {
   }, [recargar])
 
   // Mientras algún agente trabaja (o recién se pidió uno), relee cada 3 s
-  const trabajando = informes.some((i) => i.estado === 'trabajando')
+  const trabajando = informes.some((i) => i.estado === 'trabajando' && !colgado(i))
   const [esperarHasta, setEsperarHasta] = useState(0)
   useEffect(() => {
     if (!trabajando && esperarHasta <= Date.now()) return
@@ -118,3 +118,36 @@ export function linkWhatsApp(telefono: string | null, texto: string) {
   const numero = (telefono ?? '').replace(/\D/g, '')
   return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
 }
+
+/** Corre un agente a pedido (los de un cliente devuelven el id del informe). */
+export async function correrAgente(agente: IdAgente, extra: Record<string, unknown> = {}) {
+  return (await llamar({ accion: 'correr', agente, ...extra })) as { ok: boolean; id?: string; resumen?: string }
+}
+
+/** Informes de un cliente (los de su carpeta); relee mientras alguno trabaja. */
+export function useInformesCliente(prospectoId: string | undefined) {
+  const [informes, setInformes] = useState<InformeAgente[]>([])
+  const recargar = useCallback(async () => {
+    if (!prospectoId) return
+    const { data, error } = await supabase
+      .from('agentes_informes')
+      .select('id, agente, titulo, resumen, estado, error, leido, created_at')
+      .eq('prospecto_id', prospectoId)
+      .order('created_at', { ascending: false })
+      .limit(8)
+    if (!error && data) setInformes(data as InformeAgente[])
+  }, [prospectoId])
+  useEffect(() => {
+    recargar()
+  }, [recargar])
+  const trabajando = informes.some((i) => i.estado === 'trabajando' && !colgado(i))
+  useEffect(() => {
+    if (!trabajando) return
+    const t = window.setInterval(recargar, 4000)
+    return () => window.clearInterval(t)
+  }, [trabajando, recargar])
+  return { informes, recargar }
+}
+
+/** Un informe que sigue "trabajando" después de 10 minutos se cortó (la función tiene tope de tiempo). */
+export const colgado = (i: Pick<InformeAgente, 'estado' | 'created_at'>) => i.estado === 'trabajando' && Date.now() - new Date(i.created_at).getTime() > 10 * 60_000

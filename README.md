@@ -166,7 +166,12 @@ En **Agentes** (menú) hay cuatro agentes que trabajan sin que se lo pidas y te 
 - **Postventa**: una vez por semana revisa a cada cliente activo. Te dice quién está en riesgo, qué otro servicio le serviría, y te deja un mensaje sugerido.
 - **Monitor**: cada hora revisa que respondan los sistemas y las demos. Si alguno se cae, te avisa y la ficha muestra "Caída".
 
-Cada uno se prende o apaga, y algunos tienen hora; también podés correrlos al momento con **Correr ahora**. **Nunca mandan nada a un cliente**: los mensajes los copiás o los abrís en WhatsApp y los mandás vos. Corren solos cada 15 minutos si el proyecto de Supabase tiene el programador (pg_cron); si no, corren cada vez que alguien abre el hub. La página lo muestra arriba. Usan la misma clave de Anthropic; el monitor no la necesita.
+Y tres más que se corren **a pedido desde la carpeta de cada cliente** (bloque "Agentes"):
+- **Armador de propuestas**: con todo lo que se sabe del cliente elige servicios del catálogo, deja la cotización en **borrador** en el Cotizador y te redacta el mensaje para mandarla.
+- **Auditor de redes y web**: diagnóstico de su web, Instagram, atención y venta online, con puntaje, mejoras rápidas, qué le ofreceríamos y un mensaje para regalarle el diagnóstico.
+- **Campaña de Meta Ads**: completás presupuesto, días y lo que sepas. El agente investiga marca, competencia y ofertas, y arma la propuesta de campaña de validación de 3 páginas, con el mismo diseño del PDF del skill. Tiene precios editables y se imprime o guarda en PDF. Tarda unos 3 minutos. **Nunca crea ni toca campañas en Meta**: la carga la hace un socio a mano.
+
+Cada uno de los programados se prende o apaga, y algunos tienen hora; también podés correrlos al momento con **Correr ahora**. **Nunca mandan nada a un cliente**: los mensajes los copiás o los abrís en WhatsApp y los mandás vos. Corren solos cada 15 minutos si el proyecto de Supabase tiene el programador (pg_cron); si no, corren cada vez que alguien abre el hub. La página lo muestra arriba. Usan la misma clave de Anthropic; el monitor no la necesita.
 
 ### Voz premium (ElevenLabs, opcional)
 

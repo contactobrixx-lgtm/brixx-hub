@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Bot, Play } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Bot, FolderOpen, Play } from 'lucide-react'
 import type { AgenteConfig, IdAgente, InformeAgente } from '../types/db'
 import { AGENTES, DESCRIPCION, type DescripcionAgente } from '../features/agentes/catalogo'
-import { useAgentes } from '../features/agentes/useAgentes'
+import { colgado, useAgentes } from '../features/agentes/useAgentes'
 import { InformeDetalle } from '../features/agentes/InformeDetalle'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/Button'
@@ -91,28 +91,41 @@ function TarjetaAgente({
             {desc.conHora && cfg ? `, desde las ${String(cfg.hora).padStart(2, '0')}:00` : ''}
           </p>
         </div>
-        <Interruptor activo={activo} etiqueta={`${activo ? 'Apagar' : 'Prender'} ${desc.nombre}`} onCambiar={(v) => onCambiar({ activo: v })} />
+        {!desc.porCliente && (
+          <Interruptor activo={activo} etiqueta={`${activo ? 'Apagar' : 'Prender'} ${desc.nombre}`} onCambiar={(v) => onCambiar({ activo: v })} />
+        )}
       </div>
       <p className="mt-3 mb-4 text-sm text-suave">{desc.queHace}</p>
-      <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-borde pt-3">
-        <Button size="sm" variant="secundario" onClick={correr} disabled={corriendo}>
-          {corriendo ? <Spinner className="size-4" /> : <Play className="size-4" />} {desc.correrAhora}
-        </Button>
-        {desc.conHora && cfg && (
-          <div className="w-[6.5rem]">
-            <Select aria-label="Hora" value={cfg.hora} onChange={(e) => onCambiar({ hora: Number(e.target.value) })} className="!min-h-[38px] py-0 text-sm">
-              {Array.from({ length: 16 }, (_, i) => i + 6).map((h) => (
-                <option key={h} value={h}>
-                  {String(h).padStart(2, '0')}:00
-                </option>
-              ))}
-            </Select>
-          </div>
-        )}
-        <span className="ml-auto text-xs text-tenue" title={cfg?.ultimo_estado ?? undefined}>
-          Última: {hace(cfg?.ultima_corrida ?? null)}
-        </span>
-      </div>
+      {desc.porCliente ? (
+        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-borde pt-3">
+          <Link to="/clientes">
+            <Button size="sm" variant="secundario">
+              <FolderOpen className="size-4" /> Elegir cliente
+            </Button>
+          </Link>
+          <span className="text-xs text-tenue">Se corre desde la carpeta de cada cliente.</span>
+        </div>
+      ) : (
+        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-borde pt-3">
+          <Button size="sm" variant="secundario" onClick={correr} disabled={corriendo}>
+            {corriendo ? <Spinner className="size-4" /> : <Play className="size-4" />} {desc.correrAhora}
+          </Button>
+          {desc.conHora && cfg && (
+            <div className="w-[6.5rem]">
+              <Select aria-label="Hora" value={cfg.hora} onChange={(e) => onCambiar({ hora: Number(e.target.value) })} className="!min-h-[38px] py-0 text-sm">
+                {Array.from({ length: 16 }, (_, i) => i + 6).map((h) => (
+                  <option key={h} value={h}>
+                    {String(h).padStart(2, '0')}:00
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
+          <span className="ml-auto text-xs text-tenue" title={cfg?.ultimo_estado ?? undefined}>
+            Última: {hace(cfg?.ultima_corrida ?? null)}
+          </span>
+        </div>
+      )}
       {cfg?.ultimo_estado && !aviso && <p className="mt-2 line-clamp-2 text-xs text-tenue">{cfg.ultimo_estado}</p>}
       {aviso && <p className={cn('mt-2 text-sm', aviso.ok ? 'text-ok' : 'text-peligro')}>{aviso.texto}</p>}
     </article>
@@ -135,10 +148,10 @@ function FilaInforme({ i, onAbrir }: { i: InformeAgente; onAbrir: () => void }) 
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className={cn('min-w-0 truncate', i.leido ? 'font-medium' : 'font-semibold')}>
-              {i.estado === 'trabajando' ? `${desc?.nombre}: trabajando…` : i.titulo}
+              {i.estado === 'trabajando' && !colgado(i) ? `${desc?.nombre}: trabajando…` : i.titulo}
             </span>
-            {i.estado === 'trabajando' && <Spinner className="size-3.5" />}
-            {i.estado === 'error' && <Badge tono="peligro">Error</Badge>}
+            {i.estado === 'trabajando' && !colgado(i) && <Spinner className="size-3.5" />}
+            {(i.estado === 'error' || colgado(i)) && <Badge tono="peligro">Error</Badge>}
             {!i.leido && i.estado === 'lista' && <Badge tono="acento">Nuevo</Badge>}
           </span>
           {i.resumen && <span className="mt-0.5 line-clamp-2 block text-sm text-tenue">{i.resumen}</span>}
@@ -199,7 +212,7 @@ export function AgentesPage() {
       </p>
 
       <section className="grid gap-3 md:grid-cols-2">
-        {AGENTES.map((d) => (
+        {AGENTES.filter((d) => !d.porCliente).map((d) => (
           <TarjetaAgente
             key={d.id}
             desc={d}
@@ -211,6 +224,14 @@ export function AgentesPage() {
               return r.resumen ?? null
             }}
           />
+        ))}
+      </section>
+
+      <h2 className="mt-9 mb-1 text-[22px] font-bold">Para cada cliente</h2>
+      <p className="mb-3 text-sm text-tenue">Se corren desde la carpeta del cliente (sección Clientes) y el resultado queda en su carpeta y acá.</p>
+      <section className="grid gap-3 md:grid-cols-3">
+        {AGENTES.filter((d) => d.porCliente).map((d) => (
+          <TarjetaAgente key={d.id} desc={d} cfg={undefined} onCambiar={async () => {}} onCorrer={async () => null} />
         ))}
       </section>
 
