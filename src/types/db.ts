@@ -17,11 +17,15 @@ export interface Ficha {
   estado: EstadoFicha
   etiquetas: string[]
   orden: number
+  /** Último chequeo del agente monitor (null = nunca se revisó) */
+  en_linea?: boolean | null
+  chequeo_at?: string | null
+  chequeo_detalle?: string | null
   created_at: string
   updated_at: string
 }
 
-export type FichaInput = Omit<Ficha, 'id' | 'created_at' | 'updated_at'>
+export type FichaInput = Omit<Ficha, 'id' | 'created_at' | 'updated_at' | 'en_linea' | 'chequeo_at' | 'chequeo_detalle'>
 
 export const ETAPAS = [
   'contacto',
@@ -296,4 +300,51 @@ export interface Grabacion {
   grabado_por: string | null
   created_at: string
   updated_at: string
+}
+
+/** Agentes de Jarvis que trabajan solos (0018). */
+export type IdAgente = 'preparador' | 'postventa' | 'monitor' | 'cobranzas'
+
+export interface AgenteConfig {
+  agente: IdAgente
+  activo: boolean
+  hora: number
+  ultima_corrida: string | null
+  ultimo_estado: string | null
+}
+
+export interface MensajeAgente {
+  prospecto_id: string
+  cliente: string
+  contacto?: string
+  telefono: string | null
+  tipo?: string
+  detalle?: string
+  texto: string
+}
+
+export interface ClientePostventa {
+  prospecto_id: string
+  cliente: string
+  telefono: string | null
+  salud: 'bien' | 'atencion' | 'riesgo'
+  motivo: string
+  oportunidad: string
+  mensaje: string
+}
+
+export interface InformeAgente {
+  id: string
+  agente: IdAgente
+  titulo: string
+  resumen: string | null
+  contenido: string | null
+  datos: { mensajes?: MensajeAgente[]; clientes?: ClientePostventa[]; url?: string; detalle?: string }
+  prospecto_id: string | null
+  reunion_id: string | null
+  estado: 'trabajando' | 'lista' | 'error'
+  error: string | null
+  leido: boolean
+  pedido_por: string | null
+  created_at: string
 }
