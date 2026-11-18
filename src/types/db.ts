@@ -303,7 +303,7 @@ export interface Grabacion {
 }
 
 /** Agentes de Jarvis que trabajan solos (0018). */
-export type IdAgente = 'preparador' | 'postventa' | 'monitor' | 'cobranzas' | 'propuesta' | 'auditor' | 'meta_ads'
+export type IdAgente = 'preparador' | 'postventa' | 'monitor' | 'cobranzas' | 'propuesta' | 'auditor' | 'meta_ads' | 'financiero' | 'ventas'
 
 export interface AgenteConfig {
   agente: IdAgente

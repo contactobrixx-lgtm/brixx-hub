@@ -64,10 +64,10 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   }),
   herramienta(
     'leer_informes',
-    'Informes de los agentes: preparador (brief de cada reunión), cobranzas (pendientes con el mensaje redactado), postventa (salud de clientes y oportunidades), monitor (sistemas o demos caídos), propuesta (cotización en borrador armada para un cliente), auditor (diagnóstico de redes y web) y meta_ads (propuesta de campaña). Con id, el informe completo; si no, los últimos (filtrando por agente o cliente).',
+    'Informes de los agentes: preparador (brief de cada reunión), cobranzas (pendientes con el mensaje redactado), postventa (salud de clientes y oportunidades), monitor (sistemas o demos caídos), propuesta (cotización en borrador armada para un cliente), auditor (diagnóstico de redes y web), meta_ads (propuesta de campaña), financiero (análisis mensual de la plata del estudio) y ventas (aprendizajes de lo ganado y lo perdido). Con id, el informe completo; si no, los últimos (filtrando por agente o cliente).',
     {
       id: opcional({ type: 'string', description: 'Id del informe (aparece en el panorama).' }),
-      agente: opcional({ type: 'string', enum: ['preparador', 'cobranzas', 'postventa', 'monitor', 'propuesta', 'auditor', 'meta_ads'] }),
+      agente: opcional({ type: 'string', enum: ['preparador', 'cobranzas', 'postventa', 'monitor', 'propuesta', 'auditor', 'meta_ads', 'financiero', 'ventas'] }),
       cliente: opcional({ type: 'string' }),
     },
   ),

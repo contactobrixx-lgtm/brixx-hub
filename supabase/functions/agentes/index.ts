@@ -9,7 +9,7 @@
 //   { accion: "estado" }                       → agentes, última corrida y si el programador está andando
 //
 // Programados: preparador (brief antes de cada reunión), postventa (semanal), monitor (cada hora),
-// cobranzas (diario). A pedido, desde la carpeta del cliente: propuesta (cotización en borrador +
+// cobranzas (diario), financiero y ventas (mensuales). A pedido, desde la carpeta del cliente: propuesta (cotización en borrador +
 // mensaje), auditor (redes y web) y meta_ads (propuesta de campaña). Solo LEEN el hub y escriben su
 // informe (la propuesta, además, deja la cotización en BORRADOR): nunca le mandan nada a un cliente ni
 // tocan Meta. Usa ANTHROPIC_API_KEY (el monitor no la necesita).
@@ -22,6 +22,8 @@ import { prepararReunion, proximaReunion, reunionesPorPreparar } from './prepara
 import { armarPropuesta } from './propuesta.ts'
 import { auditar } from './auditor.ts'
 import { armarMeta, empezarMeta, leerParametros } from './meta.ts'
+import { correrFinanciero } from './financiero.ts'
+import { correrVentas } from './ventas.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -37,10 +39,10 @@ const CORS = {
 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } })
 
-const AGENTES = ['preparador', 'postventa', 'monitor', 'cobranzas', 'propuesta', 'auditor', 'meta_ads'] as const
+const AGENTES = ['preparador', 'postventa', 'monitor', 'cobranzas', 'propuesta', 'auditor', 'meta_ads', 'financiero', 'ventas'] as const
 type Agente = (typeof AGENTES)[number]
 /** Los que necesitan Claude (el monitor no) */
-const CON_IA: Agente[] = ['preparador', 'postventa', 'cobranzas', 'propuesta', 'auditor', 'meta_ads']
+const CON_IA: Agente[] = ['preparador', 'postventa', 'cobranzas', 'propuesta', 'auditor', 'meta_ads', 'financiero', 'ventas']
 /** Los que trabajan sobre un cliente puntual */
 const POR_CLIENTE: Agente[] = ['propuesta', 'auditor', 'meta_ads']
 
@@ -121,6 +123,18 @@ async function tic(ctx: Contexto): Promise<string[]> {
     corridos.push('postventa')
     enSegundoPlano(correrPostventa(ctx, false))
   }
+  // Analistas: una vez por mes, desde el día 1 a la hora elegida
+  const inicioDelMes = new Date(`${fecha.slice(0, 7)}-01T00:00:00-03:00`)
+  for (const [agente, correr] of [
+    ['financiero', correrFinanciero],
+    ['ventas', correrVentas],
+  ] as const) {
+    const c = cfg.get(agente)
+    if (c?.activo && hora >= Number(c.hora ?? 9) && (await tomarTurno(agente, inicioDelMes))) {
+      corridos.push(agente)
+      enSegundoPlano(correr(ctx, false))
+    }
+  }
   return corridos
 }
 
@@ -197,8 +211,9 @@ Deno.serve(async (req) => {
         enSegundoPlano(p.trabajo)
         return json({ ok: true, id: p.id })
       }
-      // Cobranzas y postventa: en segundo plano (la lista aparece al terminar)
-      enSegundoPlano((agente === 'cobranzas' ? correrCobranzas : correrPostventa)(ctx, true))
+      // Cobranzas, postventa y analistas: en segundo plano (el informe aparece al terminar)
+      const corredores = { cobranzas: correrCobranzas, postventa: correrPostventa, financiero: correrFinanciero, ventas: correrVentas } as const
+      enSegundoPlano(corredores[agente as keyof typeof corredores](ctx, true))
       return json({ ok: true })
     }
     return json({ error: 'Acción desconocida' }, 400)
