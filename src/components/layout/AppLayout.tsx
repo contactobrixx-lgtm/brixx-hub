@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
   AudioLines,
+  Bot,
   Calculator,
   Home,
   FolderOpen,
@@ -22,6 +23,7 @@ import { cn } from '../ui/cn'
 import { Logo } from './Logo'
 import { Asistente } from '../../features/asistente/Asistente'
 import { iniciales } from '../../lib/format'
+import { avisarAgentes } from '../../features/agentes/useAgentes'
 
 interface Item {
   to: string
@@ -32,6 +34,7 @@ interface Item {
 const ESTUDIO: Item[] = [
   { to: '/jarvis', label: 'Jarvis', icono: AudioLines },
   { to: '/inicio', label: 'Inicio', icono: Home },
+  { to: '/agentes', label: 'Agentes', icono: Bot },
   { to: '/calendario', label: 'Calendario', icono: CalendarDays },
   { to: '/grabaciones', label: 'Grabaciones', icono: Mic },
   { to: '/pipeline', label: 'Pipeline', icono: KanbanSquare },
@@ -75,6 +78,10 @@ export function AppLayout() {
   const { pathname } = useLocation()
 
   useEffect(() => setMasAbierto(false), [pathname])
+  // Al abrir el hub, los agentes programados corren lo que tengan pendiente (por si la base no los programa sola)
+  useEffect(() => {
+    if (!embebido) avisarAgentes()
+  }, [])
 
   const enMas = ![...MOVIL, '/grabar'].some((r) => pathname.startsWith(r))
   const resto = [...ESTUDIO, ...PROYECTOS].filter((i) => !MOVIL.includes(i.to))

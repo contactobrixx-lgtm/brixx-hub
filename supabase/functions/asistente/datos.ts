@@ -423,6 +423,55 @@ export class Hub {
     return `Misiones de agentes en las últimas 24 h: ${data.map((m) => `[${m.id}] "${m.titulo ?? m.pedido}" (${m.estado})${m.resumen ? `: ${m.resumen}` : ''}`).join('; ')}.`
   }
 
+  /** Informes de los agentes: uno completo (por id) o los últimos, filtrando por agente o cliente. */
+  async informes(o: { id?: string; agente?: string; cliente?: string }): Promise<string> {
+    const campos = 'id, agente, titulo, resumen, contenido, datos, estado, error, created_at, prospecto_id'
+    if (o.id) {
+      const { data: i } = await this.db.from('agentes_informes').select(campos).eq('id', o.id).maybeSingle()
+      if (!i) return 'No encontré ese informe.'
+      const mensajes = ((i.datos as Record<string, unknown>)?.mensajes as { cliente: string; texto: string }[] | undefined) ?? []
+      const clientes = ((i.datos as Record<string, unknown>)?.clientes as { cliente: string; mensaje: string }[] | undefined) ?? []
+      return [
+        `${i.titulo} (agente ${i.agente}, ${fechaHoraAR(i.created_at as string)}, ${i.estado})${i.error ? ` — error: ${i.error}` : ''}`,
+        i.resumen ? `Resumen: ${i.resumen}` : '',
+        String(i.contenido ?? ''),
+        mensajes.length ? `Mensajes redactados:\n${mensajes.map((m) => `- ${m.cliente}: ${m.texto}`).join('\n')}` : '',
+        clientes.length ? `Mensajes sugeridos:\n${clientes.map((m) => `- ${m.cliente}: ${m.mensaje}`).join('\n')}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    }
+    let q = this.db.from('agentes_informes').select(campos).order('created_at', { ascending: false }).limit(8)
+    if (o.agente) q = q.eq('agente', o.agente)
+    if (o.cliente) {
+      const ids = await this.idsPorCliente(o.cliente)
+      if (!ids.length) return `No encontré un cliente que coincida con "${o.cliente}".`
+      q = q.in('prospecto_id', ids)
+    }
+    const { data } = await q
+    if (!data?.length) return 'No hay informes de los agentes todavía.'
+    return data.map((i) => `[${i.id}] ${fechaHoraAR(i.created_at as string)} · ${i.agente} · ${i.titulo}${i.resumen ? `: ${i.resumen}` : ''}${i.estado !== 'lista' ? ` (${i.estado})` : ''}`).join('\n')
+  }
+
+  /** Para el panorama: informes de las últimas 24 h y sistemas o demos caídos. */
+  async informesRecientes(): Promise<string> {
+    const [{ data }, { data: caidas }] = await Promise.all([
+      this.db
+        .from('agentes_informes')
+        .select('id, agente, titulo, resumen, leido')
+        .eq('estado', 'lista')
+        .gte('created_at', new Date(Date.now() - 864e5).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(6),
+      this.db.from('fichas').select('nombre, seccion, chequeo_detalle').eq('en_linea', false).neq('estado', 'archivado'),
+    ])
+    const lineas = [
+      `Informes de los agentes (últimas 24 h): ${(data ?? []).map((i) => `[${i.id}] ${i.titulo}${i.resumen ? `: ${i.resumen}` : ''}${i.leido ? '' : ' (sin leer)'}`).join('; ') || 'ninguno'}.`,
+    ]
+    if (caidas?.length) lineas.push(`Sistemas o demos caídos ahora: ${caidas.map((f) => `${f.nombre} (${f.chequeo_detalle ?? 'no responde'})`).join('; ')}.`)
+    return lineas.join('\n')
+  }
+
   /** Los números del mes para el "recap": cobrado, clientes nuevos (y meta), prospectos, recurrente y por cobrar. */
   async numerosMes(): Promise<string> {
     const hoy = hoyAR()
@@ -485,6 +534,7 @@ export class Hub {
       `Clientes activos: ${prospectos.filter((p) => GANADAS.includes(p.etapa as string)).map((p) => `${p.empresa || p.nombre} (${p.etapa})`).join(', ') || 'ninguno'}.`,
       await this.numerosMes().catch(() => 'Números del mes: no se pudieron calcular.'),
       await this.misionesRecientes().catch(() => ''),
+      await this.informesRecientes().catch(() => ''),
     ]
     return out.join('\n')
   }

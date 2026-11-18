@@ -62,6 +62,15 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   herramienta('leer_mision', 'El resultado (o el avance) de una misión de agentes. Sin id, la última.', {
     id: opcional({ type: 'string', description: 'Id de la misión (aparece en el panorama).' }),
   }),
+  herramienta(
+    'leer_informes',
+    'Informes de los agentes que trabajan solos: preparador (brief de cada reunión), cobranzas (pendientes con el mensaje redactado), postventa (salud de clientes y oportunidades) y monitor (sistemas o demos caídos). Con id, el informe completo; si no, los últimos (filtrando por agente o cliente).',
+    {
+      id: opcional({ type: 'string', description: 'Id del informe (aparece en el panorama).' }),
+      agente: opcional({ type: 'string', enum: ['preparador', 'cobranzas', 'postventa', 'monitor'] }),
+      cliente: opcional({ type: 'string' }),
+    },
+  ),
 ]
 
 /** Lanzar una misión: varios agentes trabajando en paralelo en segundo plano (no modifican el hub). */
@@ -173,6 +182,7 @@ export const NOMBRE_CONSULTA: Record<string, string> = {
   mostrar_pantalla: 'pantallas',
   lanzar_mision: 'misión',
   leer_mision: 'misión',
+  leer_informes: 'informes de los agentes',
   cancelar_accion: 'acción',
   web_search: 'búsqueda web',
   web_fetch: 'lectura web',
@@ -203,6 +213,8 @@ export async function ejecutar(
     }
     case 'leer_mision':
       return hub.mision(s(e.id))
+    case 'leer_informes':
+      return hub.informes({ id: s(e.id), agente: s(e.agente), cliente: s(e.cliente) })
     case 'mostrar_pantalla': {
       const destino = await hub.pantalla(String(e.pantalla ?? ''), s(e.cliente))
       mostrar(destino)

@@ -38,6 +38,8 @@ import { ListaAgentes, PanelMision, RegistroMision, ResultadoMision } from '../f
 import { useMisiones } from '../features/asistente/useMisiones'
 import { useDemo } from '../features/asistente/useDemo'
 import { EscenaDemo } from '../features/asistente/EscenaDemo'
+import { useInformesRecientes } from '../features/agentes/useAgentes'
+import { DESCRIPCION } from '../features/agentes/catalogo'
 import { ESTADO_DEMO, METRICAS_DEMO, pideDemo, type TipoDemo } from '../features/asistente/demo'
 import { PanelPantalla, type DestinoPantalla } from '../features/asistente/PanelPantalla'
 import { ETAPAS_ABIERTAS } from '../types/db'
@@ -95,6 +97,7 @@ export function JarvisPage() {
   const voz = useVoz()
   const { mensajes, pensando, consultando, acciones, tiempos, preguntar, resolverAccion } = useAsistente()
   const memoria = useMemoria()
+  const informes = useInformesRecientes(4)
   const personalidad = usePersonalidad()
   const [editandoPersonalidad, setEditandoPersonalidad] = useState(false)
   const configVoz = useConfigVoz()
@@ -763,6 +766,29 @@ export function JarvisPage() {
                   {new Date(d.proximas[0].inicio).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' })} {formatHora(new Date(d.proximas[0].inicio))}
                 </div>
               ) : null}
+            </Panel>
+
+            <Panel titulo="Agentes" extra={<Link to="/agentes" className="text-xs font-semibold text-acento-texto hover:underline">Ver todos</Link>}>
+              {informes.length ? (
+                <ul className="flex flex-col gap-1.5">
+                  {informes.map((i) => {
+                    const I = DESCRIPCION[i.agente]?.icono ?? Info
+                    return (
+                      <li key={i.id}>
+                        <Link to={`/agentes?informe=${i.id}`} className="flex items-start gap-2.5 rounded-lg bg-elevada/70 px-3 py-2 hover:bg-hover">
+                          <I className={cn('mt-0.5 size-4 shrink-0', i.leido ? 'text-tenue' : 'text-acento-texto')} />
+                          <span className="min-w-0">
+                            <span className={cn('block truncate text-sm', i.leido ? 'font-medium' : 'font-semibold')}>{i.titulo}</span>
+                            {i.resumen && <span className="block truncate text-xs text-tenue">{i.resumen}</span>}
+                          </span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-tenue">Todavía no hay informes. Los agentes preparan reuniones, cobros, postventa y revisan tus sistemas solos.</p>
+              )}
             </Panel>
 
             <Panel

@@ -158,6 +158,16 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 
 **Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar; las que buscan en internet, algunos centavos más.
 
+### Agentes que trabajan solos
+
+En **Agentes** (menú) hay cuatro agentes que trabajan sin que se lo pidas y te dejan informes. Jarvis te los cuenta en el briefing:
+- **Preparador de reuniones**: una hora antes de cada reunión del calendario arma el brief. Incluye quién es, qué le duele, qué ofrecerle con precios, preguntas para hacer, objeciones probables y competencia.
+- **Cobranzas**: todos los días junta los abonos del mes sin cobrar y los saldos de implementación, y te redacta un recordatorio amable para cada cliente.
+- **Postventa**: una vez por semana revisa a cada cliente activo. Te dice quién está en riesgo, qué otro servicio le serviría, y te deja un mensaje sugerido.
+- **Monitor**: cada hora revisa que respondan los sistemas y las demos. Si alguno se cae, te avisa y la ficha muestra "Caída".
+
+Cada uno se prende o apaga, y algunos tienen hora; también podés correrlos al momento con **Correr ahora**. **Nunca mandan nada a un cliente**: los mensajes los copiás o los abrís en WhatsApp y los mandás vos. Corren solos cada 15 minutos si el proyecto de Supabase tiene el programador (pg_cron); si no, corren cada vez que alguien abre el hub. La página lo muestra arriba. Usan la misma clave de Anthropic; el monitor no la necesita.
+
 ### Voz premium (ElevenLabs, opcional)
 
 Sin configurar nada, Jarvis lee con la voz del dispositivo (la más grave en español que encuentre). Con ElevenLabs habla con una voz natural, grave y sobria. Si ElevenLabs falla o se terminan los créditos, vuelve solo a la voz del dispositivo.

@@ -60,6 +60,11 @@ export function FichaCard({ ficha, imagenUrl, onEditar }: Props) {
               {ESTADO_LABEL[ficha.estado]}
             </Badge>
           )}
+          {ficha.en_linea === false && (
+            <span title={ficha.chequeo_detalle ?? 'No responde'}>
+              <Badge tono="peligro">Caída</Badge>
+            </span>
+          )}
         </div>
       </div>
 
