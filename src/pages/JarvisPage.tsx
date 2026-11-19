@@ -1019,6 +1019,7 @@ export function JarvisPage() {
       {mapa && (
         <Suspense fallback={<div className="fixed inset-0 z-[75] grid place-items-center bg-fondo text-sm text-acento-claro">Cargando el mapa…</div>}>
           <MapaJarvis
+            hablando={voz.hablando}
             aviso={mapa}
             clave={claveMapa.clave}
             agenda={agendaHoy}
@@ -1049,6 +1050,9 @@ export function JarvisPage() {
             escuchando={ptt.escuchando || manos.estado === 'escuchando_pregunta'}
             pensando={pensando}
             onMicrofono={tocarMicrofono}
+            onDecir={(t) => {
+              if (vozActiva) voz.decir(t)
+            }}
             onCerrar={() => setMapa(null)}
             onConfigurar={() => setConfigurandoMapa(true)}
           />

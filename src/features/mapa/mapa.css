@@ -1,4 +1,4 @@
-/* Mapa de Jarvis: la imagen del mapa pasa a "holograma" (azules de brixx) y los paneles quedan nítidos encima. */
+/* Mapa de Jarvis: globo de apertura → vista aérea azul noche → el elegido de cerca. Nada se anima en bucle. */
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
 .mapa-jarvis {
@@ -6,32 +6,6 @@
     radial-gradient(ellipse at 50% 120%, color-mix(in oklab, var(--color-acento) 28%, transparent), transparent 60%),
     radial-gradient(ellipse at 50% -10%, color-mix(in oklab, var(--color-turquesa) 12%, transparent), transparent 55%),
     var(--color-fondo);
-}
-
-/* Estrellas del espacio (se ven mientras el mapa es un globo) */
-.mapa-jarvis .estrellas {
-  background-image:
-    radial-gradient(1px 1px at 10% 20%, var(--color-acento-claro) 50%, transparent 51%),
-    radial-gradient(1px 1px at 30% 70%, var(--color-texto) 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 55% 15%, var(--color-acento-claro) 50%, transparent 51%),
-    radial-gradient(1px 1px at 70% 55%, var(--color-texto) 50%, transparent 51%),
-    radial-gradient(1px 1px at 85% 30%, var(--color-acento-claro) 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 92% 80%, var(--color-texto) 50%, transparent 51%),
-    radial-gradient(1px 1px at 20% 90%, var(--color-acento-claro) 50%, transparent 51%),
-    radial-gradient(1px 1px at 45% 45%, var(--color-texto) 50%, transparent 51%);
-  background-size: 420px 420px;
-  opacity: 0.55;
-}
-
-/* El "holograma": todo el mapa en azules y cyan, con más contraste */
-.mapa-jarvis .maplibregl-canvas {
-  filter: grayscale(1) sepia(1) hue-rotate(168deg) saturate(3.2) brightness(0.92) contrast(1.25);
-}
-
-/* Líneas de barrido muy suaves, como pantalla */
-.mapa-jarvis .barrido {
-  background: repeating-linear-gradient(0deg, color-mix(in oklab, var(--color-acento-claro) 5%, transparent) 0 1px, transparent 1px 4px);
-  mix-blend-mode: screen;
 }
 
 .mapa-jarvis .maplibregl-ctrl-attrib {
@@ -43,133 +17,23 @@
   color: var(--color-tenue);
 }
 
-/* Paneles con esquinas marcadas */
-.panel-hud {
-  border-radius: 6px;
-}
-.panel-hud .esquina {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-color: var(--color-acento-claro);
-  border-style: solid;
-  border-width: 0;
-  pointer-events: none;
-}
-.panel-hud .esquina.tl { top: -1px; left: -1px; border-top-width: 2px; border-left-width: 2px; }
-.panel-hud .esquina.tr { top: -1px; right: -1px; border-top-width: 2px; border-right-width: 2px; }
-.panel-hud .esquina.bl { bottom: -1px; left: -1px; border-bottom-width: 2px; border-left-width: 2px; }
-.panel-hud .esquina.br { bottom: -1px; right: -1px; border-bottom-width: 2px; border-right-width: 2px; }
-
-/* Viñeta: bordes oscuros, como mirando por una pantalla */
-.mapa-jarvis .vineta {
-  background: radial-gradient(ellipse at center, transparent 55%, color-mix(in oklab, var(--color-fondo) 85%, transparent) 100%);
-}
-
-/* Radar: un barrido que gira mientras Jarvis busca */
-.mapa-jarvis .radar {
-  position: absolute;
-  width: 200vmax;
-  height: 200vmax;
-  left: calc(50% - 100vmax);
-  top: calc(50% - 100vmax);
+/* Grupo de comercios muy juntos, con la cantidad */
+.grupo-lugares {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
   border-radius: 999px;
-  opacity: 0;
-  transition: opacity 0.6s;
-  background: conic-gradient(from 0deg at 50% 50%, color-mix(in oklab, var(--color-turquesa) 30%, transparent) 0deg, transparent 50deg, transparent 360deg);
-  mix-blend-mode: screen;
-}
-.mapa-jarvis .radar.activo {
-  opacity: 1;
-  animation: radar-giro 2.6s linear infinite;
-}
-@keyframes radar-giro {
-  to { transform: rotate(360deg); }
-}
-
-/* Retícula del centro */
-.reticula .anillo-giro {
-  transform-origin: 100px 100px;
-  animation: reticula-giro 40s linear infinite;
-}
-.reticula.buscando .anillo-giro {
-  animation-duration: 4s;
-}
-@keyframes reticula-giro {
-  to { transform: rotate(360deg); }
-}
-
-/* Objetivos: cada negocio enmarcado como en una pantalla de vigilancia */
-.objetivo {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  background: none;
-  border: 0;
-  padding: 0;
+  border: 2px solid var(--color-acento-claro);
+  background: var(--color-acento);
+  color: white;
+  font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   cursor: pointer;
-  opacity: 0;
-  animation: objetivo-entra 0.7s var(--retardo, 0ms) cubic-bezier(0.2, 0.9, 0.3, 1.3) forwards;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-acento) 30%, transparent);
 }
-.objetivo .caja {
-  position: absolute;
-  inset: 0;
-  transition: transform 0.25s;
-}
-.objetivo .caja i {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border: 0 solid var(--color-acento-claro);
-}
-.objetivo .caja i:nth-child(1) { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
-.objetivo .caja i:nth-child(2) { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
-.objetivo .caja i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
-.objetivo .caja i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
-.objetivo .punto {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 10px;
-  height: 10px;
-  margin: -5px;
-  border-radius: 999px;
-  background: var(--color-acento-claro);
-  box-shadow: 0 0 14px var(--color-acento), 0 0 0 4px color-mix(in oklab, var(--color-acento) 35%, transparent);
-}
-.objetivo .etiqueta {
-  position: absolute;
-  left: 50px;
-  top: 50%;
-  transform: translateY(-50%);
-  white-space: nowrap;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 3px 7px;
-  border-left: 2px solid var(--color-acento-claro);
-  background: color-mix(in oklab, var(--color-fondo) 82%, transparent);
-  color: var(--color-acento-claro);
-  font: 700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: 0.04em;
-}
-.objetivo:hover .caja,
-.objetivo.activo .caja {
-  transform: scale(1.3);
-}
-.objetivo.activo .caja i { border-color: var(--color-naranja); }
-.objetivo.activo .punto { background: var(--color-naranja); box-shadow: 0 0 22px var(--color-naranja), 0 0 0 6px color-mix(in oklab, var(--color-naranja) 35%, transparent); }
-.objetivo.activo .etiqueta { border-left-color: var(--color-naranja); color: white; }
-.objetivo.en-pipeline .caja i { border-color: var(--color-ok); }
-.objetivo.en-pipeline .punto { background: var(--color-ok); }
-@keyframes objetivo-entra {
-  0% { opacity: 0; transform: scale(2.4); }
-  60% { opacity: 1; }
-  100% { opacity: 1; transform: scale(1); }
-}
-/* En el celular, solo el código para no tapar el mapa */
-@media (max-width: 767px) {
-  .objetivo .etiqueta { max-width: 120px; font-size: 10px; }
+.grupo-lugares:hover {
+  background: var(--color-acento-fuerte);
 }
 
 /* El punto del lugar al que voló el mapa */
@@ -179,7 +43,7 @@
   border-radius: 999px;
   background: var(--color-turquesa);
   box-shadow: 0 0 0 0 var(--color-turquesa);
-  animation: pulso-destino 1.8s ease-out infinite;
+  animation: pulso-destino 1.6s ease-out 2;
 }
 @keyframes pulso-destino {
   0% {
@@ -190,14 +54,277 @@
   }
 }
 
+
+/* ——— Escena 1: globo liviano de apertura ——— */
+.apertura {
+  z-index: 5;
+  background: radial-gradient(ellipse at 50% 45%, color-mix(in oklab, var(--color-acento) 14%, var(--color-fondo)), var(--color-fondo) 70%);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.apertura.saliendo {
+  opacity: 0;
+  transform: scale(1.6);
+}
+.apertura-estrellas {
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1px 1px at 30% 70%, var(--color-texto) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 55% 15%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1px 1px at 70% 55%, var(--color-texto) 50%, transparent 51%),
+    radial-gradient(1px 1px at 85% 30%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 92% 80%, var(--color-texto) 50%, transparent 51%),
+    radial-gradient(1px 1px at 20% 90%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1px 1px at 45% 45%, var(--color-texto) 50%, transparent 51%);
+  background-size: 420px 420px;
+  opacity: 0.5;
+}
+.globo-apertura {
+  width: min(62vh, 78vw);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  box-shadow:
+    0 0 60px 6px color-mix(in oklab, var(--color-acento) 45%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--color-acento-claro) 35%, transparent);
+}
+.globo-textura {
+  background-repeat: repeat-x;
+  background-position-y: center;
+  /* Tono azul de la referencia sobre la foto del mundo (un solo elemento, una sola vez) */
+  filter: hue-rotate(40deg) saturate(0.7) brightness(0.8);
+}
+.globo-textura.girado {
+  transition: background-position-x 2.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.globo-textura.sin-textura {
+  filter: none;
+  background: radial-gradient(circle at 40% 35%, var(--color-acento), var(--color-acento-tenue) 70%);
+}
+.globo-sombra {
+  background:
+    radial-gradient(circle at 35% 30%, color-mix(in oklab, var(--color-acento-claro) 22%, transparent), transparent 45%),
+    radial-gradient(circle at 50% 50%, transparent 55%, color-mix(in oklab, var(--color-fondo) 85%, transparent) 100%);
+}
+.globo-destino {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 999px;
+  background: var(--color-naranja);
+  box-shadow: 0 0 12px 2px var(--color-naranja);
+  animation: pulso-destino 1.4s ease-out 2;
+}
+
+/* El mapa real se prepara oculto y entra con un fundido corto cuando el globo se va. Solo opacidad y solo mientras
+   está el globo: después la clase se saca, para no dejar una capa extra encima del mapa (en celulares pesa mucho). */
+.mapa-real {
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.mapa-real.visible {
+  opacity: 1;
+}
+
+/* ——— Paneles de vidrio (sin desenfoque: es caro sobre el mapa) ——— */
+.panel-vidrio {
+  border-radius: 16px;
+  border: 1px solid color-mix(in oklab, var(--color-acento-claro) 22%, transparent);
+  background: color-mix(in oklab, var(--color-acento-tenue) 55%, var(--color-fondo) 40%);
+}
+
+/* ——— Escena 2: rombos numerados ——— */
+.rombo-lugar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.rombo-lugar::before {
+  content: '';
+  position: absolute;
+  width: 21px;
+  height: 21px;
+  transform: rotate(45deg);
+  border-radius: 4px;
+  border: 1.5px solid var(--color-acento-claro);
+  background: color-mix(in oklab, var(--color-acento) 75%, var(--color-fondo));
+  box-shadow: 0 0 10px -2px var(--color-acento);
+}
+.rombo-lugar span {
+  position: relative;
+  color: white;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.rombo-lugar:hover::before {
+  background: var(--color-acento);
+}
+.rombo-lugar.en-pipeline::before {
+  border-color: var(--color-ok);
+  background: color-mix(in oklab, var(--color-ok) 55%, var(--color-fondo));
+}
+/* El mismo rombo en la lista y la ficha */
+.rombo-numero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: white;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.rombo-numero::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  transform: rotate(45deg);
+  border-radius: 4px;
+  border: 1.5px solid var(--color-acento-claro);
+  background: color-mix(in oklab, var(--color-acento) 70%, var(--color-fondo));
+  z-index: -1;
+}
+.rombo-numero.en-pipeline::before {
+  border-color: var(--color-ok);
+  background: color-mix(in oklab, var(--color-ok) 55%, var(--color-fondo));
+}
+.rombo-numero {
+  isolation: isolate;
+}
+
+/* ——— Escena 3: retícula sobre el elegido ——— */
+.reticula-lugar {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  pointer-events: none;
+}
+.reticula-lugar .aro {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-acento-claro);
+  box-shadow: 0 0 24px -4px var(--color-acento-claro), inset 0 0 18px -6px var(--color-acento-claro);
+  animation: aparecer-reticula 0.7s ease-out;
+}
+.reticula-lugar .cruz {
+  position: absolute;
+  inset: -14px;
+  background:
+    linear-gradient(var(--color-acento-claro), var(--color-acento-claro)) center top / 1.5px 20px no-repeat,
+    linear-gradient(var(--color-acento-claro), var(--color-acento-claro)) center bottom / 1.5px 20px no-repeat,
+    linear-gradient(var(--color-acento-claro), var(--color-acento-claro)) left center / 20px 1.5px no-repeat,
+    linear-gradient(var(--color-acento-claro), var(--color-acento-claro)) right center / 20px 1.5px no-repeat;
+  opacity: 0.85;
+}
+.reticula-lugar .centro {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  transform: rotate(45deg);
+  border-radius: 3px;
+  background: var(--color-naranja);
+  border: 2px solid white;
+}
+.reticula-lugar.en-pipeline .centro {
+  background: var(--color-ok);
+}
+.reticula-lugar .nombre {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 18px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--color-fondo);
+  border: 1px solid color-mix(in oklab, var(--color-acento-claro) 40%, transparent);
+  color: white;
+  font: 700 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@keyframes aparecer-reticula {
+  from { transform: scale(1.8); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ——— La esfera de Jarvis (abajo, toda la búsqueda) ——— */
+.esfera-jarvis {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: 1.5px solid color-mix(in oklab, var(--color-acento-claro) 80%, transparent);
+  border-radius: 999px;
+  /* La luz de la esfera va en CSS (un degradado en el SVG obliga a redibujarlo en cada cuadro del mapa) */
+  background: radial-gradient(circle at 38% 32%, var(--color-acento-claro), color-mix(in oklab, var(--color-turquesa) 45%, var(--color-acento-tenue)) 45%, var(--color-acento-tenue) 100%);
+  cursor: pointer;
+  box-shadow: 0 0 18px 2px color-mix(in oklab, var(--color-acento) 55%, transparent);
+}
+.esfera-malla {
+  position: absolute;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--color-acento-claro) 55%, transparent);
+  pointer-events: none;
+}
+.esfera-malla.horizontal {
+  inset: 30% 0;
+}
+.esfera-malla.vertical {
+  inset: 0 30%;
+}
+.esfera-jarvis:disabled {
+  cursor: progress;
+}
+.esfera-jarvis::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  pointer-events: none;
+}
+.esfera-escuchando::after {
+  border-color: var(--color-turquesa);
+  animation: latido-esfera 1.2s ease-in-out infinite;
+}
+.esfera-pensando::after {
+  border-color: var(--color-acento-claro);
+  border-top-color: transparent;
+  animation: girar-esfera 1s linear infinite;
+}
+.esfera-hablando::after {
+  border-color: var(--color-naranja);
+  animation: latido-esfera 0.9s ease-in-out infinite;
+}
+@keyframes latido-esfera {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.12); opacity: 0.5; }
+}
+@keyframes girar-esfera {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pin-destino,
-  .reticula .anillo-giro,
-  .mapa-jarvis .radar.activo {
+  .reticula-lugar .aro,
+  .globo-destino,
+  .esfera-jarvis::after {
     animation: none;
   }
-  .objetivo {
-    animation: none;
-    opacity: 1;
+  .globo-textura.girado,
+  .apertura {
+    transition: none;
+  }
+}
+
+/* En el celular el nombre ya está en la ficha de abajo */
+@media (max-width: 767px) {
+  .reticula-lugar .nombre {
+    display: none;
   }
 }

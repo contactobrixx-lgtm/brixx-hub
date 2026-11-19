@@ -20,6 +20,13 @@ export const MODELO_RAPIDO = 'claude-haiku-5-5' // el día a día: agenda, clien
 export function elegirModelo(pregunta: string): string {
   if ((Deno.env.get('JARVIS_MODELO') ?? '').toLowerCase().includes('sonnet')) return MODELO
   const t = pregunta.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  // Con Google Maps, buscar negocios por zona es una sola consulta: va al modelo rápido (salvo que pidan internet o un análisis)
+  if (
+    (Deno.env.get('GOOGLE_MAPS_API_KEY') ?? '').trim() &&
+    /\b(busca(me|r)?|encontra(me)?|donde hay|que hay)\b/.test(t) &&
+    !/\b(internet|web|google|instagram|redes|analiz|investig|competencia|estrategia|que le conviene)/.test(t)
+  )
+    return MODELO_RAPIDO
   const investigar =
     /\b(analiz|investig|averigu|busca(me|lo|la|r)?\b|encontra(me)?\b|negocios|locales|comercios|prospectos en|en la zona|cerca de|internet|google|web|pagina|sitio|instagram|redes|tiktok|facebook|linkedin|competencia|competidor|mercado|tendencia|estrategia|compara|que le conviene|recomenda|recomendacion|propuesta comercial|plan de)/
   return investigar.test(t) ? MODELO : MODELO_RAPIDO

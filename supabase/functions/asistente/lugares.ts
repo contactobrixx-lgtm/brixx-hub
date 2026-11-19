@@ -22,7 +22,11 @@ export interface Lugar {
   instagram?: string | null
   horario?: string | null
   nota?: string | null
-  fuente: 'osm' | 'web'
+  fuente: 'google' | 'osm' | 'web'
+  /** De Google Maps */
+  rating?: number | null
+  resenas?: number | null
+  maps?: string | null
   osm?: string
   prospecto_id?: string | null
 }
@@ -35,7 +39,7 @@ export interface Zona {
   nombre: string
 }
 
-export type AvisoMapa = { busqueda_id?: string; centro?: { lat: number; lng: number; zoom?: number }; titulo?: string }
+export type AvisoMapa = { busqueda_id?: string; centro?: { lat: number; lng: number; zoom?: number }; titulo?: string; previo?: boolean; zona?: string }
 
 const comparable = (t: string) =>
   t
@@ -144,7 +148,7 @@ export async function locales(palabras: string[], z: Zona): Promise<Lugar[]> {
         method: 'POST',
         headers: { 'user-agent': AGENTE, 'content-type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ data: consulta }),
-        signal: AbortSignal.timeout(22000),
+        signal: AbortSignal.timeout(12000),
       })
       if (res.ok) {
         datos = await res.json()
@@ -185,13 +189,105 @@ export async function locales(palabras: string[], z: Zona): Promise<Lugar[]> {
   return lista.sort((a, b) => puntos(b) - puntos(a))
 }
 
+/** Clave de Google Maps (Places API, secret GOOGLE_MAPS_API_KEY). Sin clave se usa OpenStreetMap. */
+export const claveGoogle = () => (Deno.env.get('GOOGLE_MAPS_API_KEY') ?? '').trim() || null
+
+const CAMPOS_GOOGLE = [
+  'places.displayName',
+  'places.formattedAddress',
+  'places.shortFormattedAddress',
+  'places.location',
+  'places.nationalPhoneNumber',
+  'places.websiteUri',
+  'places.rating',
+  'places.userRatingCount',
+  'places.googleMapsUri',
+  'places.regularOpeningHours.weekdayDescriptions',
+  'places.businessStatus',
+  'nextPageToken',
+].join(',')
+
+type LugarGoogle = {
+  displayName?: { text?: string }
+  formattedAddress?: string
+  shortFormattedAddress?: string
+  location?: { latitude: number; longitude: number }
+  nationalPhoneNumber?: string
+  websiteUri?: string
+  rating?: number
+  userRatingCount?: number
+  googleMapsUri?: string
+  regularOpeningHours?: { weekdayDescriptions?: string[] }
+  businessStatus?: string
+}
+
+/** Busca el rubro en Google Maps alrededor de la zona: hasta 3 páginas de 20 (cada página es una consulta paga). */
+export async function buscarGoogle(rubro: string, z: Zona, clave: string, paginas = 3): Promise<Lugar[]> {
+  const [s, o, n, e] = area(z)
+  const radio = Math.round(Math.min(20000, Math.max(2500, (Math.max(n - s, e - o) / 2) * 111000)))
+  const lista: Lugar[] = []
+  let token: string | undefined
+  for (let pagina = 0; pagina < paginas; pagina++) {
+    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'X-Goog-Api-Key': clave, 'X-Goog-FieldMask': CAMPOS_GOOGLE },
+      body: JSON.stringify({
+        textQuery: `${rubro} en ${z.nombre}`,
+        languageCode: 'es',
+        regionCode: 'AR',
+        pageSize: 20,
+        locationBias: { circle: { center: { latitude: z.lat, longitude: z.lng }, radius: radio } },
+        ...(token ? { pageToken: token } : {}),
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) {
+      const detalle = (await res.text().catch(() => '')).slice(0, 200)
+      if (pagina > 0) break // con la primera página ya alcanza
+      throw new Error(res.status === 403 ? `Google rechazó la clave (${detalle})` : `Google Maps respondió ${res.status}: ${detalle}`)
+    }
+    const datos = (await res.json()) as { places?: LugarGoogle[]; nextPageToken?: string }
+    for (const p of datos.places ?? []) {
+      if (!p.displayName?.text || p.businessStatus === 'CLOSED_PERMANENTLY') continue
+      lista.push({
+        nombre: p.displayName.text,
+        lat: p.location?.latitude ?? null,
+        lng: p.location?.longitude ?? null,
+        direccion: p.shortFormattedAddress ?? p.formattedAddress ?? null,
+        telefono: p.nationalPhoneNumber ?? null,
+        web: p.websiteUri ?? null,
+        // Google no da Instagram, pero muchos locales lo ponen como su web
+        instagram: p.websiteUri && /instagram\.com/i.test(p.websiteUri) ? p.websiteUri : null,
+        horario: p.regularOpeningHours?.weekdayDescriptions?.join(' · ') ?? null,
+        rating: p.rating ?? null,
+        resenas: p.userRatingCount ?? null,
+        maps: p.googleMapsUri ?? null,
+        nota: p.businessStatus === 'CLOSED_TEMPORARILY' ? 'Cerrado temporalmente' : null,
+        fuente: 'google',
+      })
+    }
+    token = datos.nextPageToken
+    if (!token || lista.length >= MAX_LUGARES) break
+  }
+  const vistos = new Set<string>()
+  const unicos = lista.filter((l) => {
+    const k = comparable(l.nombre + (l.direccion ?? ''))
+    if (vistos.has(k)) return false
+    vistos.add(k)
+    return true
+  })
+  // Primero los mejor puntuados con más reseñas
+  const peso = (l: Lugar) => (l.rating ?? 3) * Math.log10((l.resenas ?? 0) + 10)
+  return unicos.sort((a, b) => peso(b) - peso(a)).slice(0, MAX_LUGARES)
+}
+
 /** Resumen corto para Claude (los datos completos van al mapa). */
 export function resumir(lugares: Lugar[], max = 15): string {
   if (!lugares.length) return 'Sin resultados en OpenStreetMap.'
   return lugares
     .slice(0, max)
     .map((l, i) => {
-      const contacto = [l.telefono && `tel ${l.telefono}`, l.instagram && `IG ${l.instagram}`, l.web && `web ${l.web}`].filter(Boolean).join(' · ')
+      const contacto = [l.rating && `★${l.rating} (${l.resenas ?? 0})`, l.telefono && `tel ${l.telefono}`, l.instagram && `IG ${l.instagram}`, l.web && `web ${l.web}`].filter(Boolean).join(' · ')
       return `${i + 1}. ${l.nombre}${l.direccion ? ` — ${l.direccion}` : ''}${contacto ? ` (${contacto})` : ' (sin contacto)'}`
     })
     .join('\n')
@@ -216,12 +312,27 @@ export class Lugares {
       }
     }
     if (!zona) return `No encontré la zona "${zonaPedida}" en el mapa. Preguntale al socio una referencia más clara (barrio y ciudad).`
+    // El mapa vuela a la zona mientras busca (se ve el radar)
+    this.avisar({ centro: { lat: zona.lat, lng: zona.lng, zoom: 13.5 }, titulo: `Buscando ${rubro}…`, previo: true, zona: zonaPedida.replace(/,\s*Tucum[aá]n$/i, '') })
     let lugares: Lugar[] = []
     let fallaOsm = ''
-    try {
-      lugares = await locales(palabras.length ? palabras : [rubro], zona)
-    } catch (e) {
-      fallaOsm = e instanceof Error ? e.message : String(e)
+    let fuente = 'OpenStreetMap'
+    const google = claveGoogle()
+    if (google) {
+      try {
+        lugares = await buscarGoogle(rubro, zona, google)
+        fuente = 'Google Maps'
+      } catch (e) {
+        console.error('Google Places:', e)
+      }
+    }
+    if (!lugares.length) {
+      try {
+        lugares = await locales(palabras.length ? palabras : [rubro], zona)
+        fuente = 'OpenStreetMap'
+      } catch (e) {
+        fallaOsm = e instanceof Error ? e.message : String(e)
+      }
     }
     const { data, error } = await this.db
       .from('jarvis_busquedas')
@@ -231,14 +342,29 @@ export class Lugares {
     if (error) throw new Error(`No pude guardar la búsqueda: ${error.message}`)
     this.avisar({ busqueda_id: data.id as string, titulo: `${rubro} · ${zona.nombre}` })
     const sinContacto = lugares.filter((l) => !l.telefono && !l.instagram && !l.web).length
+    const lugarCorto = zona.nombre.replace(/, Tucumán$/, '')
+    // La primera oración de la respuesta, con los datos reales (la misma cuenta que muestra el mapa)
+    const primera =
+      lugares.length === 0
+        ? `No encontré ${rubro} en ${lugarCorto}.`
+        : lugares.length === 1
+          ? `Encontré un solo resultado de ${rubro} en ${lugarCorto}: ${lugares[0].nombre}.`
+          : `Encontré ${lugares.length} ${rubro} en ${lugarCorto}.`
     if (fallaOsm)
       return `El mapa ya está abierto en ${zona.nombre} (búsqueda id ${data.id}), pero OpenStreetMap no respondió (${fallaOsm}). Buscá ${rubro} en ${zona.nombre} con web_search (Google Maps, Instagram, guías de la zona) y cargalos con completar_busqueda (con dirección para que aparezcan en el mapa). Si no tenés web_search, decile al socio que lo pida como "buscá en internet ${rubro} en ${zona.nombre}".`
+    if (fuente === 'Google Maps')
+      return [
+        `Búsqueda guardada (id ${data.id}) y marcada en el mapa: ${lugares.length} resultados de Google Maps en ${zona.nombre}, ordenados por puntaje y reseñas.`,
+        resumir(lugares, 10),
+        `Con esto alcanza: NO uses web_search salvo que el socio pida más datos (por ejemplo, Instagram). Empezá la respuesta exactamente con: "${primera}" y seguí con una oración sobre los dos o tres mejor puntuados. No digas que sumaste nada al pipeline: eso lo hace el socio con el botón.`,
+      ].join('\n')
     return [
       `Búsqueda guardada (id ${data.id}) y marcada en el mapa: ${lugares.length} resultados de OpenStreetMap en ${zona.nombre}.`,
       resumir(lugares),
       lugares.length < 5 || sinContacto > lugares.length / 2
         ? 'Hay pocos resultados o muchos sin contacto: si tenés web_search, buscá en la web (Google Maps, Instagram, sitios de la zona) y pasá lo que encuentres con completar_busqueda (nombre, dirección, teléfono, Instagram, web).'
         : 'Si tenés web_search y el socio quiere más datos de contacto, podés completar con completar_busqueda.',
+      `Empezá la respuesta con: "${primera}" (si después completás con la web, decí la cuenta nueva).`,
     ].join('\n')
   }
 
