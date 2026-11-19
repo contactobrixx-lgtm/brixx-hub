@@ -335,7 +335,7 @@ export function JarvisPage() {
   const saludo = ahora.getHours() < 12 ? 'Buen día' : ahora.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-fondo px-4 pt-5 pb-28 md:px-8 md:pb-8">
+    <div className="relative min-h-full overflow-hidden bg-fondo px-4 pt-4 pb-28 md:px-8 md:pt-5 md:pb-8 [@media(max-height:520px)]:pb-6">
       {/* Fondo de grilla tenue */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.06]"
@@ -349,28 +349,28 @@ export function JarvisPage() {
 
       <div className="relative mx-auto max-w-[1400px]">
         {/* Encabezado */}
-        <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <header className="mb-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 md:mb-5 [@media(max-height:520px)]:mb-2">
           <div>
-            <div className="text-xs font-semibold tracking-[0.3em] text-acento-claro uppercase">Centro de comando</div>
-            <h1 className="text-[28px] leading-tight font-bold">
+            <div className="hidden text-xs font-semibold tracking-[0.3em] text-acento-claro uppercase sm:block [@media(max-height:520px)]:hidden">Centro de comando</div>
+            <h1 className="text-[22px] leading-tight font-bold sm:text-[28px] [@media(max-height:520px)]:text-[20px]">
               {saludo}, {miembro?.nombre.split(' ')[0]}
             </h1>
           </div>
-          <div className="sm:text-right">
-            <div className="text-sm text-tenue">
+          <div className="flex items-baseline gap-2 sm:block sm:text-right [@media(max-height:520px)]:flex">
+            <div className="text-xs text-tenue sm:text-sm">
               {ahora
                 .toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                 .replace(/^./, (c) => c.toUpperCase())}
             </div>
-            <div className="tabular font-display text-[32px] leading-none font-bold tracking-wide">
+            <div className="tabular font-display text-[17px] leading-none font-bold tracking-wide sm:text-[32px] [@media(max-height:520px)]:text-[17px]">
               {ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
             </div>
           </div>
         </header>
 
-        <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
           {/* Izquierda: estado */}
-          <div className="order-2 flex flex-col gap-4 lg:order-1">
+          <div className="order-2 flex min-w-0 flex-col gap-4 lg:order-1">
             <Panel titulo="Estado del sistema">
               <div className="flex flex-col gap-1.5">
                 <FilaEstado label="Jarvis" valor={activado ? 'Activo' : 'En espera'} ok={activado ? true : null} />
@@ -427,7 +427,7 @@ export function JarvisPage() {
               ref={hud}
               className={cn(
                 'overflow-hidden bg-fondo',
-                modoTele ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative h-[420px] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)]',
+                modoTele ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative h-[clamp(300px,calc(100svh-330px),520px)] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)] [@media(max-height:520px)]:h-[calc(100svh-70px)] [@media(max-height:520px)]:min-h-[220px]',
               )}
             >
               <RedNeural
@@ -457,11 +457,12 @@ export function JarvisPage() {
                     <div className="relative">
                       <button
                         onClick={() => setEligiendoDemo((v) => !v)}
-                        className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                        className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-2.5 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white sm:px-3"
                         title="Modo demo: el hub con datos inventados, para mostrarlo o aprender a usarlo"
                         aria-expanded={eligiendoDemo}
+                        aria-label="Demo"
                       >
-                        <Presentation className="size-4" /> Demo
+                        <Presentation className="size-4" /> <span className="hidden sm:inline">Demo</span>
                       </button>
                       {eligiendoDemo && (
                         <div className="absolute top-12 right-0 flex w-64 flex-col gap-1 rounded-xl border border-acento/30 bg-superficie/95 p-1.5 shadow-[0_0_40px_-12px_var(--color-acento)] backdrop-blur animate-aparecer">
@@ -479,10 +480,11 @@ export function JarvisPage() {
                     </div>
                     <button
                       onClick={entrarTele}
-                      className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                      className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-2.5 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white sm:px-3"
                       title="Modo tele: la red a pantalla completa con los paneles encima"
+                      aria-label="Modo tele"
                     >
-                      <Maximize2 className="size-4" /> Modo tele
+                      <Maximize2 className="size-4" /> <span className="hidden sm:inline">Modo tele</span>
                     </button>
                   </div>
                 )}
@@ -738,7 +740,7 @@ export function JarvisPage() {
           </div>
 
           {/* Derecha: feed y conversación */}
-          <div className="order-3 flex flex-col gap-4">
+          <div className="order-3 flex min-w-0 flex-col gap-4">
             <Panel titulo="Feed del día" extra={<span className="rounded bg-ok-tenue px-1.5 py-0.5 text-[10px] font-bold text-ok">EN VIVO</span>}>
               {d.pendientes?.length ? (
                 <ul className="flex flex-col gap-1.5">
@@ -878,11 +880,11 @@ export function JarvisPage() {
         </div>
 
         {/* Barra "Hablá con Jarvis" */}
-        <section className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 px-3 md:static md:mt-4 md:px-0">
+        <section className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 px-3 md:static md:mt-4 md:px-0 [@media(max-height:520px)]:static [@media(max-height:520px)]:mt-3 [@media(max-height:520px)]:px-0">
           <div className="mx-auto max-w-[1400px] rounded-2xl border border-acento/40 bg-superficie/95 p-3 shadow-[0_0_40px_-12px_var(--color-acento)] backdrop-blur md:p-4">
             <div className="mb-2 flex min-h-6 items-start gap-2 text-sm" aria-live="polite">
               <span className="shrink-0 text-[10px] font-bold tracking-[0.2em] text-acento-claro uppercase">Hablá con Jarvis</span>
-              <span className="min-w-0 flex-1 truncate text-suave md:whitespace-normal">
+              <span className={cn('min-w-0 flex-1 md:whitespace-normal', !pensando && ultima?.error ? 'whitespace-normal text-peligro' : 'truncate text-suave')}>
                 {pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' || !ultima
                   ? leyenda
                   : `${ultimaPregunta ? `«${ultimaPregunta.texto}» — ` : ''}${ultima.texto}`}
