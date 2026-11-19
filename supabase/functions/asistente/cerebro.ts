@@ -6,7 +6,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import type { Acciones, AccionVisible } from './acciones.ts'
-import { ejecutar, HERRAMIENTA_MISION, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MAPA, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import { conTopeEstrictas, ejecutar, HERRAMIENTA_MISION, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MAPA, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
 import type { AvisoMapa, Lugares } from './lugares.ts'
 
 export const MODELO = 'claude-sonnet-5-5' // análisis e investigación (con búsqueda web)
@@ -209,7 +209,7 @@ export async function responder(
           // Esfuerzo bajo: en lo simple ni siquiera razona antes de contestar
           output_config: { effort: 'low' },
           // Sin búsqueda web (eso va al otro modelo)
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
+          tools: conTopeEstrictas([...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES]),
         })
       : client.beta.messages.stream({
           ...comun,
@@ -221,7 +221,7 @@ export async function responder(
           // bloques "thinking" y se reenvían tal cual.
           thinking: { type: 'between_tools' },
           output_config: { effort: 'low' },
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
+          tools: conTopeEstrictas([...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB]),
         })
     for await (const e of stream) {
       if (e.type === 'content_block_delta' && e.delta.type === 'text_delta') avisar({ tipo: 'texto', delta: e.delta.text })
