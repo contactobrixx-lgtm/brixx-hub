@@ -1,0 +1,99 @@
+/* Mapa de Jarvis: la imagen del mapa pasa a "holograma" (azules de brixx) y los paneles quedan nítidos encima. */
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+.mapa-jarvis {
+  background:
+    radial-gradient(ellipse at 50% 120%, color-mix(in oklab, var(--color-acento) 28%, transparent), transparent 60%),
+    radial-gradient(ellipse at 50% -10%, color-mix(in oklab, var(--color-turquesa) 12%, transparent), transparent 55%),
+    var(--color-fondo);
+}
+
+/* Estrellas del espacio (se ven mientras el mapa es un globo) */
+.mapa-jarvis .estrellas {
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1px 1px at 30% 70%, var(--color-texto) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 55% 15%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1px 1px at 70% 55%, var(--color-texto) 50%, transparent 51%),
+    radial-gradient(1px 1px at 85% 30%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 92% 80%, var(--color-texto) 50%, transparent 51%),
+    radial-gradient(1px 1px at 20% 90%, var(--color-acento-claro) 50%, transparent 51%),
+    radial-gradient(1px 1px at 45% 45%, var(--color-texto) 50%, transparent 51%);
+  background-size: 420px 420px;
+  opacity: 0.55;
+}
+
+/* El "holograma": todo el mapa en azules y cyan, con más contraste */
+.mapa-jarvis .maplibregl-canvas {
+  filter: grayscale(1) sepia(1) hue-rotate(168deg) saturate(3.2) brightness(0.92) contrast(1.25);
+}
+
+/* Líneas de barrido muy suaves, como pantalla */
+.mapa-jarvis .barrido {
+  background: repeating-linear-gradient(0deg, color-mix(in oklab, var(--color-acento-claro) 5%, transparent) 0 1px, transparent 1px 4px);
+  mix-blend-mode: screen;
+}
+
+.mapa-jarvis .maplibregl-ctrl-attrib {
+  background: color-mix(in oklab, var(--color-fondo) 70%, transparent);
+  color: var(--color-tenue);
+  font-size: 10px;
+}
+.mapa-jarvis .maplibregl-ctrl-attrib a {
+  color: var(--color-tenue);
+}
+
+/* Pines de los negocios */
+.pin-lugar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 2px solid var(--color-acento-claro);
+  background: color-mix(in oklab, var(--color-acento) 85%, black);
+  color: white;
+  font: 700 12px/1 'Figtree', sans-serif;
+  box-shadow:
+    0 0 0 4px color-mix(in oklab, var(--color-acento) 30%, transparent),
+    0 0 24px var(--color-acento);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.pin-lugar:hover,
+.pin-lugar.activo {
+  transform: scale(1.25);
+  background: var(--color-naranja);
+  border-color: white;
+  box-shadow:
+    0 0 0 6px color-mix(in oklab, var(--color-naranja) 35%, transparent),
+    0 0 30px var(--color-naranja);
+}
+.pin-lugar.en-pipeline {
+  background: color-mix(in oklab, var(--color-ok) 80%, black);
+  border-color: var(--color-ok);
+}
+
+/* El punto del lugar al que voló el mapa */
+.pin-destino {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-turquesa);
+  box-shadow: 0 0 0 0 var(--color-turquesa);
+  animation: pulso-destino 1.8s ease-out infinite;
+}
+@keyframes pulso-destino {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-turquesa) 70%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 28px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-destino {
+    animation: none;
+  }
+}

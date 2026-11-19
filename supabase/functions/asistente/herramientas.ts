@@ -5,6 +5,7 @@ import type Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import { ETAPAS, type Acciones, type TipoAccion } from './acciones.ts'
+import type { Lugares } from './lugares.ts'
 
 const fecha = { type: 'string', description: 'Fecha en formato AAAA-MM-DD (hora de Argentina).' }
 const opcional = (t: Record<string, unknown>) => ({ anyOf: [t, { type: 'null' }] })
@@ -152,6 +153,45 @@ export const HERRAMIENTA_PANTALLA: Anthropic.Beta.BetaTool = herramienta(
   { pantalla: { type: 'string', enum: [...PANTALLAS] }, cliente: opcional({ type: 'string', description: 'Nombre del cliente, si la pantalla es de un cliente.' }) },
 )
 
+/** Mapa de Jarvis: buscar negocios por zona y mover el mapa (no cambian datos del hub). */
+const textoNulo = opcional({ type: 'string' })
+export const HERRAMIENTAS_MAPA: Anthropic.Beta.BetaTool[] = [
+  herramienta(
+    'buscar_negocios',
+    'Busca negocios de un rubro en una zona (por defecto, Tucumán) en OpenStreetMap, con dirección y contacto, y los marca en el mapa de Jarvis. Para "buscame hamburgueserías en Yerba Buena", "qué gimnasios hay en el centro", "buscá prospectos de…".',
+    {
+      rubro: { type: 'string', description: 'El rubro como lo dijo el socio, en plural (ej. "hamburgueserías").' },
+      zona: { type: 'string', description: 'Barrio y ciudad (ej. "Yerba Buena, Tucumán"). Si no la dijo, "San Miguel de Tucumán".' },
+      palabras: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'De 2 a 6 palabras o raíces para encontrar el rubro en nombres y categorías de OpenStreetMap, en español e inglés (ej. ["hamburgues", "burger"], ["gimnasio", "gym", "fitness"], ["pizzer", "pizza"]).',
+      },
+    },
+  ),
+  herramienta(
+    'completar_busqueda',
+    'Suma o completa lugares de una búsqueda con lo que encontraste en la web (teléfono, Instagram, web, dirección). Los nuevos con dirección se ubican solos en el mapa.',
+    {
+      busqueda_id: { type: 'string', description: 'El id que devolvió buscar_negocios.' },
+      lugares: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { nombre: { type: 'string' }, direccion: textoNulo, telefono: textoNulo, instagram: textoNulo, web: textoNulo, nota: textoNulo },
+          required: ['nombre', 'direccion', 'telefono', 'instagram', 'web', 'nota'],
+          additionalProperties: false,
+        },
+      },
+    },
+  ),
+  herramienta(
+    'mostrar_mapa',
+    'Abre el mapa de Jarvis y vuela a un lugar ("mostrame el mapa", "llevame a Yerba Buena", "dónde queda la calle Aconquija 1500"). Sin lugar, abre Tucumán.',
+    { lugar: opcional({ type: 'string', description: 'Dirección, barrio o ciudad.' }) },
+  ),
+]
+
 const TIPOS_ACCION = new Set<string>(['agendar_reunion', 'proxima_accion', 'mover_etapa', 'nota_cliente', 'cotizacion_borrador'])
 
 /** Búsqueda y lectura web: corren en los servidores de Anthropic (no hay que ejecutarlas acá). */
@@ -184,6 +224,9 @@ export const NOMBRE_CONSULTA: Record<string, string> = {
   leer_mision: 'misión',
   leer_informes: 'informes de los agentes',
   cancelar_accion: 'acción',
+  buscar_negocios: 'mapa · OpenStreetMap',
+  completar_busqueda: 'mapa',
+  mostrar_mapa: 'mapa',
   web_search: 'búsqueda web',
   web_fetch: 'lectura web',
 }
@@ -203,7 +246,15 @@ export async function ejecutar(
   e: Entrada,
   mostrar: (destino: { ruta: string; titulo: string }) => void = () => {},
   lanzarMision?: (pedido: string) => Promise<string>,
+  lugares?: Lugares,
 ): Promise<string> {
+  if (nombre === 'buscar_negocios' || nombre === 'completar_busqueda' || nombre === 'mostrar_mapa') {
+    if (!lugares) throw new Error('Desde acá no se puede usar el mapa.')
+    if (nombre === 'mostrar_mapa') return lugares.mostrar(s(e.lugar))
+    if (nombre === 'buscar_negocios')
+      return lugares.buscar(String(e.rubro ?? ''), String(e.zona ?? ''), Array.isArray(e.palabras) ? e.palabras.map(String) : [])
+    return lugares.completar(String(e.busqueda_id ?? ''), Array.isArray(e.lugares) ? (e.lugares as Record<string, string | null>[]).map((l) => ({ ...l, nombre: String(l.nombre ?? '') })) : [])
+  }
   if (TIPOS_ACCION.has(nombre)) return acciones.preparar(nombre as TipoAccion, e)
   switch (nombre) {
     case 'lanzar_mision': {

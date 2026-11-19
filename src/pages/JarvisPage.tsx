@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CalendarClock,
@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Ear,
   EarOff,
+  Globe2,
   Info,
   Presentation,
   Mic,
@@ -42,7 +43,11 @@ import { useInformesRecientes } from '../features/agentes/useAgentes'
 import { DESCRIPCION } from '../features/agentes/catalogo'
 import { ESTADO_DEMO, METRICAS_DEMO, pideDemo, type TipoDemo } from '../features/asistente/demo'
 import { PanelPantalla, type DestinoPantalla } from '../features/asistente/PanelPantalla'
-import { ETAPAS_ABIERTAS } from '../types/db'
+import { ETAPAS_ABIERTAS, type AvisoMapa } from '../types/db'
+import { MapaForm } from '../features/mapa/MapaForm'
+import { useClaveMapa } from '../features/mapa/useMapa'
+// El mapa (MapLibre) pesa: se carga recién cuando se abre
+const MapaJarvis = lazy(() => import('../features/mapa/MapaJarvis'))
 import { useDashboard } from '../features/inicio/useDashboard'
 import { useReuniones } from '../features/calendario/useReuniones'
 import { useConfigGrabaciones } from '../features/grabaciones/useGrabaciones'
@@ -102,6 +107,20 @@ export function JarvisPage() {
   const [editandoPersonalidad, setEditandoPersonalidad] = useState(false)
   const configVoz = useConfigVoz()
   const [editandoVoz, setEditandoVoz] = useState(false)
+  // Modo mapa: abierto con un aviso de Jarvis (búsqueda o lugar). version cambia en cada aviso para reaccionar aunque sea el mismo.
+  const [mapa, setMapa] = useState<(AvisoMapa & { version: number }) | null>(null)
+  const [configurandoMapa, setConfigurandoMapa] = useState(false)
+  const claveMapa = useClaveMapa()
+  const [params, setParams] = useSearchParams()
+  const abrirMapa = useCallback((aviso: AvisoMapa = {}) => setMapa((m) => ({ ...aviso, version: (m?.version ?? 0) + 1 })), [])
+  // Desde otra pantalla, el asistente manda a /jarvis?mapa=<búsqueda> (o =1)
+  useEffect(() => {
+    const p = params.get('mapa')
+    if (!p) return
+    abrirMapa(p === '1' ? {} : { busqueda_id: p })
+    params.delete('mapa')
+    setParams(params, { replace: true })
+  }, [params, setParams, abrirMapa])
 
   // Modo tele: la red ocupa toda la pantalla con los paneles flotando encima (para una tele o un monitor).
   // Si el navegador deja, además pide pantalla completa (en iPhone no existe: queda como pantalla fija igual).
@@ -220,7 +239,7 @@ export function JarvisPage() {
     voz.callar()
     // La voz arranca con la primera oración, mientras sigue llegando el resto
     const vivo = vozActiva ? voz.enVivo() : null
-    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: mostrarPantalla, alMision: misiones.seguir })
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: mostrarPantalla, alMision: misiones.seguir, alMapa: abrirMapa })
     vivo?.terminar()
     memoria.recargar() // por si guardó algo nuevo
     recargarReuniones() // por si confirmó una reunión por voz
@@ -315,6 +334,19 @@ export function JarvisPage() {
       .map((p) => ({ hora: 'Hoy', texto: `${p.empresa || p.nombre}: ${p.proxima_accion}`, tipo: 'accion' as const }))
     return [...r, ...a]
   }, [reuniones, d.prospectos, hoy])
+
+
+  // Próxima reunión (para el cartel de tiempo del mapa)
+  const proximaReunion = useMemo(() => {
+    const desde = ahora.getTime() - 15 * 60_000
+    const r = reuniones
+      .map((x) => ({ titulo: x.titulo, inicio: new Date(x.inicio) }))
+      .filter((x) => x.inicio.getTime() >= desde)
+      .sort((a, b) => a.inicio.getTime() - b.inicio.getTime())[0]
+    return r ?? null
+    // Se recalcula cada minuto, no cada segundo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reuniones, Math.floor(ahora.getTime() / 60_000)])
 
   const ultima = [...mensajes].reverse().find((m) => m.rol === 'asistente')
   const ultimaPregunta = [...mensajes].reverse().find((m) => m.rol === 'usuario')
@@ -454,6 +486,14 @@ export function JarvisPage() {
                 {/* Modo tele (para una tele o un monitor) */}
                 {!modoTele && (
                   <div className="absolute top-3 right-3 z-10 flex gap-2">
+                    <button
+                      onClick={() => abrirMapa()}
+                      className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-2.5 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white sm:px-3"
+                      title="Mapa: Tucumán en 3D y los negocios que Jarvis busque"
+                      aria-label="Mapa"
+                    >
+                      <Globe2 className="size-4" /> <span className="hidden sm:inline">Mapa</span>
+                    </button>
                     <div className="relative">
                       <button
                         onClick={() => setEligiendoDemo((v) => !v)}
@@ -827,6 +867,28 @@ export function JarvisPage() {
               </p>
             </Panel>
 
+            <Panel
+              titulo="Mapa"
+              extra={
+                claveMapa.disponible ? (
+                  <button onClick={() => setConfigurandoMapa(true)} className="cursor-pointer text-xs font-semibold text-acento-texto hover:underline">
+                    Configurar
+                  </button>
+                ) : null
+              }
+            >
+              <p className="text-sm text-suave">
+                {claveMapa.clave ? 'Satélite, relieve y edificios en 3D (MapTiler).' : 'Sin imagen satelital: calles y edificios en 3D.'}
+              </p>
+              <p className="mt-1 text-xs text-tenue">Pedile "buscame hamburgueserías en Yerba Buena" y te los marca con su contacto.</p>
+              <button
+                onClick={() => abrirMapa()}
+                className="mt-3 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/40 px-3 text-sm font-semibold text-acento-claro hover:bg-acento-tenue"
+              >
+                <Globe2 className="size-4" /> Abrir el mapa
+              </button>
+            </Panel>
+
             <Panel titulo="Memoria">
               {memoria.notas.length ? (
                 <ul className="flex max-h-56 flex-col gap-1.5 overflow-y-auto pr-1">
@@ -954,6 +1016,37 @@ export function JarvisPage() {
           </div>
         </section>
       </div>
+      {mapa && (
+        <Suspense fallback={<div className="fixed inset-0 z-[75] grid place-items-center bg-fondo text-sm text-acento-claro">Cargando el mapa…</div>}>
+          <MapaJarvis
+            aviso={mapa}
+            clave={claveMapa.clave}
+            agenda={agendaHoy}
+            proxima={proximaReunion}
+            metricas={[
+              { label: 'Cobrado', valor: formatUSD(d.cobrado ?? 0) },
+              {
+                label: 'Clientes nuevos',
+                valor: d.metasMes ? `${d.metasMes.clientes.actual}${d.metasMes.clientes.objetivo != null ? `/${d.metasMes.clientes.objetivo}` : ''}` : '—',
+                avance: d.metasMes?.clientes.objetivo ? d.metasMes.clientes.actual / d.metasMes.clientes.objetivo : null,
+              },
+              {
+                label: 'Recurrente',
+                valor: formatUSD(d.mrr ?? 0),
+                avance: d.metasMes?.ingreso.objetivo ? d.metasMes.ingreso.actual / d.metasMes.ingreso.objetivo : null,
+              },
+              { label: 'Por cobrar', valor: formatUSD(d.porCobrar ?? 0) },
+            ]}
+            frase={voz.hablando && voz.frase ? voz.frase : pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' ? leyenda : ''}
+            escuchando={ptt.escuchando || manos.estado === 'escuchando_pregunta'}
+            pensando={pensando}
+            onMicrofono={tocarMicrofono}
+            onCerrar={() => setMapa(null)}
+            onConfigurar={() => setConfigurandoMapa(true)}
+          />
+        </Suspense>
+      )}
+      <MapaForm abierto={configurandoMapa} clave={claveMapa.clave} onCerrar={() => setConfigurandoMapa(false)} onGuardar={claveMapa.guardar} />
       <VozForm
         abierto={editandoVoz}
         vozId={configVoz.vozId}
