@@ -3,7 +3,7 @@ import { LngLatBounds, Map as MapaGL, Marker, setWorkerUrl, type ErrorEvent } fr
 // MapLibre 6 lee las teselas en un worker aparte: Vite lo publica como archivo y acá se le dice dónde está
 import urlWorker from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { Link } from 'react-router-dom'
-import { AtSign, Check, Crosshair, Globe2, Loader2, MessageCircle, Mic, Phone, Plus, Send, Settings, X } from 'lucide-react'
+import { AtSign, Check, ChevronDown, ChevronUp, Crosshair, Globe2, Loader2, MapPin, MessageCircle, Mic, Phone, Plus, Send, Settings, Star, X } from 'lucide-react'
 import type { AvisoMapa, LugarBusqueda } from '../../types/db'
 import { cn } from '../../components/ui/cn'
 import { CENTRO_BASE, linkInstagram, useBusqueda, whatsapp } from './useMapa'
@@ -154,13 +154,18 @@ function Expediente({
           <span className="block truncate text-sm font-semibold">{l.nombre}</span>
           <span className="block truncate font-mono text-[11px] text-tenue">
             {l.direccion || (l.lat == null ? 'SIN UBICACIÓN' : 'SIN DIRECCIÓN')}
-            {l.fuente === 'web' ? ' · WEB' : ' · OSM'}
+            {l.fuente === 'web' ? ' · WEB' : l.fuente === 'osm' ? ' · OSM' : ''}
           </span>
+          {l.rating != null && (
+            <span className="mt-0.5 flex items-center gap-1 font-mono text-[11px] text-aviso">
+              <Star className="size-3 fill-current" /> {l.rating.toFixed(1)} <span className="text-tenue">· {l.resenas ?? 0} reseñas</span>
+            </span>
+          )}
         </span>
       </button>
       {activo && (
         <div className="mt-2 grid gap-1 pl-[3.25rem] font-mono text-[11px] text-suave">
-          {l.horario && <span>HORARIO · {l.horario}</span>}
+          {l.horario && <span className="whitespace-pre-line">HORARIO · {l.horario.replaceAll(' · ', '\n')}</span>}
           {l.lat != null && l.lng != null && (
             <span className="text-tenue">
               {fmtCoord(l.lat, 'N', 'S')} · {fmtCoord(l.lng, 'E', 'O')}
@@ -185,12 +190,17 @@ function Expediente({
             <AtSign className="size-3.5" /> Instagram
           </a>
         )}
-        {l.web && (
+        {l.maps && (
+          <a href={l.maps} target="_blank" rel="noreferrer" className={cn(chip, 'bg-elevada text-acento-texto hover:text-white')}>
+            <MapPin className="size-3.5" /> Google Maps
+          </a>
+        )}
+        {l.web && !l.instagram && (
           <a href={/^https?:/i.test(l.web) ? l.web : `https://${l.web}`} target="_blank" rel="noreferrer" className={cn(chip, 'bg-elevada text-acento-texto hover:text-white')}>
             <Globe2 className="size-3.5" /> Web
           </a>
         )}
-        {!l.telefono && !l.instagram && !l.web && <span className="font-mono text-[11px] text-tenue">SIN CONTACTO · pedile a Jarvis "buscá más en internet"</span>}
+        {!l.telefono && !l.instagram && !l.web && !l.maps && <span className="font-mono text-[11px] text-tenue">SIN CONTACTO · pedile a Jarvis "buscá más en internet"</span>}
         {l.prospecto_id ? (
           <Link to={`/clientes/${l.prospecto_id}`} className={cn(chip, 'ml-auto font-semibold text-ok hover:underline')}>
             <Check className="size-3.5" /> En el pipeline
@@ -240,6 +250,8 @@ export default function MapaJarvis({
   const [errorMapa, setErrorMapa] = useState<string | null>(null)
   const [lineasArranque, setLineasArranque] = useState(0)
   const [texto, setTexto] = useState('')
+  // En el celular la lista se puede plegar para ver el mapa
+  const [listaAbierta, setListaAbierta] = useState(true)
   const { busqueda, sumarAlPipeline } = useBusqueda(aviso.busqueda_id, aviso.version)
   const quieto = useRef(0) // hasta cuándo no girar solo (el socio está moviendo el mapa)
   const buscando = pensando && !!consultando && /mapa|web/i.test(consultando)
@@ -354,14 +366,19 @@ export default function MapaJarvis({
       })
       marcadores.current.push(new Marker({ element: el }).setLngLat([l.lng!, l.lat!]).addTo(m))
     })
-    if (busqueda) setTitulo(`${busqueda.rubro} · ${busqueda.zona}`)
+    if (busqueda) {
+      setTitulo(`${busqueda.rubro} · ${busqueda.zona}`)
+      // En el celular arranca plegada para ver los objetivos en el mapa; se abre con la flecha
+      setListaAbierta(window.innerWidth >= 768)
+    }
     // Encuadrar todos los resultados (o la zona si no hay ubicaciones)
     if (conUbicacion.length) {
       const b = new LngLatBounds()
       conUbicacion.forEach(({ l }) => b.extend([l.lng!, l.lat!]))
       const angosto = window.innerWidth < 768
       m.fitBounds(b, {
-        padding: angosto ? { top: 150, bottom: 380, left: 40, right: 40 } : { top: 160, bottom: 200, left: 160, right: 470 },
+        // En el celular (lista plegada) los objetivos van arriba de la barra de abajo
+        padding: angosto ? { top: 120, bottom: Math.round(window.innerHeight * 0.36), left: 50, right: 80 } : { top: 160, bottom: 200, left: 160, right: 470 },
         maxZoom: 15.5,
         pitch: 58,
         duration: 5000,
@@ -429,7 +446,7 @@ export default function MapaJarvis({
   const conUbicacion = lugares.filter((l) => l.lat != null).length
 
   return (
-    <div className="mapa-jarvis fixed inset-0 z-[75] overflow-hidden text-texto" role="dialog" aria-label="Mapa de Jarvis">
+    <div className={cn('mapa-jarvis fixed inset-0 z-[75] overflow-hidden text-texto', tele.zoom < 15.2 && 'lejos')} role="dialog" aria-label="Mapa de Jarvis">
       <div className="estrellas pointer-events-none absolute inset-0" />
       {/* MapLibre le pone position: relative a su contenedor: va adentro de uno que ocupa toda la pantalla */}
       <div className="absolute inset-0">
@@ -463,18 +480,18 @@ export default function MapaJarvis({
       )}
 
       {/* Arriba a la izquierda: dónde estamos y telemetría */}
-      <PanelHud className="absolute top-3 left-3 max-w-[calc(100%-11.5rem)] px-4 py-3 md:top-5 md:left-5 md:max-w-[min(560px,calc(100%-30rem))]">
+      <PanelHud className="absolute top-3 left-3 max-w-[calc(100%-5rem)] px-3 py-2.5 md:top-5 md:left-5 md:max-w-[min(560px,calc(100%-30rem))] md:px-4 md:py-3">
         <div className="flex items-center gap-2 font-mono text-[10px] font-bold tracking-[0.25em] text-acento-claro uppercase">
-          <span className="size-1.5 animate-pulse rounded-full bg-ok" /> Rastreo · enlace activo
+          <span className="size-1.5 animate-pulse rounded-full bg-ok" /> Rastreo<span className="hidden sm:inline"> · enlace activo</span>
         </div>
-        <div className="mt-1 truncate font-display text-lg leading-tight font-bold md:text-2xl">{titulo || CENTRO_BASE.titulo}</div>
-        <div className="tabular mt-1.5 grid grid-cols-1 gap-x-4 gap-y-0.5 font-mono text-[10px] whitespace-nowrap text-suave sm:grid-cols-2 md:grid-cols-3 md:text-[11px]">
+        <div className="mt-0.5 truncate font-display text-base leading-tight font-bold md:mt-1 md:text-2xl">{titulo || CENTRO_BASE.titulo}</div>
+        <div className="tabular mt-1 grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 font-mono text-[10px] whitespace-nowrap text-suave md:mt-1.5 md:grid-cols-3 md:gap-x-4 md:text-[11px]">
           <span>LAT {fmtCoord(tele.lat, 'N', 'S')}</span>
           <span>LON {fmtCoord(tele.lng, 'E', 'O')}</span>
           <span className="hidden md:inline">ALT {altura(tele.zoom, tele.lat, tele.alto)}</span>
           <span className="hidden md:inline">RUMBO {Math.round(tele.rumbo)}°</span>
           <span className="hidden md:inline">INCL {Math.round(tele.inclinacion)}°</span>
-          <span className="text-acento-texto">{ahora.toLocaleTimeString('es-AR', { hour12: false })}</span>
+          <span className="hidden text-acento-texto md:inline">{ahora.toLocaleTimeString('es-AR', { hour12: false })}</span>
         </div>
         {errorMapa ? (
           <p className="mt-2 text-xs text-peligro">{errorMapa}</p>
@@ -488,7 +505,7 @@ export default function MapaJarvis({
       </PanelHud>
 
       {/* Arriba a la derecha: controles */}
-      <div className="absolute top-3 right-3 flex gap-2 md:top-5 md:right-5">
+      <div className="absolute top-3 right-3 flex flex-col gap-2 md:top-5 md:right-5 md:flex-row">
         {[
           { icono: Crosshair, titulo: 'Volver a Tucumán', accion: recentrar },
           { icono: Settings, titulo: 'Configurar el mapa', accion: onConfigurar },
@@ -517,17 +534,24 @@ export default function MapaJarvis({
       )}
 
       {/* Derecha: objetivos de la búsqueda o la agenda de hoy */}
-      <PanelHud className="absolute inset-x-3 bottom-[10.5rem] flex max-h-[38vh] flex-col overflow-hidden md:inset-x-auto md:top-28 md:right-5 md:bottom-36 md:max-h-none md:w-[410px]">
+      <PanelHud className={cn('absolute inset-x-3 bottom-[10.5rem] flex flex-col overflow-hidden md:inset-x-auto md:top-28 md:right-5 md:bottom-36 md:max-h-none md:w-[410px]', listaAbierta ? 'max-h-[40vh]' : 'max-h-[3.6rem]')}>
         {busqueda ? (
           <>
-            <div className="border-b border-acento/25 px-4 py-3">
+            <button
+              onClick={() => setListaAbierta((v) => !v)}
+              className="relative shrink-0 cursor-pointer border-b border-acento/25 px-4 py-2.5 text-left md:cursor-default md:py-3"
+              aria-expanded={listaAbierta}
+            >
+              <span className="absolute top-3 right-3 text-acento-claro md:hidden">{listaAbierta ? <ChevronDown className="size-5" /> : <ChevronUp className="size-5" />}</span>
               <div className="font-mono text-[10px] font-bold tracking-[0.25em] text-acento-claro uppercase">Objetivos · {busqueda.rubro}</div>
               <div className="mt-0.5 flex items-baseline gap-2">
                 <span className="font-mono text-2xl font-bold text-naranja">{String(lugares.length).padStart(2, '0')}</span>
                 <span className="text-sm text-suave">encontrados · {conUbicacion} en el mapa</span>
               </div>
-              <div className="font-mono text-[10px] text-tenue uppercase">{busqueda.zona} · OpenStreetMap + web</div>
-            </div>
+              <div className="hidden font-mono text-[10px] text-tenue uppercase sm:block">
+                {busqueda.zona} · {lugares.some((l) => l.fuente === 'google') ? 'Google Maps' : 'OpenStreetMap + web'}
+              </div>
+            </button>
             <ul className="flex-1 overflow-y-auto py-1">
               {lugares.map((l, i) => (
                 <Expediente key={`${l.nombre}-${i}`} l={l} i={i} activo={activo === i} sumando={sumando === i} onElegir={() => setActivo(i)} onSumar={() => sumar(i)} />

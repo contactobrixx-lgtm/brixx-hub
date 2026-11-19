@@ -416,7 +416,11 @@ export interface LugarBusqueda {
   instagram?: string | null
   horario?: string | null
   nota?: string | null
-  fuente: 'osm' | 'web'
+  fuente: 'google' | 'osm' | 'web'
+  /** De Google Maps: puntaje, cantidad de reseñas y link a la ficha */
+  rating?: number | null
+  resenas?: number | null
+  maps?: string | null
   osm?: string
   /** Si ya se sumó al pipeline */
   prospecto_id?: string | null

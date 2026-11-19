@@ -167,6 +167,10 @@
   60% { opacity: 1; }
   100% { opacity: 1; transform: scale(1); }
 }
+/* Con el mapa lejos, solo el código (OBJ-01) para que no se pisen; el elegido muestra el nombre */
+.mapa-jarvis.lejos .objetivo:not(.activo) .etiqueta {
+  max-width: 62px;
+}
 /* En el celular, solo el código para no tapar el mapa */
 @media (max-width: 767px) {
   .objetivo .etiqueta { max-width: 120px; font-size: 10px; }
