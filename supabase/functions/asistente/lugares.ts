@@ -9,7 +9,7 @@ export const CENTRO_BASE = { lat: -26.8241, lng: -65.2226, titulo: 'San Miguel d
 // Para que "Yerba Buena" o "el centro" se busquen primero en Tucumán
 const VIEWBOX_TUCUMAN = '-65.75,-26.40,-64.80,-27.20'
 const AGENTE = 'brixx-hub/1.0 (asistente interno)'
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
+const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter']
 const MAX_LUGARES = 40
 
 export interface Lugar {
@@ -45,6 +45,46 @@ const comparable = (t: string) =>
     .replace(/[^a-z0-9]/g, '')
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Zonas de Tucumán ya ubicadas: no dependen de Nominatim (que a veces no responde desde los servidores de Supabase).
+ * [nombre para mostrar, nombres que la nombran, lat, lng, radio en grados]
+ */
+const ZONAS_TUCUMAN: [string, string[], number, number, number][] = [
+  ['Yerba Buena', ['yerba buena', 'yb'], -26.8167, -65.3167, 0.04],
+  ['Barrio Norte', ['barrio norte'], -26.815, -65.21, 0.012],
+  ['Barrio Sur', ['barrio sur'], -26.842, -65.208, 0.012],
+  ['Centro de San Miguel de Tucumán', ['centro', 'microcentro', 'plaza independencia'], -26.8306, -65.2038, 0.012],
+  ['Tafí Viejo', ['tafi viejo'], -26.7322, -65.2592, 0.025],
+  ['Banda del Río Salí', ['banda del rio sali', 'banda'], -26.84, -65.17, 0.025],
+  ['Las Talitas', ['las talitas'], -26.77, -65.2, 0.02],
+  ['Alderetes', ['alderetes'], -26.8166, -65.1333, 0.02],
+  ['El Manantial', ['el manantial', 'manantial'], -26.85, -65.2833, 0.02],
+  ['San Pablo', ['san pablo'], -26.873, -65.308, 0.015],
+  ['Lules', ['lules'], -26.9244, -65.3375, 0.02],
+  ['Tafí del Valle', ['tafi del valle'], -26.8525, -65.7097, 0.03],
+  ['Famaillá', ['famailla'], -27.0544, -65.4017, 0.02],
+  ['Monteros', ['monteros'], -27.1667, -65.5, 0.02],
+  ['Concepción', ['concepcion'], -27.3433, -65.5928, 0.025],
+  ['Aguilares', ['aguilares'], -27.4333, -65.6167, 0.02],
+  ['San Miguel de Tucumán', ['san miguel de tucuman', 'san miguel', 'tucuman', 'la capital', 'capital'], -26.8241, -65.2226, 0.05],
+]
+
+const sinTildes = (t: string) =>
+  t
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+/** Una zona conocida de Tucumán por su nombre ("Yerba Buena", "el centro", "Tafí Viejo"). */
+export function zonaConocida(texto: string): Zona | null {
+  const t = ` ${sinTildes(texto).replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ')} `
+  for (const [nombre, nombres, lat, lng, r] of ZONAS_TUCUMAN) {
+    const n = nombres.find((x) => t.includes(` ${x} `))
+    if (n) return { lat, lng, bbox: [lat - r, lng - r, lat + r, lng + r], nombre: /tucum/i.test(nombre) ? nombre : `${nombre}, Tucumán` }
+  }
+  return null
+}
 
 /** Ubica una zona o dirección con Nominatim (OpenStreetMap). Prioriza Tucumán. */
 export async function ubicar(texto: string): Promise<Zona | null> {
@@ -167,9 +207,22 @@ export class Lugares {
 
   async buscar(rubro: string, zonaTexto: string, palabras: string[]): Promise<string> {
     const zonaPedida = zonaTexto.trim() || CENTRO_BASE.titulo
-    const zona = (await ubicar(/tucum/i.test(zonaPedida) ? zonaPedida : `${zonaPedida}, Tucumán`)) ?? (await ubicar(zonaPedida))
+    let zona = zonaConocida(zonaPedida)
+    if (!zona) {
+      try {
+        zona = (await ubicar(/tucum/i.test(zonaPedida) ? zonaPedida : `${zonaPedida}, Tucumán`)) ?? (await ubicar(zonaPedida))
+      } catch {
+        zona = null
+      }
+    }
     if (!zona) return `No encontré la zona "${zonaPedida}" en el mapa. Preguntale al socio una referencia más clara (barrio y ciudad).`
-    const lugares = await locales(palabras.length ? palabras : [rubro], zona)
+    let lugares: Lugar[] = []
+    let fallaOsm = ''
+    try {
+      lugares = await locales(palabras.length ? palabras : [rubro], zona)
+    } catch (e) {
+      fallaOsm = e instanceof Error ? e.message : String(e)
+    }
     const { data, error } = await this.db
       .from('jarvis_busquedas')
       .insert({ usuario: this.usuario, rubro: rubro.trim().slice(0, 120), zona: zona.nombre, centro: { lat: zona.lat, lng: zona.lng, bbox: zona.bbox }, lugares })
@@ -178,6 +231,8 @@ export class Lugares {
     if (error) throw new Error(`No pude guardar la búsqueda: ${error.message}`)
     this.avisar({ busqueda_id: data.id as string, titulo: `${rubro} · ${zona.nombre}` })
     const sinContacto = lugares.filter((l) => !l.telefono && !l.instagram && !l.web).length
+    if (fallaOsm)
+      return `El mapa ya está abierto en ${zona.nombre} (búsqueda id ${data.id}), pero OpenStreetMap no respondió (${fallaOsm}). Buscá ${rubro} en ${zona.nombre} con web_search (Google Maps, Instagram, guías de la zona) y cargalos con completar_busqueda (con dirección para que aparezcan en el mapa). Si no tenés web_search, decile al socio que lo pida como "buscá en internet ${rubro} en ${zona.nombre}".`
     return [
       `Búsqueda guardada (id ${data.id}) y marcada en el mapa: ${lugares.length} resultados de OpenStreetMap en ${zona.nombre}.`,
       resumir(lugares),
@@ -236,7 +291,7 @@ export class Lugares {
       this.avisar({ centro: { lat: CENTRO_BASE.lat, lng: CENTRO_BASE.lng, zoom: 13 }, titulo: CENTRO_BASE.titulo })
       return `Abrí el mapa sobre ${CENTRO_BASE.titulo}. Decilo en una oración.`
     }
-    const z = (await ubicar(/tucum/i.test(lugar) ? lugar : `${lugar}, Tucumán`)) ?? (await ubicar(lugar))
+    const z = (/\d/.test(lugar) ? null : zonaConocida(lugar)) ?? (await ubicar(/tucum/i.test(lugar) ? lugar : `${lugar}, Tucumán`).catch(() => null)) ?? (await ubicar(lugar).catch(() => null))
     if (!z) return `No encontré "${lugar}" en el mapa. Pedile una referencia más clara.`
     this.avisar({ centro: { lat: z.lat, lng: z.lng, zoom: 15.5 }, titulo: z.nombre })
     return `Listo: el mapa está volando a ${z.nombre}. Decilo en una oración.`
