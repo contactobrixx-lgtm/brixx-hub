@@ -39,7 +39,7 @@ export interface Zona {
   nombre: string
 }
 
-export type AvisoMapa = { busqueda_id?: string; centro?: { lat: number; lng: number; zoom?: number }; titulo?: string }
+export type AvisoMapa = { busqueda_id?: string; centro?: { lat: number; lng: number; zoom?: number }; titulo?: string; previo?: boolean }
 
 const comparable = (t: string) =>
   t
@@ -313,7 +313,7 @@ export class Lugares {
     }
     if (!zona) return `No encontré la zona "${zonaPedida}" en el mapa. Preguntale al socio una referencia más clara (barrio y ciudad).`
     // El mapa vuela a la zona mientras busca (se ve el radar)
-    this.avisar({ centro: { lat: zona.lat, lng: zona.lng, zoom: 13.5 }, titulo: `Escaneando ${rubro} · ${zona.nombre}` })
+    this.avisar({ centro: { lat: zona.lat, lng: zona.lng, zoom: 13.5 }, titulo: `Buscando ${rubro}…`, previo: true })
     let lugares: Lugar[] = []
     let fallaOsm = ''
     let fuente = 'OpenStreetMap'
@@ -342,13 +342,21 @@ export class Lugares {
     if (error) throw new Error(`No pude guardar la búsqueda: ${error.message}`)
     this.avisar({ busqueda_id: data.id as string, titulo: `${rubro} · ${zona.nombre}` })
     const sinContacto = lugares.filter((l) => !l.telefono && !l.instagram && !l.web).length
+    const lugarCorto = zona.nombre.replace(/, Tucumán$/, '')
+    // La primera oración de la respuesta, con los datos reales (la misma cuenta que muestra el mapa)
+    const primera =
+      lugares.length === 0
+        ? `No encontré ${rubro} en ${lugarCorto}.`
+        : lugares.length === 1
+          ? `Encontré un solo resultado de ${rubro} en ${lugarCorto}: ${lugares[0].nombre}.`
+          : `Encontré ${lugares.length} ${rubro} en ${lugarCorto}.`
     if (fallaOsm)
       return `El mapa ya está abierto en ${zona.nombre} (búsqueda id ${data.id}), pero OpenStreetMap no respondió (${fallaOsm}). Buscá ${rubro} en ${zona.nombre} con web_search (Google Maps, Instagram, guías de la zona) y cargalos con completar_busqueda (con dirección para que aparezcan en el mapa). Si no tenés web_search, decile al socio que lo pida como "buscá en internet ${rubro} en ${zona.nombre}".`
     if (fuente === 'Google Maps')
       return [
         `Búsqueda guardada (id ${data.id}) y marcada en el mapa: ${lugares.length} resultados de Google Maps en ${zona.nombre}, ordenados por puntaje y reseñas.`,
         resumir(lugares, 10),
-        'Con esto alcanza: NO uses web_search salvo que el socio pida más datos (por ejemplo, Instagram). Contestá en dos o tres oraciones: cuántos encontraste y los dos o tres mejor puntuados.',
+        `Con esto alcanza: NO uses web_search salvo que el socio pida más datos (por ejemplo, Instagram). Empezá la respuesta exactamente con: "${primera}" y seguí con una oración sobre los dos o tres mejor puntuados. No digas que sumaste nada al pipeline: eso lo hace el socio con el botón.`,
       ].join('\n')
     return [
       `Búsqueda guardada (id ${data.id}) y marcada en el mapa: ${lugares.length} resultados de OpenStreetMap en ${zona.nombre}.`,
@@ -356,6 +364,7 @@ export class Lugares {
       lugares.length < 5 || sinContacto > lugares.length / 2
         ? 'Hay pocos resultados o muchos sin contacto: si tenés web_search, buscá en la web (Google Maps, Instagram, sitios de la zona) y pasá lo que encuentres con completar_busqueda (nombre, dirección, teléfono, Instagram, web).'
         : 'Si tenés web_search y el socio quiere más datos de contacto, podés completar con completar_busqueda.',
+      `Empezá la respuesta con: "${primera}" (si después completás con la web, decí la cuenta nueva).`,
     ].join('\n')
   }
 

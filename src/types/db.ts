@@ -442,4 +442,6 @@ export interface AvisoMapa {
   busqueda_id?: string
   centro?: { lat: number; lng: number; zoom?: number }
   titulo?: string
+  /** Aviso de que arrancó una búsqueda: el mapa no se mueve hasta que lleguen los resultados */
+  previo?: boolean
 }

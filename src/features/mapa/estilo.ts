@@ -11,11 +11,15 @@ export function token(nombre: string, respaldo: string): string {
 }
 
 /** Estilo del mapa: con clave de MapTiler, satélite + relieve + edificios; sin clave, calles y edificios de OpenFreeMap. */
+/** Cuánto se ve el fondo: normal o atenuado (con resultados, para que se distingan los comercios) */
+export const INTENSIDAD = { normal: { satelite: 0.72, edificios: 0.55 }, atenuado: { satelite: 0.4, edificios: 0.3 } }
+
 export function estiloMapa(clave: string | null): StyleSpecification {
   const acento = token('acento', '#2d61fe')
   const claro = token('acento-claro', '#c4cffe')
   const turquesa = token('turquesa', '#4fc9a6')
   const fondo = token('fondo', '#121316')
+  const marino = token('acento-tenue', '#1a2547')
   const edificios = {
     id: 'edificios',
     type: 'fill-extrusion' as const,
@@ -57,8 +61,10 @@ export function estiloMapa(clave: string | null): StyleSpecification {
         calles: { type: 'vector', url: `https://api.maptiler.com/tiles/v3/tiles.json?key=${k}` },
       },
       layers: [
-        { id: 'fondo', type: 'background', paint: { 'background-color': fondo } },
-        { id: 'satelite', type: 'raster', source: 'satelite', paint: { 'raster-contrast': 0.25, 'raster-brightness-max': 0.95 } },
+        // El "holograma": la foto en gris, semitransparente sobre azul marino. Lo hace el motor (no un filtro CSS sobre
+        // todo el lienzo), así los puntos de los comercios conservan su color y no hay un filtro a pantalla completa
+        { id: 'fondo', type: 'background', paint: { 'background-color': marino } },
+        { id: 'satelite', type: 'raster', source: 'satelite', paint: { 'raster-saturation': -1, 'raster-contrast': 0.15, 'raster-brightness-max': 0.85, 'raster-opacity': 0.72 } },
         calles,
         edificios,
       ],

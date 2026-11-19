@@ -1049,6 +1049,9 @@ export function JarvisPage() {
             escuchando={ptt.escuchando || manos.estado === 'escuchando_pregunta'}
             pensando={pensando}
             onMicrofono={tocarMicrofono}
+            onDecir={(t) => {
+              if (vozActiva) voz.decir(t)
+            }}
             onCerrar={() => setMapa(null)}
             onConfigurar={() => setConfigurandoMapa(true)}
           />

@@ -27,32 +27,46 @@ export function useBusqueda(id: string | null | undefined, version = 0) {
     recargar()
   }, [recargar, version])
 
-  /** Suma un lugar al pipeline como prospecto en "contacto" y lo marca en la búsqueda. */
-  const sumarAlPipeline = async (indice: number): Promise<string> => {
+  /**
+   * Suma un lugar al pipeline como prospecto en "contacto" y lo marca en la búsqueda.
+   * Si ya hay un prospecto con ese nombre (por ejemplo, de otra búsqueda), no lo duplica: lo vincula.
+   */
+  const sumarAlPipeline = async (indice: number): Promise<{ id: string; yaEstaba: boolean }> => {
     if (!busqueda) throw new Error('No hay búsqueda abierta.')
     const l = busqueda.lugares[indice]
     if (!l) throw new Error('No encontré ese lugar.')
-    if (l.prospecto_id) return l.prospecto_id
-    const detalle = [l.direccion && `Dirección: ${l.direccion}`, l.horario && `Horario: ${l.horario}`, l.nota].filter(Boolean).join('\n')
-    const { data, error } = await supabase
-      .from('prospectos')
-      .insert({
-        nombre: l.nombre,
-        empresa: l.nombre,
-        rubro: busqueda.rubro,
-        telefono: l.telefono ?? null,
-        instagram: l.instagram ?? null,
-        web: l.web ?? null,
-        etapa: 'contacto',
-        notas: `Encontrado por Jarvis buscando ${busqueda.rubro} en ${busqueda.zona}.${detalle ? `\n${detalle}` : ''}`,
-      })
-      .select('id')
-      .single()
-    if (error) throw new Error(error.message)
-    const lugares: LugarBusqueda[] = busqueda.lugares.map((x, i) => (i === indice ? { ...x, prospecto_id: data.id as string } : x))
-    await supabase.from('jarvis_busquedas').update({ lugares }).eq('id', busqueda.id)
+    if (l.prospecto_id) return { id: l.prospecto_id, yaEstaba: true }
+    // ¿Ya está? (mismo nombre, sin importar mayúsculas)
+    const exacto = l.nombre.replace(/[%_\\]/g, (c) => `\\${c}`)
+    const { data: previo } = await supabase.from('prospectos').select('id').or(`empresa.ilike.${JSON.stringify(exacto)},nombre.ilike.${JSON.stringify(exacto)}`).limit(1).maybeSingle()
+    let id = (previo?.id as string | undefined) ?? null
+    const yaEstaba = !!id
+    if (!id) {
+      const detalle = [l.direccion && `Dirección: ${l.direccion}`, l.rating != null && `Google: ${l.rating} (${l.resenas ?? 0} reseñas)`, l.maps && `Google Maps: ${l.maps}`, l.horario && `Horario: ${l.horario}`, l.nota]
+        .filter(Boolean)
+        .join('\n')
+      const { data, error } = await supabase
+        .from('prospectos')
+        .insert({
+          nombre: l.nombre,
+          empresa: l.nombre,
+          rubro: busqueda.rubro,
+          telefono: l.telefono ?? null,
+          instagram: l.instagram ?? null,
+          web: l.web && !l.instagram ? l.web : null,
+          etapa: 'contacto',
+          notas: `Encontrado por Jarvis buscando ${busqueda.rubro} en ${busqueda.zona}.${detalle ? `\n${detalle}` : ''}`,
+        })
+        .select('id')
+        .single()
+      if (error) throw new Error(error.message)
+      id = data.id as string
+    }
+    const lugares: LugarBusqueda[] = busqueda.lugares.map((x, i) => (i === indice ? { ...x, prospecto_id: id } : x))
+    const { error: e2 } = await supabase.from('jarvis_busquedas').update({ lugares }).eq('id', busqueda.id)
+    if (e2) console.warn('No se pudo marcar en la búsqueda:', e2.message) // el prospecto ya quedó creado
     setBusqueda({ ...busqueda, lugares })
-    return data.id as string
+    return { id, yaEstaba }
   }
 
   return { busqueda, error, recargar, sumarAlPipeline }
