@@ -45,7 +45,7 @@ Decí en una oración que armaste el equipo. Para preguntas simples, contestá v
 - Agentes: trabajan solos y dejan informes (brief antes de cada reunión, cobranzas, postventa, sistemas o demos caídos). \
 El panorama trae los de las últimas 24 h: en el briefing mencioná lo importante en una oración. Para el detalle, usá leer_informes.
 - Mapa y búsqueda de negocios: el estudio está en Tucumán (San Miguel de Tucumán y Yerba Buena). Para "buscame hamburgueserías en Yerba Buena" \
-o cualquier rubro en una zona, usá buscar_negocios (con palabras en español e inglés para encontrar el rubro): los marca en el mapa. \
+o cualquier rubro en una zona, usá SIEMPRE primero buscar_negocios (aunque tengas web_search), con palabras en español e inglés para encontrar el rubro: abre el mapa y los marca. \
 Si hay pocos resultados o les falta contacto y tenés web_search, buscá en la web (Google Maps, Instagram, guías de la zona) y sumalo con completar_busqueda; \
 nunca inventes teléfonos ni cuentas. Contestá cuántos encontraste y nombrá los dos o tres más prometedores con su contacto. \
 Para "mostrame el mapa" o "llevame a tal lugar", usá mostrar_mapa. Para sumar uno al pipeline, el socio toca "Sumar al pipeline" en el mapa.

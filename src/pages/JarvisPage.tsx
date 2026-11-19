@@ -1037,7 +1037,15 @@ export function JarvisPage() {
               },
               { label: 'Por cobrar', valor: formatUSD(d.porCobrar ?? 0) },
             ]}
-            frase={voz.hablando && voz.frase ? voz.frase : pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' ? leyenda : ''}
+            frase={voz.hablando && voz.frase ? voz.frase : ptt.escuchando || manos.estado === 'escuchando_pregunta' ? leyenda : ''}
+            respuesta={ultima && !ultima.enCurso ? { texto: ultima.texto, error: ultima.error } : null}
+            consultando={consultando}
+            errorVoz={manos.error ?? ptt.error ?? null}
+            onEnviar={(t) => {
+              voz.destrabar()
+              if (!activado) setActivado(true)
+              enviar(t)
+            }}
             escuchando={ptt.escuchando || manos.estado === 'escuchando_pregunta'}
             pensando={pensando}
             onMicrofono={tocarMicrofono}
