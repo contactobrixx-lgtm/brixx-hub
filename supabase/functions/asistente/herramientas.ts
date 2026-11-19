@@ -19,6 +19,15 @@ function herramienta(name: string, description: string, properties: Record<strin
   }
 }
 
+// Anthropic acepta como máximo 20 herramientas "strict" por pedido. Las de consulta son simples y van sin
+// strict; strict queda para las que escriben o mueven algo (acciones, memoria, mapa, pantallas, misiones).
+export const MAX_ESTRICTAS = 20
+
+/** Resguardo: si alguna vez se pasan de MAX_ESTRICTAS, las que sobran van sin strict (en vez de que falle todo el pedido). */
+export function conTopeEstrictas<T extends Anthropic.Beta.BetaToolUnion>(tools: T[]): T[] {
+  let n = 0
+  return tools.map((t) => ('strict' in t && t.strict ? (++n > MAX_ESTRICTAS ? { ...t, strict: false } : t) : t))
+}
 export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   herramienta('agenda', 'Reuniones agendadas y próximas acciones del pipeline entre dos fechas (inclusive). Para "hoy", "mañana", "esta semana", etc.', {
     desde: fecha,
@@ -72,7 +81,7 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
       cliente: opcional({ type: 'string' }),
     },
   ),
-]
+].map((t) => ({ ...t, strict: false }))
 
 /** Lanzar una misión: varios agentes trabajando en paralelo en segundo plano (no modifican el hub). */
 export const HERRAMIENTA_MISION: Anthropic.Beta.BetaTool = herramienta(
