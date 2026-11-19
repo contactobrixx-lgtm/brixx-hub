@@ -25,6 +25,7 @@ import { Hub } from './datos.ts'
 import { Memoria } from './memoria.ts'
 import { Acciones, type AccionVisible } from './acciones.ts'
 import { responder, type Evento, type Resultado } from './cerebro.ts'
+import { Lugares } from './lugares.ts'
 
 const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -133,7 +134,8 @@ Deno.serve(async (req) => {
       }
       return data.id as string
     }
-    const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar, lanzarMision)
+    const lugares = new Lugares(admin, usuario.email, (mapa) => avisar({ tipo: 'mapa', mapa }))
+    const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar, lanzarMision, lugares)
     const tiempos = { sesion_ms: tAuth, contexto_ms: tContexto, primera_palabra_ms: primeraPalabra, total_ms: Date.now() - t0, consultas: r.consultas.length }
     console.log('Tiempos de Jarvis:', JSON.stringify(tiempos)) // visible en Supabase → Edge Functions → asistente → Logs
     return { ...r, tiempos }

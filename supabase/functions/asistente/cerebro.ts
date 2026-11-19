@@ -6,7 +6,8 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import type { Acciones, AccionVisible } from './acciones.ts'
-import { ejecutar, HERRAMIENTA_MISION, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import { ejecutar, HERRAMIENTA_MISION, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MAPA, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import type { AvisoMapa, Lugares } from './lugares.ts'
 
 export const MODELO = 'claude-sonnet-5-5' // análisis e investigación (con búsqueda web)
 export const MODELO_RAPIDO = 'claude-haiku-5-5' // el día a día: agenda, clientes, acciones, briefing
@@ -20,7 +21,7 @@ export function elegirModelo(pregunta: string): string {
   if ((Deno.env.get('JARVIS_MODELO') ?? '').toLowerCase().includes('sonnet')) return MODELO
   const t = pregunta.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const investigar =
-    /\b(analiz|investig|averigu|busca(me|lo|la)? en|buscar en|internet|google|web|pagina|sitio|instagram|redes|tiktok|facebook|linkedin|competencia|competidor|mercado|tendencia|estrategia|compara|que le conviene|recomenda|recomendacion|propuesta comercial|plan de)/
+    /\b(analiz|investig|averigu|busca(me|lo|la|r)?\b|encontra(me)?\b|negocios|locales|comercios|prospectos en|en la zona|cerca de|internet|google|web|pagina|sitio|instagram|redes|tiktok|facebook|linkedin|competencia|competidor|mercado|tendencia|estrategia|compara|que le conviene|recomenda|recomendacion|propuesta comercial|plan de)/
   return investigar.test(t) ? MODELO : MODELO_RAPIDO
 }
 const MAX_VUELTAS = 8 // pedidos a Claude por pregunta (incluye consultas a la base y pausas de la búsqueda web)
@@ -43,6 +44,11 @@ y armarles un mensaje, armar una estrategia o un plan), usá lanzar_mision: un e
 Decí en una oración que armaste el equipo. Para preguntas simples, contestá vos. Si preguntan por el resultado o el avance, usá leer_mision.
 - Agentes: trabajan solos y dejan informes (brief antes de cada reunión, cobranzas, postventa, sistemas o demos caídos). \
 El panorama trae los de las últimas 24 h: en el briefing mencioná lo importante en una oración. Para el detalle, usá leer_informes.
+- Mapa y búsqueda de negocios: el estudio está en Tucumán (San Miguel de Tucumán y Yerba Buena). Para "buscame hamburgueserías en Yerba Buena" \
+o cualquier rubro en una zona, usá buscar_negocios (con palabras en español e inglés para encontrar el rubro): los marca en el mapa. \
+Si hay pocos resultados o les falta contacto y tenés web_search, buscá en la web (Google Maps, Instagram, guías de la zona) y sumalo con completar_busqueda; \
+nunca inventes teléfonos ni cuentas. Contestá cuántos encontraste y nombrá los dos o tres más prometedores con su contacto. \
+Para "mostrame el mapa" o "llevame a tal lugar", usá mostrar_mapa. Para sumar uno al pipeline, el socio toca "Sumar al pipeline" en el mapa.
 - Pantallas: si te piden mostrar, abrir o ver algo del hub ("mostrame la carpeta de Nova", "abrí el pipeline"), usá mostrar_pantalla \
 y contestá en una oración qué abriste. Si te preguntan un dato, contestá el dato; podés además abrir la pantalla si ayuda a verlo.
 - La charla previa está en los mensajes anteriores: si la pregunta actual es una respuesta a algo que preguntaste vos \
@@ -144,6 +150,7 @@ export type Evento =
   | { tipo: 'accion'; accion: AccionVisible }
   | { tipo: 'mostrar'; destino: { ruta: string; titulo: string } }
   | { tipo: 'mision'; id: string }
+  | { tipo: 'mapa'; mapa: AvisoMapa }
 
 export async function responder(
   hub: Hub,
@@ -155,6 +162,8 @@ export async function responder(
   avisar: (e: Evento) => void = () => {},
   /** Crea y arranca una misión de agentes; devuelve su id */
   lanzarMision?: (pedido: string) => Promise<string>,
+  /** Búsquedas de negocios y mapa */
+  lugares?: Lugares,
 ): Promise<Resultado> {
   const fin = (respuesta: string, modelo: string, consultas: string[]): Resultado => ({
     respuesta,
@@ -200,7 +209,7 @@ export async function responder(
           // Esfuerzo bajo: en lo simple ni siquiera razona antes de contestar
           output_config: { effort: 'low' },
           // Sin búsqueda web (eso va al otro modelo)
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
+          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
         })
       : client.beta.messages.stream({
           ...comun,
@@ -212,7 +221,7 @@ export async function responder(
           // bloques "thinking" y se reenvían tal cual.
           thinking: { type: 'between_tools' },
           output_config: { effort: 'low' },
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
+          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
         })
     for await (const e of stream) {
       if (e.type === 'content_block_delta' && e.delta.type === 'text_delta') avisar({ tipo: 'texto', delta: e.delta.text })
@@ -252,6 +261,7 @@ export async function responder(
                         return id
                       }
                     : undefined,
+                  lugares,
                 ),
               }
           } catch (e) {

@@ -110,6 +110,8 @@ export interface Ajustes {
   jarvis_voz_modelo?: string | null
   /** 'calmo' | 'animado' | 'energico' (vacío = calmo): expresividad y velocidad de la voz */
   jarvis_voz_energia?: EnergiaVoz | null
+  /** Clave pública de MapTiler para el mapa de Jarvis (satélite, relieve y edificios). Vacío = mapa sin satélite. */
+  mapa_clave?: string | null
 }
 
 export type EnergiaVoz = 'calmo' | 'animado' | 'energico'
@@ -401,4 +403,39 @@ export interface CampanaMeta {
   reglas: string[]
   auditoria: { titulo: string; items: string[] } | null
   productos: ProductoMeta[]
+}
+
+/** Un negocio que Jarvis encontró en una búsqueda por zona (jarvis_busquedas.lugares). */
+export interface LugarBusqueda {
+  nombre: string
+  lat: number | null
+  lng: number | null
+  direccion?: string | null
+  telefono?: string | null
+  web?: string | null
+  instagram?: string | null
+  horario?: string | null
+  nota?: string | null
+  fuente: 'osm' | 'web'
+  osm?: string
+  /** Si ya se sumó al pipeline */
+  prospecto_id?: string | null
+}
+
+/** "Buscame hamburgueserías en Yerba Buena": lo que encontró Jarvis (lo escribe la función asistente). */
+export interface BusquedaJarvis {
+  id: string
+  usuario: string
+  rubro: string
+  zona: string
+  centro: { lat: number; lng: number; bbox?: [number, number, number, number] } | null
+  lugares: LugarBusqueda[]
+  created_at: string
+}
+
+/** Lo que Jarvis le pide al mapa: abrir una búsqueda o volar a un lugar. */
+export interface AvisoMapa {
+  busqueda_id?: string
+  centro?: { lat: number; lng: number; zoom?: number }
+  titulo?: string
 }
