@@ -39,7 +39,7 @@ export interface Zona {
   nombre: string
 }
 
-export type AvisoMapa = { busqueda_id?: string; centro?: { lat: number; lng: number; zoom?: number }; titulo?: string; previo?: boolean }
+export type AvisoMapa = { busqueda_id?: string; centro?: { lat: number; lng: number; zoom?: number }; titulo?: string; previo?: boolean; zona?: string }
 
 const comparable = (t: string) =>
   t
@@ -313,7 +313,7 @@ export class Lugares {
     }
     if (!zona) return `No encontré la zona "${zonaPedida}" en el mapa. Preguntale al socio una referencia más clara (barrio y ciudad).`
     // El mapa vuela a la zona mientras busca (se ve el radar)
-    this.avisar({ centro: { lat: zona.lat, lng: zona.lng, zoom: 13.5 }, titulo: `Buscando ${rubro}…`, previo: true })
+    this.avisar({ centro: { lat: zona.lat, lng: zona.lng, zoom: 13.5 }, titulo: `Buscando ${rubro}…`, previo: true, zona: zonaPedida.replace(/,\s*Tucum[aá]n$/i, '') })
     let lugares: Lugar[] = []
     let fallaOsm = ''
     let fuente = 'OpenStreetMap'

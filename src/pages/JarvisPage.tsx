@@ -1019,6 +1019,7 @@ export function JarvisPage() {
       {mapa && (
         <Suspense fallback={<div className="fixed inset-0 z-[75] grid place-items-center bg-fondo text-sm text-acento-claro">Cargando el mapa…</div>}>
           <MapaJarvis
+            hablando={voz.hablando}
             aviso={mapa}
             clave={claveMapa.clave}
             agenda={agendaHoy}

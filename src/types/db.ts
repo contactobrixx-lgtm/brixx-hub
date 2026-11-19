@@ -444,4 +444,6 @@ export interface AvisoMapa {
   titulo?: string
   /** Aviso de que arrancó una búsqueda: el mapa no se mueve hasta que lleguen los resultados */
   previo?: boolean
+  /** Dónde se busca ("Yerba Buena"), para el globo de apertura */
+  zona?: string
 }
