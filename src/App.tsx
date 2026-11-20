@@ -7,6 +7,7 @@ import { FichasPage } from './pages/FichasPage'
 import { VisorPage } from './pages/VisorPage'
 import { ClientesPage } from './pages/ClientesPage'
 import { ClientePage } from './pages/ClientePage'
+import { VideoPage } from './pages/VideoPage'
 import { PipelinePage } from './pages/PipelinePage'
 import { InicioPage } from './pages/InicioPage'
 import { CalendarioPage } from './pages/CalendarioPage'
@@ -93,6 +94,7 @@ export default function App() {
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/clientes" element={<ClientesPage />} />
         <Route path="/clientes/:id" element={<ClientePage />} />
+        <Route path="/videos/:id" element={<VideoPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/jarvis" replace />} />
     </Routes>

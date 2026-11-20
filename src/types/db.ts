@@ -447,3 +447,55 @@ export interface AvisoMapa {
   /** Dónde se busca ("Yerba Buena"), para el globo de apertura */
   zona?: string
 }
+
+// ---------------------------------------------------------------------------
+// Videos explicativos (0023, función "videos"). Mantener en sincronía con ESQUEMA_GUION en
+// supabase/functions/videos/guion.ts y con el dibujo de cada escena en features/videos/lienzo.ts.
+// ---------------------------------------------------------------------------
+export type TipoEscenaVideo = 'apertura' | 'chat' | 'flujo' | 'panel' | 'beneficios' | 'cierre'
+
+export interface EscenaVideo {
+  tipo: TipoEscenaVideo
+  narracion: string
+  titulo: string | null
+  subtitulo: string | null
+  /** Escenas chat: quién escribe (el cliente final del negocio) */
+  contacto: string | null
+  mensajes: { de: 'cliente' | 'bot' | 'persona' | 'aviso'; texto: string }[]
+  /** Escenas chat: lo que hace el sistema mientras tanto */
+  por_dentro: { titulo: string; detalle: string }[]
+  /** flujo, panel y beneficios */
+  items: { titulo: string; detalle: string }[]
+}
+
+export interface GuionVideo {
+  titulo: string
+  cliente: string
+  etiqueta: string
+  escenas: EscenaVideo[]
+}
+
+export interface AudioEscenaVideo {
+  escena: number
+  path: string | null
+  duracion: number
+  /** Cada palabra con su inicio y fin en segundos, relativos al audio de la escena */
+  palabras: { w: string; s: number; e: number }[]
+}
+
+export type EstadoVideo = 'guion' | 'voz' | 'listo' | 'error'
+
+export interface Video {
+  id: string
+  prospecto_id: string | null
+  grabacion_id: string | null
+  titulo: string
+  estado: EstadoVideo
+  error: string | null
+  guion: GuionVideo | null
+  audios: AudioEscenaVideo[]
+  con_voz: boolean
+  pedido_por: string | null
+  created_at: string
+  updated_at: string
+}
