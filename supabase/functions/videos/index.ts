@@ -72,8 +72,11 @@ Cómo habla el cliente (fragmento de la transcripción, para el tono y los casos
   return partes.join('\n\n')
 }
 
-/** Arma todo lo que falte: guion (Claude) y voz (ElevenLabs). */
-async function armar(id: string, enfoque: Enfoque) {
+/**
+ * Arma todo lo que falte: guion (Claude) y voz (ElevenLabs). Si recién escribió el guion y tiene la sesión del socio,
+ * la voz la hace otra llamada a esta misma función (cada llamada tiene su propio tope de tiempo).
+ */
+async function armar(id: string, enfoque: Enfoque, auth: string | null = null) {
   const { data: v, error } = await admin.from('videos').select('*').eq('id', id).maybeSingle()
   if (error || !v) throw new Error(error?.message ?? 'No existe el video.')
   try {
@@ -83,6 +86,14 @@ async function armar(id: string, enfoque: Enfoque) {
       const r = await armarGuion(await material(v.prospecto_id, v.grabacion_id), enfoque)
       guion = r.guion
       await guardar(id, { guion, titulo: guion.titulo.slice(0, 140), estado: 'voz' })
+      if (auth && vozConfigurada()) {
+        const r = await fetch(`${URL_SUPABASE}/functions/v1/videos`, {
+          method: 'POST',
+          headers: { Authorization: auth, apikey: ANON, 'content-type': 'application/json' },
+          body: JSON.stringify({ accion: 'reintentar', id }),
+        }).catch(() => null)
+        if (r?.ok) return // la voz sigue en la otra llamada
+      }
     } else await guardar(id, { estado: 'voz', error: null })
 
     const narraciones = guion.escenas.map((e) => e.narracion.trim())
@@ -145,7 +156,7 @@ Deno.serve(async (req) => {
           .select('id')
           .single()
         if (error) throw new Error(error.message)
-        enSegundoPlano(armar(data.id, enfoque))
+        enSegundoPlano(armar(data.id, enfoque, req.headers.get('Authorization')))
         return json({ id: data.id })
       }
       case 'reintentar': {

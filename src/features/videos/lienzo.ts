@@ -25,6 +25,8 @@ type Paleta = Record<
   | 'acentoTenue'
   | 'ok'
   | 'okTenue'
+  | 'aviso'
+  | 'avisoTenue'
   | 'violeta'
   | 'violetaTenue'
   | 'naranja'
@@ -51,6 +53,8 @@ function colores(): Paleta {
     acentoTenue: t('acento-tenue', '#1a2547'),
     ok: t('ok', '#5bc48d'),
     okTenue: t('ok-tenue', '#173326'),
+    aviso: t('aviso', '#e8b44f'),
+    avisoTenue: t('aviso-tenue', '#352812'),
     violeta: t('violeta', '#a68bff'),
     violetaTenue: t('violeta-tenue', '#2b2347'),
     naranja: t('naranja', '#f07a45'),
@@ -291,7 +295,8 @@ function chat(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo, 
   ctx.fillStyle = c.elevada
   ctx.fillRect(X, Y, W, 92)
   const nombre = e.contacto ?? 'Cliente'
-  ctx.fillStyle = c.violeta
+  const interno = e.vista === 'equipo'
+  ctx.fillStyle = interno ? c.turquesa : c.violeta
   ctx.beginPath()
   ctx.arc(X + 58, Y + 46, 26, 0, Math.PI * 2)
   ctx.fill()
@@ -304,9 +309,18 @@ function chat(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo, 
   ctx.fillStyle = c.texto
   ctx.font = fuente(700, 28)
   ctx.fillText(nombre, X + 100, Y + 34)
-  ctx.fillStyle = c.ok
+  ctx.fillStyle = interno ? c.turquesa : c.ok
   ctx.font = fuente(500, 20)
-  ctx.fillText(`en línea · WhatsApp de ${guion.cliente}`, X + 100, Y + 64)
+  ctx.fillText(interno ? `Hablando con el asistente de ${guion.cliente}` : `en línea · WhatsApp de ${guion.cliente}`, X + 100, Y + 64)
+  if (interno) {
+    // Marca que es el lado del dueño y su equipo
+    const txt = `Del lado de ${guion.cliente}`
+    ctx.font = fuente(700, 20)
+    const w = ctx.measureText(txt).width + 36
+    caja(ctx, X + W - 30 - w, Y + 26, w, 40, 20, c.acentoTenue, `${c.turquesa}aa`)
+    ctx.fillStyle = c.turquesa
+    ctx.fillText(txt, X + W - 30 - w + 18, Y + 47)
+  }
   ctx.textBaseline = 'alphabetic'
 
   // Mensajes: los de antes (si la charla sigue) ya están; los nuevos aparecen de a uno
@@ -427,6 +441,162 @@ function chat(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo, 
     ctx.fillStyle = c.tenue
     ctx.font = fuente(400, 21)
     ctx.fillText(p.detalle, PX + 104, py + 56, PW - 140)
+  })
+  ctx.restore()
+}
+
+// Agenda del dueño o de cada profesional: los turnos cambian de estado y le llega un aviso por cada cambio
+const ESTADO_TURNO = {
+  confirmado: { etiqueta: 'Confirmado' },
+  pendiente: { etiqueta: 'Sin confirmar' },
+  libre: { etiqueta: 'Libre' },
+  reprogramado: { etiqueta: 'Reprogramado' },
+  bloqueado: { etiqueta: 'Bloqueado' },
+} as const
+type EstadoTurno = keyof typeof ESTADO_TURNO
+
+function coloresTurno(estado: EstadoTurno) {
+  const c = colores()
+  if (estado === 'confirmado') return { fondo: c.okTenue, texto: c.ok, borde: `${c.ok}66` }
+  if (estado === 'pendiente') return { fondo: c.avisoTenue, texto: c.aviso, borde: `${c.aviso}66` }
+  if (estado === 'reprogramado') return { fondo: c.violetaTenue, texto: c.violeta, borde: `${c.violeta}66` }
+  if (estado === 'bloqueado') return { fondo: c.elevada, texto: c.tenue, borde: c.borde }
+  return { fondo: 'transparent', texto: c.tenue, borde: c.borde }
+}
+
+const horaComparable = (h: string) => {
+  const m = /(\d{1,2})[:.h]?(\d{2})?/.exec(h)
+  return m ? Number(m[1]) * 60 + Number(m[2] ?? 0) : 9999
+}
+
+function agenda(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo, u: number, dur: number) {
+  const c = colores()
+  encabezado(ctx, `Del lado de ${guion.cliente}`, e.titulo, u)
+  const columnas = (e.columnas ?? []).slice(0, 3)
+  if (!columnas.length) return
+  const cambios = (e.cambios ?? []).slice(0, 5)
+  const pasa = (k: number) => 1.2 + (k * Math.max(1, dur * 0.8 - 1.2)) / Math.max(1, cambios.length)
+  // Estado de cada turno ahora: el original + los cambios que ya pasaron
+  type Celda = { paciente: string | null; estado: EstadoTurno; cambio: number | null }
+  const celdas = new Map<string, Celda>()
+  const clave = (col: string, hora: string) => `${col.toLowerCase()}|${horaComparable(hora)}`
+  const horas = new Set<number>()
+  const textoHora = new Map<number, string>()
+  for (const col of columnas)
+    for (const t of col.turnos.slice(0, 7)) {
+      const h = horaComparable(t.hora)
+      horas.add(h)
+      textoHora.set(h, t.hora)
+      celdas.set(clave(col.nombre, t.hora), { paciente: t.paciente, estado: (t.estado as EstadoTurno) in ESTADO_TURNO ? (t.estado as EstadoTurno) : 'pendiente', cambio: null })
+    }
+  cambios.forEach((ch, k) => {
+    const h = horaComparable(ch.hora)
+    if (!horas.has(h) && horas.size < 8) {
+      horas.add(h)
+      textoHora.set(h, ch.hora)
+    }
+    if (u >= pasa(k)) {
+      const est = (ch.estado as EstadoTurno) in ESTADO_TURNO ? (ch.estado as EstadoTurno) : 'confirmado'
+      celdas.set(clave(ch.columna, ch.hora), { paciente: ch.paciente, estado: est, cambio: k })
+    }
+  })
+  const filas = [...horas].sort((a, b) => a - b).slice(0, 8)
+
+  const X = 60
+  const Y = 310
+  const W = 1220
+  const H = 600
+  const a = entrada(u, 0.2, 0.5)
+  ctx.save()
+  ctx.globalAlpha = a
+  caja(ctx, X, Y, W, H, 24, c.superficie, c.borde)
+  const colHora = 130
+  const anchoCol = (W - colHora - 30) / columnas.length
+  const altoFila = Math.min(78, (H - 100) / Math.max(1, filas.length))
+  // Encabezado de columnas
+  columnas.forEach((col, k) => {
+    const cx = X + colHora + k * anchoCol
+    ctx.fillStyle = [c.acento, c.turquesa, c.violeta][k % 3]
+    ctx.beginPath()
+    ctx.arc(cx + 22, Y + 46, 17, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = c.fondo
+    ctx.font = fuente(700, 18)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(col.nombre.replace(/^(dra?\.?|lic\.?)\s*/i, '').charAt(0).toUpperCase(), cx + 22, Y + 47)
+    ctx.textAlign = 'left'
+    ctx.fillStyle = c.texto
+    ctx.font = fuente(700, 26)
+    ctx.fillText(col.nombre, cx + 50, Y + 47, anchoCol - 70)
+    ctx.textBaseline = 'alphabetic'
+  })
+  ctx.fillStyle = c.borde
+  ctx.fillRect(X + 20, Y + 84, W - 40, 1.5)
+  // Turnos
+  filas.forEach((h, f) => {
+    const fy = Y + 100 + f * altoFila
+    ctx.fillStyle = c.tenue
+    ctx.font = fuente(600, 22)
+    ctx.textBaseline = 'middle'
+    ctx.fillText(textoHora.get(h) ?? '', X + 34, fy + altoFila / 2 - 4)
+    columnas.forEach((col, k) => {
+      const cel = celdas.get(clave(col.nombre, textoHora.get(h) ?? ''))
+      const cx = X + colHora + k * anchoCol
+      const w = anchoCol - 16
+      const hh = altoFila - 12
+      if (!cel) return
+      const col2 = coloresTurno(cel.estado)
+      const recien = cel.cambio != null ? entrada(u, pasa(cel.cambio), 0.5) : 1
+      ctx.save()
+      if (cel.estado === 'libre') ctx.setLineDash([8, 6])
+      caja(ctx, cx, fy - 2, w, hh, 12, col2.fondo, col2.borde, 2)
+      ctx.setLineDash([])
+      if (cel.cambio != null && recien < 1) {
+        // Destello del turno que recién cambió
+        ctx.globalAlpha = a * (1 - recien)
+        caja(ctx, cx - 6, fy - 8, w + 12, hh + 12, 16, undefined, c.acentoClaro, 4)
+        ctx.globalAlpha = a
+      }
+      ctx.fillStyle = cel.paciente ? c.texto : c.tenue
+      ctx.font = fuente(cel.paciente ? 600 : 500, 22)
+      ctx.fillText(cel.paciente ?? '—', cx + 16, fy + hh / 2 - 12, w - 32)
+      ctx.fillStyle = col2.texto
+      ctx.font = fuente(600, 17)
+      ctx.fillText(ESTADO_TURNO[cel.estado].etiqueta, cx + 16, fy + hh / 2 + 13, w - 32)
+      ctx.restore()
+    })
+    ctx.textBaseline = 'alphabetic'
+  })
+  ctx.restore()
+
+  // Avisos que le llegan al dueño
+  const PX = 1310
+  const PW = 550
+  ctx.save()
+  ctx.globalAlpha = entrada(u, 0.3, 0.5)
+  caja(ctx, PX, Y, PW, H, 24, c.superficie, c.borde)
+  etiquetaSeccion(ctx, 'Avisos', PX + 32, Y + 54)
+  ctx.font = fuente(700, 30, TITULOS)
+  ctx.fillStyle = c.texto
+  ctx.fillText('Lo que te llega', PX + 32, Y + 102)
+  cambios.forEach((ch, k) => {
+    const on = entrada(u, pasa(k), 0.4)
+    if (on <= 0) return
+    ctx.save()
+    ctx.globalAlpha = on
+    const py = Y + 136 + k * 90 + (1 - on) * 16
+    const ultimo = k === cambios.length - 1 || u < pasa(k + 1)
+    caja(ctx, PX + 22, py, PW - 44, 78, 14, ultimo ? c.acentoTenue : c.elevada, ultimo ? `${c.acento}99` : undefined)
+    const est = (ch.estado as EstadoTurno) in ESTADO_TURNO ? (ch.estado as EstadoTurno) : 'confirmado'
+    ctx.fillStyle = coloresTurno(est).texto
+    ctx.beginPath()
+    ctx.arc(PX + 50, py + 39, 8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = c.texto
+    ctx.font = fuente(600, 21)
+    textoEn(ctx, ch.nota, PX + 72, py + 33, PW - 120, 26, 2)
+    ctx.restore()
   })
   ctx.restore()
 }
@@ -646,6 +816,7 @@ export function dibujarCuadro(ctx: CanvasRenderingContext2D, guion: GuionVideo, 
     ctx.globalAlpha = salida
     if (e.tipo === 'apertura') apertura(ctx, e, guion, u)
     else if (e.tipo === 'chat') chat(ctx, e, guion, i, u, dur)
+    else if (e.tipo === 'agenda') agenda(ctx, e, guion, u, dur)
     else if (e.tipo === 'flujo') flujo(ctx, e, u, dur)
     else if (e.tipo === 'panel') panel(ctx, e, guion, u, dur)
     else if (e.tipo === 'beneficios') beneficios(ctx, e, u, dur)
