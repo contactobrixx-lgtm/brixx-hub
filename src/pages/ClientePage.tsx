@@ -14,6 +14,7 @@ import { ESTADO_GRABACION, lineaDeAnalisis, ORIGEN_GRABACION } from '../features
 import { actualizarSintesis, dominio, useHistoriaClientes, usuarioInstagram } from '../features/clientes/useClientes'
 import { LinksCliente } from '../features/clientes/LinksCliente'
 import { AgentesCliente } from '../features/agentes/AgentesCliente'
+import { VideosCliente } from '../features/videos/VideosCliente'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorBox } from '../components/ui/ErrorBox'
@@ -177,11 +178,13 @@ export function ClientePage() {
                 <Bloque titulo="Hacé ahora">
                   <ul className="flex flex-col gap-2">
                     {s.hacer_ahora.map((h, i) => (
-                      <li key={i} className="flex flex-wrap items-center gap-2 rounded-xl bg-elevada p-3">
-                        <span className="min-w-0 flex-1 leading-snug">
+                      <li key={i} className="flex flex-col gap-1.5 rounded-xl bg-elevada p-3 sm:flex-row sm:items-center sm:gap-2">
+                        <span className="min-w-0 leading-snug sm:flex-1">
                           {h.accion}
                           {h.fecha && <span className="text-tenue"> · {formatFecha(h.fecha)}</span>}
                         </span>
+                        {/* En el celular los botones van abajo del texto (al lado lo dejaban en una columnita) */}
+                        <span className="-ml-2 flex shrink-0 flex-wrap gap-1 sm:ml-0">
                         <Button size="sm" variant="fantasma" onClick={() => aPipeline(h.accion, h.fecha)}>
                           <ListChecks className="size-4" /> Al pipeline
                         </Button>
@@ -194,6 +197,7 @@ export function ClientePage() {
                         >
                           <CalendarPlus className="size-4" /> Agendar
                         </Button>
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -281,6 +285,7 @@ export function ClientePage() {
             <Dato label="Próxima" valor={p.proxima_accion ? `${p.proxima_accion}${p.fecha_proxima_accion ? ` · ${formatFecha(p.fecha_proxima_accion)}` : ''}` : null} />
           </Bloque>
           <AgentesCliente p={p} />
+          {historia.some((g) => g.analisis) && <VideosCliente prospectoId={p.id} compacto />}
           {p.notas && (
             <Bloque titulo="Notas">
               <p className="text-sm whitespace-pre-line text-suave">{p.notas}</p>

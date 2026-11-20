@@ -1,0 +1,162 @@
+// Edge Function "videos": arma un video explicativo para un cliente a partir de una reunión grabada o una
+// intervención (audio o texto) ya analizada: Claude escribe el guion (escenas + voz en off) y ElevenLabs
+// pone la voz. El hub lo dibuja en un lienzo y lo descarga como video (src/features/videos).
+//
+// Pedidos (POST JSON, con la sesión del socio):
+//   { accion: "config" }                                        → { anthropic, elevenlabs }
+//   { accion: "crear", grabacion_id?, prospecto_id?, enfoque? }  → crea el video y lo arma en segundo plano → { id }
+//   { accion: "reintentar", id }                                 → si falló: rehace lo que faltó (guion y/o voz)
+// enfoque: "cliente" (le habla al dueño del negocio, por defecto) | "equipo" (para que se lo muestre a los suyos).
+// El avance queda en la tabla videos (estado guion → voz → listo | error); el hub la relee mientras trabaja.
+// Secrets: ANTHROPIC_API_KEY (obligatorio), ELEVENLABS_API_KEY (sin ella, el video sale sin voz),
+// VIDEO_VOZ_ID (opcional: otra voz de ElevenLabs; por defecto "Fran").
+import { createClient } from 'npm:@supabase/supabase-js@2'
+import { armarMaterial } from '../grabaciones/sintesis.ts'
+import { armarGuion, type Enfoque, type Guion } from './guion.ts'
+import { estimar, vozConfigurada, vozDeEscenas } from './voz.ts'
+
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
+
+const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
+const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
+const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const admin = createClient(URL_SUPABASE, SERVICE, { auth: { persistSession: false } })
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } })
+const claudeConfigurado = () => Boolean(Deno.env.get('ANTHROPIC_API_KEY'))
+
+function enSegundoPlano(p: Promise<unknown>) {
+  const conLog = p.catch((e) => console.error('Error en segundo plano:', e))
+  if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(conLog)
+}
+
+async function socio(req: Request): Promise<string | null> {
+  const auth = req.headers.get('Authorization')
+  if (!auth) return null
+  const cliente = createClient(URL_SUPABASE, ANON, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } })
+  const [{ data: ok, error }, { data: user }] = await Promise.all([cliente.rpc('es_miembro'), cliente.auth.getUser()])
+  return !error && ok === true ? (user.user?.email ?? 'socio') : null
+}
+
+async function guardar(id: string, cambios: Record<string, unknown>) {
+  const { error } = await admin.from('videos').update(cambios).eq('id', id)
+  if (error) throw new Error(`No se pudo guardar el video: ${error.message}`)
+}
+
+const recortar = (t: string, max: number) => (t.length > max ? `${t.slice(0, max)}…` : t)
+
+/** Lo que Claude necesita: la carpeta del cliente (si hay) + la intervención o reunión de la que sale el video. */
+async function material(prospectoId: string | null, grabacionId: string | null): Promise<string> {
+  const partes: string[] = []
+  if (prospectoId) partes.push((await armarMaterial(admin, prospectoId)).material)
+  if (prospectoId) {
+    const { data: p } = await admin.from('prospectos').select('sintesis').eq('id', prospectoId).maybeSingle()
+    if (p?.sintesis) partes.push(`<sintesis_de_la_carpeta>\n${JSON.stringify(p.sintesis)}\n</sintesis_de_la_carpeta>`)
+  }
+  if (grabacionId) {
+    const { data: g } = await admin.from('grabaciones').select('titulo, origen, created_at, analisis, segmentos, texto_original').eq('id', grabacionId).maybeSingle()
+    if (g) {
+      const transcripcion = ((g.segmentos ?? []) as { texto: string }[]).map((s) => s.texto).join(' ') || String(g.texto_original ?? '')
+      partes.push(`<de_donde_sale_el_video>
+${g.origen === 'reunion' ? 'Reunión grabada' : g.origen === 'audio' ? 'Audio del cliente' : 'Texto del cliente'} del ${String(g.created_at).slice(0, 10)}: "${g.titulo}"
+Análisis: ${recortar(JSON.stringify(g.analisis ?? {}), 8000)}
+Cómo habla el cliente (fragmento de la transcripción, para el tono y los casos reales): ${recortar(transcripcion, 4000)}
+</de_donde_sale_el_video>`)
+    }
+  }
+  return partes.join('\n\n')
+}
+
+/** Arma todo lo que falte: guion (Claude) y voz (ElevenLabs). */
+async function armar(id: string, enfoque: Enfoque) {
+  const { data: v, error } = await admin.from('videos').select('*').eq('id', id).maybeSingle()
+  if (error || !v) throw new Error(error?.message ?? 'No existe el video.')
+  try {
+    let guion = v.guion as Guion | null
+    if (!guion) {
+      await guardar(id, { estado: 'guion', error: null })
+      const r = await armarGuion(await material(v.prospecto_id, v.grabacion_id), enfoque)
+      guion = r.guion
+      await guardar(id, { guion, titulo: guion.titulo.slice(0, 140), estado: 'voz' })
+    } else await guardar(id, { estado: 'voz', error: null })
+
+    const narraciones = guion.escenas.map((e) => e.narracion.trim())
+    if (!vozConfigurada()) {
+      await guardar(id, { audios: narraciones.map((t, i) => estimar(i, t)), con_voz: false, estado: 'listo' })
+      return
+    }
+    // Si se rehace la voz, se borran los audios anteriores
+    const previos = ((v.audios ?? []) as { path: string | null }[]).map((a) => a.path).filter((p): p is string => !!p)
+    if (previos.length) await admin.storage.from('videos').remove(previos)
+    const audios = await vozDeEscenas(narraciones, async (i, mp3) => {
+      const path = `${id}/escena-${i}-${Date.now()}.mp3`
+      const { error: e } = await admin.storage.from('videos').upload(path, new Blob([mp3], { type: 'audio/mpeg' }), { contentType: 'audio/mpeg', upsert: true })
+      if (e) throw new Error(`No se pudo guardar la voz: ${e.message}`)
+      return path
+    })
+    await guardar(id, { audios, con_voz: true, estado: 'listo', error: null })
+  } catch (e) {
+    const mensaje = e instanceof Error ? e.message : String(e)
+    console.error('Video', id, mensaje)
+    await guardar(id, { estado: 'error', error: mensaje }).catch(() => {})
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
+  const email = await socio(req)
+  if (!email) return json({ error: 'No autorizado' }, 401)
+  let body: { accion?: string; id?: string; grabacion_id?: string; prospecto_id?: string; enfoque?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return json({ error: 'Pedido inválido' }, 400)
+  }
+  const enfoque: Enfoque = body.enfoque === 'equipo' ? 'equipo' : 'cliente'
+
+  try {
+    switch (body.accion) {
+      case 'config':
+        return json({ anthropic: claudeConfigurado(), elevenlabs: vozConfigurada() })
+      case 'crear': {
+        if (!claudeConfigurado()) return json({ error: 'Falta cargar la clave de Anthropic (Claude).', falta: 'anthropic' }, 503)
+        let prospectoId = body.prospecto_id ?? null
+        const grabacionId = body.grabacion_id ?? null
+        if (!prospectoId && !grabacionId) return json({ error: 'Falta la intervención o el cliente.' }, 400)
+        if (grabacionId) {
+          const { data: g } = await admin.from('grabaciones').select('prospecto_id, reunion_id, analisis').eq('id', grabacionId).maybeSingle()
+          if (!g) return json({ error: 'No encontré esa grabación.' }, 404)
+          if (!g.analisis) return json({ error: 'Primero hay que analizar la grabación.' }, 400)
+          prospectoId = prospectoId ?? g.prospecto_id
+          if (!prospectoId && g.reunion_id) {
+            const { data: r } = await admin.from('reuniones').select('prospecto_id').eq('id', g.reunion_id).maybeSingle()
+            prospectoId = r?.prospecto_id ?? null
+          }
+        }
+        const { data, error } = await admin
+          .from('videos')
+          .insert({ prospecto_id: prospectoId, grabacion_id: grabacionId, estado: 'guion', pedido_por: email })
+          .select('id')
+          .single()
+        if (error) throw new Error(error.message)
+        enSegundoPlano(armar(data.id, enfoque))
+        return json({ id: data.id })
+      }
+      case 'reintentar': {
+        if (!body.id) return json({ error: 'Falta el video.' }, 400)
+        enSegundoPlano(armar(body.id, enfoque))
+        return json({ ok: true })
+      }
+      default:
+        return json({ error: 'Acción desconocida' }, 400)
+    }
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : String(e) }, 500)
+  }
+})
