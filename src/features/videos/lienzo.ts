@@ -471,7 +471,7 @@ const horaComparable = (h: string) => {
 
 function agenda(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo, u: number, dur: number) {
   const c = colores()
-  encabezado(ctx, `Del lado de ${guion.cliente}`, e.titulo, u)
+  encabezado(ctx, e.seccion ?? `Del lado de ${guion.cliente}`, e.titulo, u)
   const columnas = (e.columnas ?? []).slice(0, 3)
   if (!columnas.length) return
   const cambios = (e.cambios ?? []).slice(0, 5)
@@ -601,6 +601,51 @@ function agenda(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo
   ctx.restore()
 }
 
+// Paso a paso (video interno): una línea de tiempo con los pasos numerados, que aparecen de a uno
+function pasos(ctx: CanvasRenderingContext2D, e: EscenaVideo, u: number, dur: number) {
+  const c = colores()
+  encabezado(ctx, e.seccion ?? 'Paso a paso', e.titulo, u)
+  const items = e.items.slice(0, 8)
+  const dosColumnas = items.length > 4
+  const porColumna = dosColumnas ? Math.ceil(items.length / 2) : items.length
+  const ancho = dosColumnas ? (ANCHO - 120 - 40) / 2 : ANCHO - 120
+  const paso = Math.min(140, (900 - 320) / Math.max(1, porColumna))
+  items.forEach((it, k) => {
+    const on = entrada(u, 0.6 + (k * Math.max(1, dur * 0.8 - 0.6)) / Math.max(1, items.length), 0.45)
+    const col = dosColumnas && k >= porColumna ? 1 : 0
+    const fila = col ? k - porColumna : k
+    const x = 60 + col * (ancho + 40)
+    const y = 330 + fila * paso
+    // Línea que une los pasos de la columna
+    if (fila < porColumna - 1 && k < items.length - 1) {
+      ctx.save()
+      ctx.globalAlpha = 0.25 + 0.75 * entrada(u, 0.6 + ((k + 1) * Math.max(1, dur * 0.8 - 0.6)) / Math.max(1, items.length), 0.45)
+      ctx.fillStyle = c.borde
+      ctx.fillRect(x + 35, y + 64, 3, paso - 64)
+      ctx.restore()
+    }
+    ctx.save()
+    ctx.globalAlpha = 0.25 + 0.75 * on
+    const actual = on > 0 && (k === items.length - 1 || u < 0.6 + ((k + 1) * Math.max(1, dur * 0.8 - 0.6)) / Math.max(1, items.length))
+    caja(ctx, x + 6, y, 62, 62, 31, on > 0 ? c.acento : c.elevada, actual ? c.acentoClaro : undefined, 3)
+    ctx.fillStyle = '#fff'
+    ctx.font = fuente(700, 28)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(k + 1), x + 37, y + 32)
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+    ctx.translate((1 - on) * 20, 0)
+    ctx.fillStyle = c.texto
+    ctx.font = fuente(700, 32)
+    ctx.fillText(it.titulo, x + 96, y + 30, ancho - 110)
+    ctx.fillStyle = c.suave
+    ctx.font = fuente(400, 24)
+    textoEn(ctx, it.detalle, x + 96, y + 64, ancho - 110, 30, paso > 120 ? 2 : 1)
+    ctx.restore()
+  })
+}
+
 function encabezado(ctx: CanvasRenderingContext2D, etiqueta: string, titulo: string | null, u: number) {
   const c = colores()
   const a = entrada(u, 0, 0.5)
@@ -617,7 +662,7 @@ function encabezado(ctx: CanvasRenderingContext2D, etiqueta: string, titulo: str
 
 function flujo(ctx: CanvasRenderingContext2D, e: EscenaVideo, u: number, dur: number) {
   const c = colores()
-  encabezado(ctx, 'Cómo funciona', e.titulo, u)
+  encabezado(ctx, e.seccion ?? 'Cómo funciona', e.titulo, u)
   const cx = ANCHO / 2
   const cy = 600
   const items = e.items.slice(0, 6)
@@ -703,7 +748,7 @@ function flujo(ctx: CanvasRenderingContext2D, e: EscenaVideo, u: number, dur: nu
 
 function panel(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo, u: number, dur: number) {
   const c = colores()
-  encabezado(ctx, `Lo que ve ${guion.cliente}`, e.titulo, u)
+  encabezado(ctx, e.seccion ?? `Lo que ve ${guion.cliente}`, e.titulo, u)
   const X = 160
   const Y = 330
   const W = ANCHO - 320
@@ -724,7 +769,7 @@ function panel(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo,
   })
   ctx.fillStyle = c.tenue
   ctx.font = fuente(600, 22)
-  ctx.fillText(`Panel de ${guion.cliente}`, X + 140, Y + 52)
+  ctx.fillText(e.seccion ? `Plan de brixx para ${guion.cliente}` : `Panel de ${guion.cliente}`, X + 140, Y + 52)
   const colorFila = [c.acento, c.turquesa, c.violeta, c.naranja, c.ok]
   items.forEach((it, k) => {
     const on = entrada(u, 0.7 + (k * Math.max(1, dur * 0.7 - 0.7)) / Math.max(1, items.length), 0.4)
@@ -747,7 +792,7 @@ function panel(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo,
 
 function beneficios(ctx: CanvasRenderingContext2D, e: EscenaVideo, u: number, dur: number) {
   const c = colores()
-  encabezado(ctx, 'Beneficios', e.titulo, u)
+  encabezado(ctx, e.seccion ?? 'Beneficios', e.titulo, u)
   const items = e.items.slice(0, 6)
   const cols = items.length <= 4 ? 2 : 3
   const gap = 30
@@ -820,6 +865,7 @@ export function dibujarCuadro(ctx: CanvasRenderingContext2D, guion: GuionVideo, 
     if (e.tipo === 'apertura') apertura(ctx, e, guion, u)
     else if (e.tipo === 'chat') chat(ctx, e, guion, i, u, dur)
     else if (e.tipo === 'agenda') agenda(ctx, e, guion, u, dur)
+    else if (e.tipo === 'pasos') pasos(ctx, e, u, dur)
     else if (e.tipo === 'flujo') flujo(ctx, e, u, dur)
     else if (e.tipo === 'panel') panel(ctx, e, guion, u, dur)
     else if (e.tipo === 'beneficios') beneficios(ctx, e, u, dur)

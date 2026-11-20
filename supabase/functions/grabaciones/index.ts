@@ -21,6 +21,7 @@ import { assemblyConfigurado, consultarTranscripcion, enviarATranscribir, type R
 import { analizar, claudeConfigurado, MODELO } from './analisis.ts'
 import { analizarIntervencion, carpetaDelCliente, linksDeUrls } from './intervencion.ts'
 import { sintetizarYGuardar } from './sintesis.ts'
+import { pedirVideosAutomaticos } from '../videos/auto.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -168,6 +169,8 @@ async function analizarGrabacion(id: string) {
     })
     await actualizarFila(id, { analisis, modelo, estado: 'lista', error: null })
     await actualizarSintesis(prospectoId)
+    // Videos para el cliente y para nosotros (si están prendidos en el hub y la reunión es de un cliente)
+    if (prospectoId) await pedirVideosAutomaticos(id)
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : String(e)
     await actualizarFila(id, { estado: 'error', error: `No se pudo analizar con Claude: ${mensaje}` })
@@ -219,6 +222,7 @@ async function analizarComoIntervencion(g: any) {
       error: null,
     })
     await actualizarSintesis(carpeta.id)
+    await pedirVideosAutomaticos(id)
   } catch (e) {
     const mensaje = e instanceof Error ? e.message : String(e)
     await actualizarFila(id, { estado: 'error', error: `No se pudo analizar con Claude: ${mensaje}` })

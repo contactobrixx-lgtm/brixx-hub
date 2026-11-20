@@ -452,7 +452,7 @@ export interface AvisoMapa {
 // Videos explicativos (0023, función "videos"). Mantener en sincronía con ESQUEMA_GUION en
 // supabase/functions/videos/guion.ts y con el dibujo de cada escena en features/videos/lienzo.ts.
 // ---------------------------------------------------------------------------
-export type TipoEscenaVideo = 'apertura' | 'chat' | 'agenda' | 'flujo' | 'panel' | 'beneficios' | 'cierre'
+export type TipoEscenaVideo = 'apertura' | 'chat' | 'agenda' | 'flujo' | 'panel' | 'pasos' | 'beneficios' | 'cierre'
 
 export type EstadoTurnoVideo = 'confirmado' | 'pendiente' | 'libre' | 'reprogramado' | 'bloqueado'
 
@@ -461,6 +461,8 @@ export interface EscenaVideo {
   narracion: string
   titulo: string | null
   subtitulo: string | null
+  /** Etiqueta chica arriba del título ("Qué le vendemos", "Paso a paso"); si falta, la de cada tipo */
+  seccion?: string | null
   /** Escenas chat: quién escribe (el cliente final del negocio, o el dueño/profesional en una charla interna) */
   contacto: string | null
   /** Escenas chat: "cliente_final" (un cliente del negocio) o "equipo" (el dueño o un profesional con su asistente).
@@ -494,11 +496,15 @@ export interface AudioEscenaVideo {
 
 export type EstadoVideo = 'guion' | 'voz' | 'listo' | 'error'
 
+/** cliente: le habla al dueño · equipo: para que se lo muestre a los suyos · interno: para brixx (qué armar y cómo) */
+export type EnfoqueVideo = 'cliente' | 'equipo' | 'interno'
+
 export interface Video {
   id: string
   prospecto_id: string | null
   grabacion_id: string | null
   titulo: string
+  enfoque: EnfoqueVideo
   estado: EstadoVideo
   error: string | null
   guion: GuionVideo | null

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
-import type { Video } from '../../types/db'
+import type { EnfoqueVideo, Video } from '../../types/db'
 
 async function llamar(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('videos', { body })
@@ -17,7 +17,7 @@ async function llamar(body: Record<string, unknown>) {
   return data as Record<string, unknown>
 }
 
-export type EnfoqueVideo = 'cliente' | 'equipo'
+export type { EnfoqueVideo }
 
 /** Pide un video nuevo (sale de una grabación o de la carpeta de un cliente). Devuelve su id. */
 export async function crearVideo(origen: { grabacion_id?: string | null; prospecto_id?: string | null }, enfoque: EnfoqueVideo): Promise<string> {
@@ -110,4 +110,25 @@ export async function bajarAudios(v: Video): Promise<(ArrayBuffer | null)[]> {
       return data.arrayBuffer()
     }),
   )
+}
+
+/** ajustes.videos_automaticos: después de cada análisis con cliente, se arman solos el video para el cliente y el interno */
+export function useVideosAutomaticos() {
+  const [activo, setActivo] = useState<boolean | null>(null)
+  useEffect(() => {
+    supabase
+      .from('ajustes')
+      .select('*')
+      .maybeSingle()
+      .then(({ data }) => setActivo(data && 'videos_automaticos' in data ? data.videos_automaticos !== false : null))
+  }, [])
+  const cambiar = async (valor: boolean) => {
+    setActivo(valor)
+    const { error } = await supabase.from('ajustes').upsert({ id: true, videos_automaticos: valor })
+    if (error) {
+      setActivo(!valor)
+      throw new Error(error.message)
+    }
+  }
+  return { activo, cambiar }
 }
