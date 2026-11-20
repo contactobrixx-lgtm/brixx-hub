@@ -29,6 +29,7 @@ export interface Linea {
 /** Tiempo mínimo en pantalla por escena, para que se lea lo que aparece aunque la voz sea corta */
 function minimo(e: GuionVideo['escenas'][number]): number {
   if (e.tipo === 'chat') return 1.2 + e.mensajes.length * 1.5
+  if (e.tipo === 'agenda') return 2 + (e.cambios?.length ?? 0) * 2
   if (e.tipo === 'beneficios' || e.tipo === 'panel' || e.tipo === 'flujo') return 1.5 + e.items.length * 0.9
   return 3
 }

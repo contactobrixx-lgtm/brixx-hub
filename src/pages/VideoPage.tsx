@@ -86,14 +86,27 @@ export function VideoPage() {
               <li key={i} className="rounded-xl bg-elevada p-3">
                 <span className="text-xs font-semibold tracking-wide text-acento-texto uppercase">
                   {i + 1}. {e.tipo}
+                  {e.vista === 'equipo' ? ' · lado del dueño' : ''}
                   {e.titulo ? ` · ${e.titulo}` : ''}
                 </span>
                 <p className="mt-1 text-suave">{e.narracion}</p>
+                {(e.cambios ?? []).length > 0 && (
+                  <ul className="mt-2 flex flex-col gap-1 text-[13px] text-tenue">
+                    {(e.cambios ?? []).map((c, k) => (
+                      <li key={k}>
+                        <b className="text-suave">
+                          {c.columna} {c.hora}:
+                        </b>{' '}
+                        {c.nota}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {e.mensajes.length > 0 && (
                   <ul className="mt-2 flex flex-col gap-1 text-[13px] text-tenue">
                     {e.mensajes.map((m, k) => (
                       <li key={k}>
-                        <b className="text-suave">{m.de === 'cliente' ? (e.contacto ?? 'Cliente') : m.de === 'bot' ? 'Bot' : m.de === 'persona' ? 'Equipo' : '—'}:</b> {m.texto}
+                        <b className="text-suave">{m.de === 'cliente' ? (e.contacto ?? 'Cliente') : m.de === 'bot' ? 'Asistente' : m.de === 'persona' ? 'Equipo' : '—'}:</b> {m.texto}
                       </li>
                     ))}
                   </ul>

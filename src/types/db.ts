@@ -452,15 +452,24 @@ export interface AvisoMapa {
 // Videos explicativos (0023, función "videos"). Mantener en sincronía con ESQUEMA_GUION en
 // supabase/functions/videos/guion.ts y con el dibujo de cada escena en features/videos/lienzo.ts.
 // ---------------------------------------------------------------------------
-export type TipoEscenaVideo = 'apertura' | 'chat' | 'flujo' | 'panel' | 'beneficios' | 'cierre'
+export type TipoEscenaVideo = 'apertura' | 'chat' | 'agenda' | 'flujo' | 'panel' | 'beneficios' | 'cierre'
+
+export type EstadoTurnoVideo = 'confirmado' | 'pendiente' | 'libre' | 'reprogramado' | 'bloqueado'
 
 export interface EscenaVideo {
   tipo: TipoEscenaVideo
   narracion: string
   titulo: string | null
   subtitulo: string | null
-  /** Escenas chat: quién escribe (el cliente final del negocio) */
+  /** Escenas chat: quién escribe (el cliente final del negocio, o el dueño/profesional en una charla interna) */
   contacto: string | null
+  /** Escenas chat: "cliente_final" (un cliente del negocio) o "equipo" (el dueño o un profesional con su asistente).
+   *  Opcional: los videos de antes de 0024 no lo tienen. */
+  vista?: 'cliente_final' | 'equipo'
+  /** Escenas agenda: una columna por profesional (o recurso) con sus turnos */
+  columnas?: { nombre: string; turnos: { hora: string; paciente: string | null; estado: EstadoTurnoVideo }[] }[]
+  /** Escenas agenda: lo que va pasando, en orden (cada uno cambia un turno y deja un aviso) */
+  cambios?: { columna: string; hora: string; estado: EstadoTurnoVideo; paciente: string | null; nota: string }[]
   mensajes: { de: 'cliente' | 'bot' | 'persona' | 'aviso'; texto: string }[]
   /** Escenas chat: lo que hace el sistema mientras tanto */
   por_dentro: { titulo: string; detalle: string }[]
