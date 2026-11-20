@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { ErrorBox } from '../components/ui/ErrorBox'
 import { PantallaCarga } from '../components/ui/Spinner'
 import { ReproductorVideo } from '../features/videos/ReproductorVideo'
-import { ESTADO_VIDEO } from '../features/videos/VideosCliente'
+import { ENFOQUE_VIDEO, ESTADO_VIDEO } from '../features/videos/VideosCliente'
 import { colgado, reintentarVideo, useVideo, useVideos } from '../features/videos/useVideos'
 
 /** /videos/:id — el video explicativo: se arma, se mira y se descarga. */
@@ -47,6 +47,8 @@ export function VideoPage() {
       <header className="mb-5">
         <div className="flex flex-wrap items-center gap-2">
           <Badge tono={cortado ? 'peligro' : ESTADO_VIDEO[v.estado].tono}>{cortado ? 'Se cortó' : ESTADO_VIDEO[v.estado].label}</Badge>
+          <Badge tono={v.enfoque === 'interno' ? 'violeta' : 'neutro'}>{ENFOQUE_VIDEO[v.enfoque ?? 'cliente']?.label ?? 'Para el cliente'}</Badge>
+          {v.pedido_por === 'automático' && <Badge>Automático</Badge>}
           {v.estado === 'listo' && !v.con_voz && <Badge>Sin voz</Badge>}
           <span className="text-sm text-tenue">{new Date(v.created_at).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
         </div>

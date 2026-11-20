@@ -5,7 +5,13 @@ import type { Video } from '../../types/db'
 import { Badge, Segmentado } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { ErrorBox } from '../../components/ui/ErrorBox'
-import { colgado, crearVideo, useVideos, type EnfoqueVideo } from './useVideos'
+import { colgado, crearVideo, useVideos, useVideosAutomaticos, type EnfoqueVideo } from './useVideos'
+
+export const ENFOQUE_VIDEO: Record<EnfoqueVideo, { label: string; ayuda: string }> = {
+  cliente: { label: 'Para el cliente', ayuda: 'Le habla al dueño del negocio: "así podría funcionar tu…". Muestra a sus clientes y cómo se organiza él.' },
+  equipo: { label: 'Para que lo muestre', ayuda: 'Para que el cliente se lo muestre a los suyos (socios, médicos, equipo).' },
+  interno: { label: 'Para nosotros', ayuda: 'Plan de implementación: qué le vendemos, cómo lo armamos, paso a paso, qué pedirle y qué cuidar.' },
+}
 
 export const ESTADO_VIDEO: Record<Video['estado'], { label: string; tono: 'neutro' | 'acento' | 'ok' | 'peligro' }> = {
   guion: { label: 'Escribiendo el guion…', tono: 'acento' },
@@ -22,6 +28,7 @@ export function VideosCliente({ grabacionId, prospectoId, compacto }: { grabacio
   const navigate = useNavigate()
   const { videos, error } = useVideos(grabacionId ? { grabacion_id: grabacionId } : { prospecto_id: prospectoId })
   const [enfoque, setEnfoque] = useState<EnfoqueVideo>('cliente')
+  const automaticos = useVideosAutomaticos()
   const [pidiendo, setPidiendo] = useState(false)
   const [errorPedido, setErrorPedido] = useState<string | null>(null)
 
@@ -44,25 +51,38 @@ export function VideosCliente({ grabacionId, prospectoId, compacto }: { grabacio
         <h2 className="min-w-0 flex-1 text-[19px] font-bold">Video explicativo</h2>
       </div>
       <p className="mb-3 text-sm text-tenue">
-        Claude arma un video de ~1:30 con las soluciones que le proponemos{grabacionId ? ' a partir de esta charla' : ''}: charlas de WhatsApp de
-        ejemplo, cómo funciona y los beneficios, con voz y subtítulos. Después lo descargás para mandárselo.
+        Claude arma un video de 1:30 a 2 min con las soluciones que le proponemos{grabacionId ? ' a partir de esta charla' : ''}: lo que vive su
+        cliente, cómo se organiza el dueño, cómo funciona y los beneficios, con voz y subtítulos. Y uno corto para nosotros con el plan de
+        implementación.
       </p>
       <div className={compacto ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-2'}>
         <Segmentado
           valor={enfoque}
           onChange={setEnfoque}
-          opciones={[
-            { valor: 'cliente', label: 'Para el cliente' },
-            { valor: 'equipo', label: 'Para que lo muestre' },
-          ]}
+          opciones={(['cliente', 'equipo', 'interno'] as EnfoqueVideo[]).map((v) => ({ valor: v, label: ENFOQUE_VIDEO[v].label }))}
         />
         <Button onClick={generar} disabled={pidiendo}>
           {pidiendo ? <Loader2 className="size-4 animate-spin" /> : <Clapperboard className="size-4" />} Generar video
         </Button>
       </div>
-      <p className="mt-1.5 text-xs text-tenue">
-        {enfoque === 'cliente' ? 'Le habla al dueño del negocio: "así podría funcionar tu…".' : 'Para que el cliente se lo muestre a los suyos (socios, médicos, equipo).'}
-      </p>
+      <p className="mt-1.5 text-xs text-tenue">{ENFOQUE_VIDEO[enfoque].ayuda}</p>
+      {automaticos.activo !== null && (
+        <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            checked={automaticos.activo}
+            onChange={(e) => automaticos.cambiar(e.target.checked).catch((err) => setErrorPedido(err.message))}
+            className="mt-0.5 size-4 accent-(--color-acento)"
+          />
+          <span>
+            <b className="font-semibold">Armarlos solos</b>
+            <span className="block text-xs text-tenue">
+              Después de cada audio, texto o reunión analizada con un cliente, se arman el video para el cliente y el de "para nosotros" (gasta
+              créditos de ElevenLabs).
+            </span>
+          </span>
+        </label>
+      )}
       {(errorPedido || error) && (
         <div className="mt-3">
           <ErrorBox mensaje={errorPedido ?? error ?? ''} />
@@ -78,7 +98,9 @@ export function VideosCliente({ grabacionId, prospectoId, compacto }: { grabacio
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{v.titulo}</span>
                     <span className="text-[13px] text-tenue">
+                      {ENFOQUE_VIDEO[v.enfoque ?? 'cliente']?.label ?? 'Para el cliente'} ·{' '}
                       {new Date(v.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                      {v.pedido_por === 'automático' && ' · automático'}
                       {v.estado === 'listo' && !v.con_voz && ' · sin voz'}
                     </span>
                   </span>

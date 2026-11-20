@@ -6,7 +6,10 @@
 //   { accion: "config" }                                        → { anthropic, elevenlabs }
 //   { accion: "crear", grabacion_id?, prospecto_id?, enfoque? }  → crea el video y lo arma en segundo plano → { id }
 //   { accion: "reintentar", id }                                 → si falló: rehace lo que faltó (guion y/o voz)
-// enfoque: "cliente" (le habla al dueño del negocio, por defecto) | "equipo" (para que se lo muestre a los suyos).
+//   { accion: "automatico", grabacion_id }  (solo con firma interna, la llama "grabaciones" al terminar un análisis)
+//                                           → si ajustes.videos_automaticos, arma el video para el cliente y el interno
+// enfoque: "cliente" (le habla al dueño del negocio, por defecto) | "equipo" (para que se lo muestre a los suyos)
+//          | "interno" (para nosotros: qué armarle y cómo, paso a paso).
 // El avance queda en la tabla videos (estado guion → voz → listo | error); el hub la relee mientras trabaja.
 // Secrets: ANTHROPIC_API_KEY (obligatorio), ELEVENLABS_API_KEY (sin ella, el video sale sin voz),
 // VIDEO_VOZ_ID (opcional: otra voz de ElevenLabs; por defecto "Fran").
@@ -14,6 +17,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { armarMaterial } from '../grabaciones/sintesis.ts'
 import { armarGuion, type Enfoque, type Guion } from './guion.ts'
 import { estimar, vozConfigurada, vozDeEscenas } from './voz.ts'
+import { cabecerasInternas, firmaInterna } from './auto.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined
 
@@ -24,7 +28,7 @@ const admin = createClient(URL_SUPABASE, SERVICE, { auth: { persistSession: fals
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-brixx-interno',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } })
@@ -36,6 +40,8 @@ function enSegundoPlano(p: Promise<unknown>) {
 }
 
 async function socio(req: Request): Promise<string | null> {
+  const interno = req.headers.get('x-brixx-interno')
+  if (interno) return interno === (await firmaInterna()) ? 'automático' : null
   const auth = req.headers.get('Authorization')
   if (!auth) return null
   const cliente = createClient(URL_SUPABASE, ANON, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } })
@@ -73,12 +79,13 @@ Cómo habla el cliente (fragmento de la transcripción, para el tono y los casos
 }
 
 /**
- * Arma todo lo que falte: guion (Claude) y voz (ElevenLabs). Si recién escribió el guion y tiene la sesión del socio,
- * la voz la hace otra llamada a esta misma función (cada llamada tiene su propio tope de tiempo).
+ * Arma todo lo que falte: guion (Claude) y voz (ElevenLabs). Si recién escribió el guion, la voz la hace otra llamada
+ * a esta misma función (con la sesión del socio o la firma interna): cada llamada tiene su propio tope de tiempo.
  */
-async function armar(id: string, enfoque: Enfoque, auth: string | null = null) {
+async function armar(id: string, cabeceras: Record<string, string> | null = null) {
   const { data: v, error } = await admin.from('videos').select('*').eq('id', id).maybeSingle()
   if (error || !v) throw new Error(error?.message ?? 'No existe el video.')
+  const enfoque = (['cliente', 'equipo', 'interno'].includes(v.enfoque) ? v.enfoque : 'cliente') as Enfoque
   try {
     let guion = v.guion as Guion | null
     if (!guion) {
@@ -86,10 +93,10 @@ async function armar(id: string, enfoque: Enfoque, auth: string | null = null) {
       const r = await armarGuion(await material(v.prospecto_id, v.grabacion_id), enfoque)
       guion = r.guion
       await guardar(id, { guion, titulo: guion.titulo.slice(0, 140), estado: 'voz' })
-      if (auth && vozConfigurada()) {
+      if (cabeceras && vozConfigurada()) {
         const r = await fetch(`${URL_SUPABASE}/functions/v1/videos`, {
           method: 'POST',
-          headers: { Authorization: auth, apikey: ANON, 'content-type': 'application/json' },
+          headers: cabeceras,
           body: JSON.stringify({ accion: 'reintentar', id }),
         }).catch(() => null)
         if (r?.ok) return // la voz sigue en la otra llamada
@@ -118,6 +125,28 @@ async function armar(id: string, enfoque: Enfoque, auth: string | null = null) {
   }
 }
 
+/** Para quién es (y qué cliente) a partir de la grabación */
+async function deLaGrabacion(grabacionId: string): Promise<{ prospectoId: string | null; analizada: boolean } | null> {
+  const { data: g } = await admin.from('grabaciones').select('prospecto_id, reunion_id, analisis').eq('id', grabacionId).maybeSingle()
+  if (!g) return null
+  let prospectoId: string | null = g.prospecto_id
+  if (!prospectoId && g.reunion_id) {
+    const { data: r } = await admin.from('reuniones').select('prospecto_id').eq('id', g.reunion_id).maybeSingle()
+    prospectoId = r?.prospecto_id ?? null
+  }
+  return { prospectoId, analizada: !!g.analisis }
+}
+
+async function nuevo(prospectoId: string | null, grabacionId: string | null, enfoque: Enfoque, email: string): Promise<string> {
+  const { data, error } = await admin
+    .from('videos')
+    .insert({ prospecto_id: prospectoId, grabacion_id: grabacionId, enfoque, estado: 'guion', pedido_por: email })
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  return data.id as string
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
@@ -129,7 +158,10 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'Pedido inválido' }, 400)
   }
-  const enfoque: Enfoque = body.enfoque === 'equipo' ? 'equipo' : 'cliente'
+  const enfoque: Enfoque = body.enfoque === 'equipo' || body.enfoque === 'interno' ? body.enfoque : 'cliente'
+  // Para que la voz siga en otra llamada: la misma sesión del socio o la firma interna
+  const cabeceras: Record<string, string> =
+    email === 'automático' ? await cabecerasInternas() : { Authorization: req.headers.get('Authorization') ?? '', apikey: ANON, 'content-type': 'application/json' }
 
   try {
     switch (body.accion) {
@@ -141,28 +173,43 @@ Deno.serve(async (req) => {
         const grabacionId = body.grabacion_id ?? null
         if (!prospectoId && !grabacionId) return json({ error: 'Falta la intervención o el cliente.' }, 400)
         if (grabacionId) {
-          const { data: g } = await admin.from('grabaciones').select('prospecto_id, reunion_id, analisis').eq('id', grabacionId).maybeSingle()
+          const g = await deLaGrabacion(grabacionId)
           if (!g) return json({ error: 'No encontré esa grabación.' }, 404)
-          if (!g.analisis) return json({ error: 'Primero hay que analizar la grabación.' }, 400)
-          prospectoId = prospectoId ?? g.prospecto_id
-          if (!prospectoId && g.reunion_id) {
-            const { data: r } = await admin.from('reuniones').select('prospecto_id').eq('id', g.reunion_id).maybeSingle()
-            prospectoId = r?.prospecto_id ?? null
-          }
+          if (!g.analizada) return json({ error: 'Primero hay que analizar la grabación.' }, 400)
+          prospectoId = prospectoId ?? g.prospectoId
         }
-        const { data, error } = await admin
-          .from('videos')
-          .insert({ prospecto_id: prospectoId, grabacion_id: grabacionId, estado: 'guion', pedido_por: email })
-          .select('id')
-          .single()
-        if (error) throw new Error(error.message)
-        enSegundoPlano(armar(data.id, enfoque, req.headers.get('Authorization')))
-        return json({ id: data.id })
+        const id = await nuevo(prospectoId, grabacionId, enfoque, email)
+        enSegundoPlano(armar(id, cabeceras))
+        return json({ id })
       }
       case 'reintentar': {
         if (!body.id) return json({ error: 'Falta el video.' }, 400)
-        enSegundoPlano(armar(body.id, enfoque))
+        enSegundoPlano(armar(body.id, cabeceras))
         return json({ ok: true })
+      }
+      case 'automatico': {
+        // Solo la llaman las otras funciones (firma interna), al terminar el análisis de una grabación con cliente
+        if (email !== 'automático') return json({ error: 'No autorizado' }, 401)
+        if (!claudeConfigurado() || !body.grabacion_id) return json({ ok: false })
+        const { data: aj } = await admin.from('ajustes').select('*').maybeSingle()
+        if (aj && aj.videos_automaticos === false) return json({ ok: false, motivo: 'apagados' })
+        const g = await deLaGrabacion(body.grabacion_id)
+        if (!g?.analizada || !g.prospectoId) return json({ ok: false, motivo: 'sin cliente' })
+        // Uno de cada uno por grabación: si se vuelve a analizar, no se repiten
+        const { data: ya } = await admin.from('videos').select('enfoque').eq('grabacion_id', body.grabacion_id)
+        const hechos = new Set((ya ?? []).map((v) => v.enfoque as string))
+        const ids: string[] = []
+        for (const e of ['cliente', 'interno'] as Enfoque[]) {
+          if (hechos.has(e)) continue
+          const id = await nuevo(g.prospectoId, body.grabacion_id, e, 'automático').catch((err) => {
+            if (/duplicate|unique/i.test(String(err))) return null // ya lo pidió otro aviso
+            throw err
+          })
+          if (!id) continue
+          ids.push(id)
+          enSegundoPlano(armar(id, cabeceras))
+        }
+        return json({ ok: true, ids })
       }
       default:
         return json({ error: 'Acción desconocida' }, 400)
