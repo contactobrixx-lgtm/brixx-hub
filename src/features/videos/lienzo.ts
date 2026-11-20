@@ -708,7 +708,10 @@ function panel(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo,
   const Y = 330
   const W = ANCHO - 320
   const items = e.items.slice(0, 5)
-  const H = 110 + items.length * 104
+  // Filas que entran entre el título y los subtítulos (el panel termina antes de y = 915)
+  const paso = Math.min(104, (915 - Y - 110) / Math.max(1, items.length))
+  const alto = paso - 16
+  const H = 110 + items.length * paso
   const a = entrada(u, 0.3, 0.5)
   ctx.save()
   ctx.globalAlpha = a
@@ -728,15 +731,15 @@ function panel(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo,
     if (on <= 0) return
     ctx.save()
     ctx.globalAlpha = a * on
-    const fy = Y + 96 + k * 104 + (1 - on) * 16
-    caja(ctx, X + 30, fy, W - 60, 88, 16, c.elevada)
-    caja(ctx, X + 30, fy, 8, 88, 4, colorFila[k % colorFila.length])
+    const fy = Y + 96 + k * paso + (1 - on) * 16
+    caja(ctx, X + 30, fy, W - 60, alto, 16, c.elevada)
+    caja(ctx, X + 30, fy, 8, alto, 4, colorFila[k % colorFila.length])
     ctx.fillStyle = c.texto
     ctx.font = fuente(700, 30)
-    ctx.fillText(it.titulo, X + 64, fy + 40, 640)
+    ctx.fillText(it.titulo, X + 64, fy + alto / 2 - 4, 640)
     ctx.fillStyle = c.tenue
     ctx.font = fuente(400, 24)
-    ctx.fillText(it.detalle, X + 64, fy + 72, W - 200)
+    ctx.fillText(it.detalle, X + 64, fy + alto / 2 + 28, W - 200)
     ctx.restore()
   })
   ctx.restore()
