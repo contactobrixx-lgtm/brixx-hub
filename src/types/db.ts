@@ -163,6 +163,10 @@ export interface CotizacionItem {
   etapa?: number | null
   /** Se ofrece aparte: se muestra con su precio pero no suma al total. 0027 */
   opcional?: boolean
+  /** Tarjeta del servicio en la propuesta: una línea, qué incluye y qué se entrega. 0027 */
+  resumen?: string | null
+  incluye?: string[]
+  entregable?: string | null
 }
 export type CotizacionItemInput = Omit<CotizacionItem, 'id' | 'cotizacion_id'>
 
@@ -183,9 +187,29 @@ export interface Cotizacion {
   video_url?: string | null
   /** Etapas en orden (Etapa 1, 2, 3…). 0027 */
   etapas?: EtapaCotizacion[]
+  /** Los demás textos de la propuesta (portada, punto de partida, mantenimiento, condiciones). 0027 */
+  propuesta?: ContenidoPropuesta
   created_at: string
   updated_at: string
   cotizacion_items: CotizacionItem[]
+}
+
+export interface ContenidoPropuesta {
+  /** Segunda línea gris del título de la portada ("en automatización y gestión.") */
+  subtitulo?: string
+  punto_texto?: string
+  puntos?: { titulo: string; detalle: string }[]
+  objetivos?: string[]
+  plan_titulo?: string
+  plan_texto?: string
+  mantenimiento?: string[]
+  mantenimiento_nota?: string
+  aviso?: { titulo: string; texto: string }
+  pago?: string
+  moneda_texto?: string
+  validez?: string
+  cierre?: string
+  telefono?: string
 }
 
 export interface EtapaCotizacion {
