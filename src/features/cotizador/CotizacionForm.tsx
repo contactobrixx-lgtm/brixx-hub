@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Plus, Trash2 } from 'lucide-react'
+import { FileText, Link2, Plus, Trash2 } from 'lucide-react'
+import { linkPublicoPropuesta } from './useCotizador'
 import type {
   ContenidoPropuesta,
   EtapaCotizacion,
@@ -127,6 +128,23 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
+  const [link, setLink] = useState<string | null>(null)
+
+  /** Link de la propuesta para el cliente: se abre sin iniciar sesión. En el celular abre el menú para mandarlo. */
+  const compartir = async () => {
+    if (!c) return
+    setError(null)
+    try {
+      const url = await linkPublicoPropuesta(c.id, c.token_publico)
+      setLink(url)
+      const nombre = prospectos.find((p) => p.id === c.prospecto_id)
+      const titulo = `Propuesta para ${nombre?.empresa || nombre?.nombre || 'vos'}`
+      if (navigator.share) await navigator.share({ title: titulo, text: `${titulo} · brixx`, url }).catch(() => {})
+      else await navigator.clipboard?.writeText(url).catch(() => {})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo armar el link.')
+    }
+  }
 
   // Precios del catálogo están en USD; si la cotización es en ARS se convierten con el tipo de cambio.
   const convertir = (usd: number) => (moneda === 'ARS' && tipoCambio ? Math.round(usd * tipoCambio) : usd)
@@ -270,6 +288,11 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
             </Button>
           )}
           <div className="ml-auto flex flex-wrap gap-2">
+            {c && (
+              <Button variant="secundario" onClick={compartir} disabled={guardando} title="Link para mandarle la propuesta al cliente (se abre sin iniciar sesión)">
+                <Link2 className="size-[18px]" /> Link para el cliente
+              </Button>
+            )}
             {c && (
               <Link
                 to={`/cotizaciones/${c.id}/imprimir`}
@@ -587,6 +610,15 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           <Textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={4} placeholder="50% de anticipo y 50% contra entrega. Plazo estimado: 4 semanas." />
         </Field>
 
+        {link && (
+          <div className="rounded-[10px] bg-ok-tenue px-3.5 py-3 text-sm text-ok">
+            <p className="font-semibold">Link para el cliente (se abre sin iniciar sesión, con el video):</p>
+            <a href={link} target="_blank" rel="noreferrer" className="mt-1 block break-all underline">
+              {link}
+            </a>
+            <p className="mt-1 text-xs">Si no se abrió el menú para compartir, ya quedó copiado: pegalo en WhatsApp.</p>
+          </div>
+        )}
         {error && <ErrorBox mensaje={error} />}
       </form>
     </Modal>
