@@ -15,6 +15,7 @@ import { actualizarSintesis, dominio, useHistoriaClientes, usuarioInstagram } fr
 import { LinksCliente } from '../features/clientes/LinksCliente'
 import { AgentesCliente } from '../features/agentes/AgentesCliente'
 import { VideosCliente } from '../features/videos/VideosCliente'
+import { PropuestasCliente } from '../features/cotizador/PropuestasCliente'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorBox } from '../components/ui/ErrorBox'
@@ -234,6 +235,8 @@ export function ClientePage() {
             </section>
           )}
 
+          <PropuestasCliente prospectoId={p.id} nombre={p.empresa || p.nombre} />
+
           <Bloque titulo="Intervenciones">
             {historia.length === 0 ? (
               <p className="text-sm text-tenue">Todavía no hay audios, chats ni reuniones de este cliente.</p>
@@ -285,7 +288,7 @@ export function ClientePage() {
             <Dato label="Próxima" valor={p.proxima_accion ? `${p.proxima_accion}${p.fecha_proxima_accion ? ` · ${formatFecha(p.fecha_proxima_accion)}` : ''}` : null} />
           </Bloque>
           <AgentesCliente p={p} />
-          {historia.some((g) => g.analisis) && <VideosCliente prospectoId={p.id} compacto />}
+          <VideosCliente prospectoId={p.id} compacto puedeGenerar={historia.some((g) => g.analisis)} />
           {p.notas && (
             <Bloque titulo="Notas">
               <p className="text-sm whitespace-pre-line text-suave">{p.notas}</p>

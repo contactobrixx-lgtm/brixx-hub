@@ -39,7 +39,7 @@ const ESTUDIO: Item[] = [
   { to: '/grabaciones', label: 'Grabaciones', icono: Mic },
   { to: '/pipeline', label: 'Pipeline', icono: KanbanSquare },
   { to: '/clientes', label: 'Clientes', icono: FolderOpen },
-  { to: '/cotizador', label: 'Cotizador', icono: Calculator },
+  { to: '/propuestas', label: 'Propuestas', icono: Calculator },
   { to: '/finanzas', label: 'Finanzas', icono: Wallet },
 ]
 

@@ -113,7 +113,7 @@ export function useDashboard(periodo: Periodo) {
         tono: 'aviso',
         titulo: `Cotización sin respuesta: ${p ? p.empresa || p.nombre : 'sin cliente'}`,
         detalle: q.valida_hasta && q.valida_hasta < hoy ? 'Ya venció: hacé seguimiento o actualizala' : 'Enviada hace más de una semana',
-        ir: '/cotizador',
+        ir: '/propuestas',
       })
     }
     for (const [id, v] of saldos.slice(0, 4)) {
@@ -140,7 +140,7 @@ export function useDashboard(periodo: Periodo) {
     }
 
     const sinPrecio = servicios.filas.filter((s) => s.activo && !Number(s.precio_implementacion) && !Number(s.precio_mensual)).length
-    if (sinPrecio) pendientes.push({ tono: 'info', titulo: 'Cargá tus precios', detalle: `${sinPrecio} ${sinPrecio === 1 ? 'servicio sin precio' : 'servicios sin precio'}`, ir: '/cotizador?vista=servicios' })
+    if (sinPrecio) pendientes.push({ tono: 'info', titulo: 'Cargá tus precios', detalle: `${sinPrecio} ${sinPrecio === 1 ? 'servicio sin precio' : 'servicios sin precio'}`, ir: '/propuestas?vista=servicios' })
     const hayArs = [...cobros.filas, ...costos.filas].some((x) => x.moneda === 'ARS')
     if (hayArs && !tc) pendientes.push({ tono: 'aviso', titulo: 'Falta el tipo de cambio', detalle: 'Los montos en pesos no se suman en dólares', ir: '/finanzas' })
     if (!costos.filas.length) pendientes.push({ tono: 'info', titulo: 'Cargá los costos del estudio', detalle: 'Apps, hosting, IA: con eso se calcula el margen', ir: '/finanzas?vista=costos' })

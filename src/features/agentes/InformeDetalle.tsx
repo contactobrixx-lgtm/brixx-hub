@@ -167,7 +167,7 @@ export function InformeDetalle({ informe, onCerrar, onBorrar }: Props) {
 
         {informe.datos?.cotizacion_id && (
           <div className="flex flex-wrap gap-2">
-            <Link to={`/cotizador?abrir=${informe.datos.cotizacion_id}`}>
+            <Link to={`/propuestas?abrir=${informe.datos.cotizacion_id}`}>
               <Button size="sm">
                 <Calculator className="size-4" /> Revisar {informe.datos.numero ?? 'la cotización'} en el cotizador
               </Button>
