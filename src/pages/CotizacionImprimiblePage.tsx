@@ -35,8 +35,11 @@ function TablaItems({ items, moneda, hayMensual }: { items: CotizacionItem[]; mo
       </thead>
       <tbody>
         {items.map((it) => (
-          <tr key={it.id} className="border-b border-linea align-top">
-            <td className="py-3 pr-3">{it.descripcion}</td>
+          <tr key={it.id} className={`border-b border-linea align-top ${it.opcional ? 'text-tinta-suave' : ''}`}>
+            <td className="py-3 pr-3">
+              {it.descripcion}
+              {it.opcional && <span className="ml-2 rounded bg-papel-calido px-1.5 py-0.5 text-[11px] font-semibold text-tinta-suave uppercase">Opcional · no suma al total</span>}
+            </td>
             <td className="tabular py-3 text-right">{Number(it.cantidad)}</td>
             <td className="tabular py-3 text-right">
               {Number(it.precio_implementacion) ? formatMonto(Number(it.cantidad) * Number(it.precio_implementacion), moneda) : '—'}
@@ -77,7 +80,7 @@ export function CotizacionImprimiblePage() {
   const porEtapa = etapas.map((_, n) => items.filter((it) => it.etapa === n + 1))
   const sueltos = etapas.length ? items.filter((it) => !it.etapa || it.etapa > etapas.length) : items
   const sumar = (lista: CotizacionItem[], campo: 'precio_implementacion' | 'precio_mensual') =>
-    lista.reduce((s, it) => s + Number(it.cantidad) * Number(it[campo]), 0)
+    lista.filter((it) => !it.opcional).reduce((s, it) => s + Number(it.cantidad) * Number(it[campo]), 0)
 
   return (
     <div className="min-h-full bg-elevada py-8 print:bg-papel print:py-0">
@@ -130,7 +133,10 @@ export function CotizacionImprimiblePage() {
                 <li key={n} className="flex gap-4 rounded-xl border border-linea p-4 break-inside-avoid">
                   <span className="grid size-9 shrink-0 place-items-center rounded-full bg-tinta font-bold text-papel">{n + 1}</span>
                   <div>
-                    <div className="text-xs font-semibold tracking-wide text-tinta-suave uppercase">Etapa {n + 1}</div>
+                    <div className="text-xs font-semibold tracking-wide text-tinta-suave uppercase">
+                      Etapa {n + 1}
+                      {e.plazo && <span className="ml-2 rounded-full bg-papel-calido px-2 py-0.5 normal-case">{e.plazo}</span>}
+                    </div>
                     <div className="font-display text-lg leading-snug font-bold">{e.titulo}</div>
                     {e.detalle && <p className="mt-1 text-[14px] leading-relaxed text-tinta-media">{e.detalle}</p>}
                   </div>
@@ -181,7 +187,10 @@ export function CotizacionImprimiblePage() {
           {etapas.map((e, n) =>
             porEtapa[n].length ? (
               <div key={n} className="mt-6 break-inside-avoid">
-                <div className="text-xs font-semibold tracking-wide text-tinta-suave uppercase">Etapa {n + 1}</div>
+                <div className="text-xs font-semibold tracking-wide text-tinta-suave uppercase">
+                  Etapa {n + 1}
+                  {e.plazo && <span className="ml-2 normal-case">· {e.plazo}</span>}
+                </div>
                 <h3 className="font-display text-lg font-bold">{e.titulo}</h3>
                 <TablaItems items={porEtapa[n]} moneda={c.moneda} hayMensual={hayMensual} />
                 <div className="mt-2 flex justify-end gap-6 text-[14px] text-tinta-suave">
@@ -227,6 +236,7 @@ export function CotizacionImprimiblePage() {
                 <span className="tabular font-display text-lg font-bold">{formatMonto(t.mensual, c.moneda)}/mes</span>
               </div>
             )}
+            {items.some((it) => it.opcional) && <p className="mt-2 text-right text-xs text-tinta-suave">Los ítems opcionales no están incluidos en el total.</p>}
             {c.moneda === 'USD' && <p className="mt-2 text-right text-xs text-tinta-suave">Valores en dólares estadounidenses.</p>}
           </div>
         </section>

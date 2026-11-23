@@ -36,7 +36,7 @@ async function numeros(ctx: Contexto): Promise<{ texto: string; claves: Fila }> 
     ctx.hub.tipoCambio(),
     ctx.db.from('cobros').select('fecha, monto, moneda, concepto, prospecto_id').gte('fecha', `${ult[0]}-01`),
     ctx.db.from('costos').select('nombre, categoria, monto, moneda, frecuencia, desde, hasta'),
-    ctx.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada'),
+    ctx.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual, opcional)').eq('estado', 'aceptada'),
   ])
   const aUSD = (m: number, moneda: unknown) => (moneda === 'USD' ? Number(m) : tc ? Number(m) / tc : 0)
   const sinTC = !tc && [...(cobros ?? []), ...(costos ?? [])].some((x) => x.moneda === 'ARS')

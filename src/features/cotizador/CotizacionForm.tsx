@@ -26,12 +26,14 @@ interface ItemEditable {
   impl: string
   mensual: string
   etapa: string
+  opcional: boolean
 }
 
 interface EtapaEditable {
   key: string
   titulo: string
   detalle: string
+  plazo: string
 }
 
 interface Props {
@@ -80,11 +82,12 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         impl: String(it.precio_implementacion),
         mensual: String(it.precio_mensual),
         etapa: it.etapa ? String(it.etapa) : '',
+        opcional: !!it.opcional,
       })),
   )
   const [introduccion, setIntroduccion] = useState(c?.introduccion ?? '')
   const [videoUrl, setVideoUrl] = useState(c?.video_url ?? '')
-  const [etapas, setEtapas] = useState<EtapaEditable[]>(() => (c?.etapas ?? []).map((e) => ({ key: nuevaKey(), titulo: e.titulo, detalle: e.detalle })))
+  const [etapas, setEtapas] = useState<EtapaEditable[]>(() => (c?.etapas ?? []).map((e) => ({ key: nuevaKey(), titulo: e.titulo, detalle: e.detalle, plazo: e.plazo ?? '' })))
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
@@ -105,11 +108,12 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         impl: String(convertir(Number(s.precio_implementacion))),
         mensual: String(convertir(Number(s.precio_mensual))),
         etapa: etapas.length ? String(etapas.length) : '',
+        opcional: false,
       },
     ])
   }
 
-  const cambiar = (key: string, campo: keyof ItemEditable, valor: string) =>
+  const cambiar = (key: string, campo: Exclude<keyof ItemEditable, 'opcional'>, valor: string) =>
     setItems((l) => l.map((it) => (it.key === key ? { ...it, [campo]: valor } : it)))
 
   const itemsNumericos = (): CotizacionItemInput[] | null => {
@@ -127,6 +131,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         precio_mensual: mensual,
         orden: i,
         etapa: it.etapa && Number(it.etapa) <= etapas.length ? Number(it.etapa) : null,
+        opcional: it.opcional,
       })
     }
     return res
@@ -162,7 +167,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           video_url: vacioANull(videoUrl),
           etapas: etapas
             .filter((e) => e.titulo.trim())
-            .map((e): EtapaCotizacion => ({ titulo: e.titulo.trim(), detalle: e.detalle.trim() })),
+            .map((e): EtapaCotizacion => ({ titulo: e.titulo.trim(), detalle: e.detalle.trim(), plazo: vacioANull(e.plazo) })),
         },
         numericos,
         c?.id ?? null,
@@ -309,6 +314,13 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
+                  <Input
+                    className="mt-2"
+                    value={e.plazo}
+                    onChange={(ev) => setEtapas((l) => l.map((x) => (x.key === e.key ? { ...x, plazo: ev.target.value } : x)))}
+                    placeholder='Plazo estimado (ej.: "3 a 4 semanas")'
+                    aria-label={`Plazo de la etapa ${n + 1}`}
+                  />
                   <Textarea
                     className="mt-2"
                     value={e.detalle}
@@ -320,7 +332,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                 </div>
               ))}
             </div>
-            <Button variant="secundario" className="mt-2" onClick={() => setEtapas((l) => [...l, { key: nuevaKey(), titulo: '', detalle: '' }])}>
+            <Button variant="secundario" className="mt-2" onClick={() => setEtapas((l) => [...l, { key: nuevaKey(), titulo: '', detalle: '', plazo: '' }])}>
               <Plus className="size-4" /> Agregar etapa
             </Button>
           </div>
@@ -380,6 +392,15 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                       </Select>
                     </label>
                   )}
+                  <label className="col-span-3 flex cursor-pointer items-center gap-2 text-xs text-tenue sm:col-span-full">
+                    <input
+                      type="checkbox"
+                      checked={it.opcional}
+                      onChange={(e) => setItems((l) => l.map((x) => (x.key === it.key ? { ...x, opcional: e.target.checked } : x)))}
+                      className="size-4 accent-(--color-acento)"
+                    />
+                    Opcional (se muestra con su precio, pero no suma al total)
+                  </label>
                 </div>
               </div>
             ))}
@@ -408,7 +429,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
             <Button
               variant="secundario"
               onClick={() =>
-                setItems((l) => [...l, { key: nuevaKey(), servicio_id: null, descripcion: '', cantidad: '1', impl: '', mensual: '', etapa: etapas.length ? String(etapas.length) : '' }])
+                setItems((l) => [...l, { key: nuevaKey(), servicio_id: null, descripcion: '', cantidad: '1', impl: '', mensual: '', etapa: etapas.length ? String(etapas.length) : '', opcional: false }])
               }
             >
               <Plus className="size-4" /> Ítem libre

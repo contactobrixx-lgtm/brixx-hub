@@ -769,7 +769,7 @@ function panel(ctx: CanvasRenderingContext2D, e: EscenaVideo, guion: GuionVideo,
   })
   ctx.fillStyle = c.tenue
   ctx.font = fuente(600, 22)
-  ctx.fillText(e.seccion ? `Plan de brixx para ${guion.cliente}` : `Panel de ${guion.cliente}`, X + 140, Y + 52)
+  ctx.fillText(guion.etiqueta === 'Plan de implementación' ? `Plan de brixx para ${guion.cliente}` : `Panel de ${guion.cliente}`, X + 140, Y + 52)
   const colorFila = [c.acento, c.turquesa, c.violeta, c.naranja, c.ok]
   items.forEach((it, k) => {
     const on = entrada(u, 0.7 + (k * Math.max(1, dur * 0.7 - 0.7)) / Math.max(1, items.length), 0.4)

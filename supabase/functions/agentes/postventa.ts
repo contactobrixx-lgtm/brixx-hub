@@ -43,7 +43,7 @@ export async function correrPostventa(ctx: Contexto, manual: boolean): Promise<s
 
   const ids = clientes.map((p) => p.id as string)
   const [{ data: cots }, { data: cobros }, { data: grabs }, { data: reus }, { data: servicios }] = await Promise.all([
-    ctx.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada').in('prospecto_id', ids),
+    ctx.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual, opcional)').eq('estado', 'aceptada').in('prospecto_id', ids),
     ctx.db.from('cobros').select('prospecto_id, concepto, fecha').in('prospecto_id', ids).order('fecha', { ascending: false }),
     ctx.db.from('grabaciones').select('prospecto_id, created_at').in('prospecto_id', ids).order('created_at', { ascending: false }),
     ctx.db.from('reuniones').select('prospecto_id, inicio').in('prospecto_id', ids).lte('inicio', new Date().toISOString()).order('inicio', { ascending: false }),

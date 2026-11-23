@@ -180,6 +180,7 @@ export function totales(c: Fila): { impl: number; mes: number } {
   let impl = 0
   let mes = 0
   for (const it of (c.cotizacion_items as Fila[]) ?? []) {
+    if (it.opcional) continue // los ítems opcionales no suman al total
     impl += Number(it.cantidad) * Number(it.precio_implementacion)
     mes += Number(it.cantidad) * Number(it.precio_mensual)
   }

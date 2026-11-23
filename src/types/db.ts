@@ -161,6 +161,8 @@ export interface CotizacionItem {
   orden: number
   /** Etapa de la propuesta (1, 2, 3…; null = sin etapa). 0027 */
   etapa?: number | null
+  /** Se ofrece aparte: se muestra con su precio pero no suma al total. 0027 */
+  opcional?: boolean
 }
 export type CotizacionItemInput = Omit<CotizacionItem, 'id' | 'cotizacion_id'>
 
@@ -189,6 +191,8 @@ export interface Cotizacion {
 export interface EtapaCotizacion {
   titulo: string
   detalle: string
+  /** Tiempo estimado ("3 a 4 semanas") */
+  plazo?: string | null
 }
 export type CotizacionInput = Omit<Cotizacion, 'id' | 'numero' | 'created_at' | 'updated_at' | 'cotizacion_items'>
 
