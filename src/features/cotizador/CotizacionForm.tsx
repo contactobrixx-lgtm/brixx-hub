@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, Plus, Trash2 } from 'lucide-react'
 import type {
+  EtapaCotizacion,
   Cotizacion,
   CotizacionInput,
   CotizacionItemInput,
@@ -24,6 +25,13 @@ interface ItemEditable {
   cantidad: string
   impl: string
   mensual: string
+  etapa: string
+}
+
+interface EtapaEditable {
+  key: string
+  titulo: string
+  detalle: string
 }
 
 interface Props {
@@ -71,8 +79,12 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         cantidad: String(it.cantidad),
         impl: String(it.precio_implementacion),
         mensual: String(it.precio_mensual),
+        etapa: it.etapa ? String(it.etapa) : '',
       })),
   )
+  const [introduccion, setIntroduccion] = useState(c?.introduccion ?? '')
+  const [videoUrl, setVideoUrl] = useState(c?.video_url ?? '')
+  const [etapas, setEtapas] = useState<EtapaEditable[]>(() => (c?.etapas ?? []).map((e) => ({ key: nuevaKey(), titulo: e.titulo, detalle: e.detalle })))
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
@@ -92,6 +104,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         cantidad: '1',
         impl: String(convertir(Number(s.precio_implementacion))),
         mensual: String(convertir(Number(s.precio_mensual))),
+        etapa: etapas.length ? String(etapas.length) : '',
       },
     ])
   }
@@ -113,6 +126,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         precio_implementacion: impl,
         precio_mensual: mensual,
         orden: i,
+        etapa: it.etapa && Number(it.etapa) <= etapas.length ? Number(it.etapa) : null,
       })
     }
     return res
@@ -144,6 +158,11 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           moneda,
           descuento_pct: desc,
           notas: vacioANull(notas),
+          introduccion: vacioANull(introduccion),
+          video_url: vacioANull(videoUrl),
+          etapas: etapas
+            .filter((e) => e.titulo.trim())
+            .map((e): EtapaCotizacion => ({ titulo: e.titulo.trim(), detalle: e.detalle.trim() })),
         },
         numericos,
         c?.id ?? null,
@@ -248,6 +267,65 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           </p>
         )}
 
+        {/* Propuesta: primera hoja, video y etapas */}
+        <section className="space-y-4">
+          <h3 className="text-[19px] font-bold">Propuesta</h3>
+          <Field label="Introducción" ayuda="Primera hoja del PDF: para quién es y qué resuelve.">
+            <Textarea value={introduccion} onChange={(e) => setIntroduccion(e.target.value)} rows={4} />
+          </Field>
+          <Field label="Video" ayuda='Va en la segunda hoja. Una página del hub ("/material/….html"), un link de YouTube o un .mp4. En el PDF queda como link.'>
+            <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="/material/setter-alcione-deco.html" />
+          </Field>
+          <div>
+            <div className="mb-2 text-sm font-semibold">Etapas</div>
+            <div className="flex flex-col gap-2">
+              {etapas.map((e, n) => (
+                <div key={e.key} className="rounded-xl bg-superficie p-3 ring-1 ring-borde">
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 shrink-0 text-sm font-semibold text-acento-texto">Etapa {n + 1}</span>
+                    <Input
+                      value={e.titulo}
+                      onChange={(ev) => setEtapas((l) => l.map((x) => (x.key === e.key ? { ...x, titulo: ev.target.value } : x)))}
+                      placeholder="Título de la etapa"
+                      aria-label={`Título de la etapa ${n + 1}`}
+                    />
+                    <Button
+                      variant="fantasma"
+                      size="icono"
+                      className="size-11 text-peligro"
+                      onClick={() => {
+                        setEtapas((l) => l.filter((x) => x.key !== e.key))
+                        // Los ítems de esta etapa quedan sin etapa; los de las siguientes bajan un número
+                        setItems((l) =>
+                          l.map((it) => {
+                            const k = Number(it.etapa)
+                            if (!k) return it
+                            return { ...it, etapa: k === n + 1 ? '' : k > n + 1 ? String(k - 1) : it.etapa }
+                          }),
+                        )
+                      }}
+                      aria-label={`Quitar la etapa ${n + 1}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                  <Textarea
+                    className="mt-2"
+                    value={e.detalle}
+                    onChange={(ev) => setEtapas((l) => l.map((x) => (x.key === e.key ? { ...x, detalle: ev.target.value } : x)))}
+                    rows={3}
+                    placeholder="Qué incluye esta etapa"
+                    aria-label={`Detalle de la etapa ${n + 1}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button variant="secundario" className="mt-2" onClick={() => setEtapas((l) => [...l, { key: nuevaKey(), titulo: '', detalle: '' }])}>
+              <Plus className="size-4" /> Agregar etapa
+            </Button>
+          </div>
+        </section>
+
         {/* Ítems */}
         <section>
           <div className="mb-3 flex items-baseline justify-between">
@@ -276,7 +354,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
-                <div className="mt-2 grid grid-cols-[70px_1fr_1fr] gap-2">
+                <div className={etapas.length ? 'mt-2 grid grid-cols-[70px_1fr_1fr] gap-2 sm:grid-cols-[70px_1fr_1fr_110px]' : 'mt-2 grid grid-cols-[70px_1fr_1fr] gap-2'}>
                   <label className="text-xs text-tenue">
                     Cant.
                     <Input value={it.cantidad} onChange={(e) => cambiar(it.key, 'cantidad', e.target.value)} inputMode="decimal" />
@@ -289,6 +367,19 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                     Mensual
                     <Input value={it.mensual} onChange={(e) => cambiar(it.key, 'mensual', e.target.value)} inputMode="decimal" />
                   </label>
+                  {etapas.length > 0 && (
+                    <label className="col-span-3 text-xs text-tenue sm:col-span-1">
+                      Etapa
+                      <Select value={it.etapa} onChange={(e) => cambiar(it.key, 'etapa', e.target.value)}>
+                        <option value="">—</option>
+                        {etapas.map((_, n) => (
+                          <option key={n} value={String(n + 1)}>
+                            {n + 1}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                  )}
                 </div>
               </div>
             ))}
@@ -317,7 +408,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
             <Button
               variant="secundario"
               onClick={() =>
-                setItems((l) => [...l, { key: nuevaKey(), servicio_id: null, descripcion: '', cantidad: '1', impl: '', mensual: '' }])
+                setItems((l) => [...l, { key: nuevaKey(), servicio_id: null, descripcion: '', cantidad: '1', impl: '', mensual: '', etapa: etapas.length ? String(etapas.length) : '' }])
               }
             >
               <Plus className="size-4" /> Ítem libre
