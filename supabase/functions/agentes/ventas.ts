@@ -13,7 +13,7 @@ async function datosDeVentas(ctx: Contexto): Promise<{ texto: string; decididas:
   const [prospectos, tc, { data: cots }, { data: grabs }] = await Promise.all([
     ctx.hub.prospectos(),
     ctx.hub.tipoCambio(),
-    ctx.db.from('cotizaciones').select('id, prospecto_id, estado, fecha, moneda, descuento_pct, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual)'),
+    ctx.db.from('cotizaciones').select('id, prospecto_id, estado, fecha, moneda, descuento_pct, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual, opcional)'),
     ctx.db.from('grabaciones').select('prospecto_id, analisis, created_at').eq('estado', 'lista').order('created_at', { ascending: false }).limit(60),
   ])
   const aUSD = (m: number, moneda: unknown) => (moneda === 'USD' ? m : tc ? m / tc : 0)

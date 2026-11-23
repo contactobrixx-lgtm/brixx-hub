@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { FileText, Plus, Trash2 } from 'lucide-react'
 import type {
+  ContenidoPropuesta,
+  EtapaCotizacion,
   Cotizacion,
   CotizacionInput,
   CotizacionItemInput,
@@ -24,6 +26,28 @@ interface ItemEditable {
   cantidad: string
   impl: string
   mensual: string
+  etapa: string
+  opcional: boolean
+  resumen: string
+  incluye: string
+  entregable: string
+}
+
+/** Textos de varias líneas ↔ listas (una por línea; "Título: detalle" para los puntos) */
+const aLineas = (l?: string[]) => (l ?? []).join('\n')
+const deLineas = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean)
+const aPuntos = (l?: { titulo: string; detalle: string }[]) => (l ?? []).map((x) => `${x.titulo}: ${x.detalle}`).join('\n')
+const dePuntos = (t: string) =>
+  deLineas(t).map((x) => {
+    const i = x.indexOf(':')
+    return i > 0 ? { titulo: x.slice(0, i).trim(), detalle: x.slice(i + 1).trim() } : { titulo: x, detalle: '' }
+  })
+
+interface EtapaEditable {
+  key: string
+  titulo: string
+  detalle: string
+  plazo: string
 }
 
 interface Props {
@@ -71,8 +95,35 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         cantidad: String(it.cantidad),
         impl: String(it.precio_implementacion),
         mensual: String(it.precio_mensual),
+        etapa: it.etapa ? String(it.etapa) : '',
+        opcional: !!it.opcional,
+        resumen: it.resumen ?? '',
+        incluye: aLineas(it.incluye),
+        entregable: it.entregable ?? '',
       })),
   )
+  const [introduccion, setIntroduccion] = useState(c?.introduccion ?? '')
+  const [videoUrl, setVideoUrl] = useState(c?.video_url ?? '')
+  const p0: ContenidoPropuesta = c?.propuesta ?? {}
+  const [prop, setProp] = useState({
+    subtitulo: p0.subtitulo ?? '',
+    punto_texto: p0.punto_texto ?? '',
+    puntos: aPuntos(p0.puntos),
+    objetivos: aLineas(p0.objetivos),
+    plan_titulo: p0.plan_titulo ?? '',
+    plan_texto: p0.plan_texto ?? '',
+    mantenimiento: aLineas(p0.mantenimiento),
+    mantenimiento_nota: p0.mantenimiento_nota ?? '',
+    aviso_titulo: p0.aviso?.titulo ?? '',
+    aviso_texto: p0.aviso?.texto ?? '',
+    pago: p0.pago ?? '',
+    moneda_texto: p0.moneda_texto ?? '',
+    validez: p0.validez ?? '',
+    cierre: p0.cierre ?? '',
+    telefono: p0.telefono ?? '',
+  })
+  const campoProp = (k: keyof typeof prop) => ({ value: prop[k], onChange: (e: { target: { value: string } }) => setProp((x) => ({ ...x, [k]: e.target.value })) })
+  const [etapas, setEtapas] = useState<EtapaEditable[]>(() => (c?.etapas ?? []).map((e) => ({ key: nuevaKey(), titulo: e.titulo, detalle: e.detalle, plazo: e.plazo ?? '' })))
   const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
@@ -92,11 +143,16 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         cantidad: '1',
         impl: String(convertir(Number(s.precio_implementacion))),
         mensual: String(convertir(Number(s.precio_mensual))),
+        etapa: etapas.length ? String(etapas.length) : '',
+        opcional: false,
+        resumen: '',
+        incluye: '',
+        entregable: '',
       },
     ])
   }
 
-  const cambiar = (key: string, campo: keyof ItemEditable, valor: string) =>
+  const cambiar = (key: string, campo: Exclude<keyof ItemEditable, 'opcional' | 'key'>, valor: string) =>
     setItems((l) => l.map((it) => (it.key === key ? { ...it, [campo]: valor } : it)))
 
   const itemsNumericos = (): CotizacionItemInput[] | null => {
@@ -113,6 +169,11 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         precio_implementacion: impl,
         precio_mensual: mensual,
         orden: i,
+        etapa: it.etapa && Number(it.etapa) <= etapas.length ? Number(it.etapa) : null,
+        opcional: it.opcional,
+        resumen: vacioANull(it.resumen),
+        incluye: deLineas(it.incluye),
+        entregable: vacioANull(it.entregable),
       })
     }
     return res
@@ -144,6 +205,29 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           moneda,
           descuento_pct: desc,
           notas: vacioANull(notas),
+          introduccion: vacioANull(introduccion),
+          video_url: vacioANull(videoUrl),
+          etapas: etapas
+            .filter((e) => e.titulo.trim())
+            .map((e): EtapaCotizacion => ({ titulo: e.titulo.trim(), detalle: e.detalle.trim(), plazo: vacioANull(e.plazo) })),
+          propuesta: Object.fromEntries(
+            Object.entries({
+              subtitulo: prop.subtitulo.trim(),
+              punto_texto: prop.punto_texto.trim(),
+              puntos: dePuntos(prop.puntos),
+              objetivos: deLineas(prop.objetivos),
+              plan_titulo: prop.plan_titulo.trim(),
+              plan_texto: prop.plan_texto.trim(),
+              mantenimiento: deLineas(prop.mantenimiento),
+              mantenimiento_nota: prop.mantenimiento_nota.trim(),
+              aviso: prop.aviso_titulo.trim() ? { titulo: prop.aviso_titulo.trim(), texto: prop.aviso_texto.trim() } : undefined,
+              pago: prop.pago.trim(),
+              moneda_texto: prop.moneda_texto.trim(),
+              validez: prop.validez.trim(),
+              cierre: prop.cierre.trim(),
+              telefono: prop.telefono.trim(),
+            }).filter(([, v]) => (Array.isArray(v) ? v.length : !!v)),
+          ) as ContenidoPropuesta,
         },
         numericos,
         c?.id ?? null,
@@ -248,6 +332,126 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           </p>
         )}
 
+        {/* Propuesta: primera hoja, video y etapas */}
+        <section className="space-y-4">
+          <h3 className="text-[19px] font-bold">Propuesta</h3>
+          <Field label="Introducción" ayuda="Primera hoja del PDF: para quién es y qué resuelve.">
+            <Textarea value={introduccion} onChange={(e) => setIntroduccion(e.target.value)} rows={4} />
+          </Field>
+          <Field label="Video" ayuda='Va en la segunda hoja. Una página del hub ("/material/….html"), un link de YouTube o un .mp4. En el PDF queda como link.'>
+            <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="/material/setter-alcione-deco.html" />
+          </Field>
+          <div>
+            <div className="mb-2 text-sm font-semibold">Etapas</div>
+            <div className="flex flex-col gap-2">
+              {etapas.map((e, n) => (
+                <div key={e.key} className="rounded-xl bg-superficie p-3 ring-1 ring-borde">
+                  <div className="flex items-center gap-2">
+                    <span className="w-16 shrink-0 text-sm font-semibold text-acento-texto">Etapa {n + 1}</span>
+                    <Input
+                      value={e.titulo}
+                      onChange={(ev) => setEtapas((l) => l.map((x) => (x.key === e.key ? { ...x, titulo: ev.target.value } : x)))}
+                      placeholder="Título de la etapa"
+                      aria-label={`Título de la etapa ${n + 1}`}
+                    />
+                    <Button
+                      variant="fantasma"
+                      size="icono"
+                      className="size-11 text-peligro"
+                      onClick={() => {
+                        setEtapas((l) => l.filter((x) => x.key !== e.key))
+                        // Los ítems de esta etapa quedan sin etapa; los de las siguientes bajan un número
+                        setItems((l) =>
+                          l.map((it) => {
+                            const k = Number(it.etapa)
+                            if (!k) return it
+                            return { ...it, etapa: k === n + 1 ? '' : k > n + 1 ? String(k - 1) : it.etapa }
+                          }),
+                        )
+                      }}
+                      aria-label={`Quitar la etapa ${n + 1}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                  <Input
+                    className="mt-2"
+                    value={e.plazo}
+                    onChange={(ev) => setEtapas((l) => l.map((x) => (x.key === e.key ? { ...x, plazo: ev.target.value } : x)))}
+                    placeholder='Plazo estimado (ej.: "3 a 4 semanas")'
+                    aria-label={`Plazo de la etapa ${n + 1}`}
+                  />
+                  <Textarea
+                    className="mt-2"
+                    value={e.detalle}
+                    onChange={(ev) => setEtapas((l) => l.map((x) => (x.key === e.key ? { ...x, detalle: ev.target.value } : x)))}
+                    rows={3}
+                    placeholder="Qué incluye esta etapa"
+                    aria-label={`Detalle de la etapa ${n + 1}`}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button variant="secundario" className="mt-2" onClick={() => setEtapas((l) => [...l, { key: nuevaKey(), titulo: '', detalle: '', plazo: '' }])}>
+              <Plus className="size-4" /> Agregar etapa
+            </Button>
+          </div>
+          <details className="rounded-xl bg-superficie p-3 ring-1 ring-borde">
+            <summary className="cursor-pointer text-sm font-semibold">Textos de la propuesta (portada, punto de partida, condiciones)</summary>
+            <div className="mt-3 grid gap-3">
+              <Field label="Segunda línea del título" ayuda='Ej.: "en automatización y gestión."'>
+                <Input {...campoProp('subtitulo')} />
+              </Field>
+              <Field label="Dónde está hoy (texto)">
+                <Textarea {...campoProp('punto_texto')} rows={3} />
+              </Field>
+              <Field label="Dónde está hoy (puntos)" ayuda='Uno por línea, "Título: detalle".'>
+                <Textarea {...campoProp('puntos')} rows={4} />
+              </Field>
+              <Field label="Objetivos" ayuda="Uno por línea.">
+                <Textarea {...campoProp('objetivos')} rows={4} />
+              </Field>
+              <Field label="El plan (título)">
+                <Input {...campoProp('plan_titulo')} />
+              </Field>
+              <Field label="El plan (texto)">
+                <Textarea {...campoProp('plan_texto')} rows={2} />
+              </Field>
+              <Field label="Qué incluye el mantenimiento" ayuda="Uno por línea.">
+                <Textarea {...campoProp('mantenimiento')} rows={3} />
+              </Field>
+              <Field label="Nota del mantenimiento">
+                <Input {...campoProp('mantenimiento_nota')} placeholder="Comienza al terminar la etapa 1. Sin permanencia mínima." />
+              </Field>
+              <Field label="Aviso (título)" ayuda="Ej.: costos de terceros que paga el cliente.">
+                <Input {...campoProp('aviso_titulo')} />
+              </Field>
+              <Field label="Aviso (texto)">
+                <Textarea {...campoProp('aviso_texto')} rows={2} />
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field label="Forma de pago">
+                  <Textarea {...campoProp('pago')} rows={2} />
+                </Field>
+                <Field label="Moneda">
+                  <Textarea {...campoProp('moneda_texto')} rows={2} />
+                </Field>
+                <Field label="Validez">
+                  <Textarea {...campoProp('validez')} rows={2} />
+                </Field>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Frase de cierre">
+                  <Input {...campoProp('cierre')} placeholder="Empecemos por la base." />
+                </Field>
+                <Field label="Teléfono de brixx">
+                  <Input {...campoProp('telefono')} />
+                </Field>
+              </div>
+            </div>
+          </details>
+        </section>
+
         {/* Ítems */}
         <section>
           <div className="mb-3 flex items-baseline justify-between">
@@ -276,7 +480,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
-                <div className="mt-2 grid grid-cols-[70px_1fr_1fr] gap-2">
+                <div className={etapas.length ? 'mt-2 grid grid-cols-[70px_1fr_1fr] gap-2 sm:grid-cols-[70px_1fr_1fr_110px]' : 'mt-2 grid grid-cols-[70px_1fr_1fr] gap-2'}>
                   <label className="text-xs text-tenue">
                     Cant.
                     <Input value={it.cantidad} onChange={(e) => cambiar(it.key, 'cantidad', e.target.value)} inputMode="decimal" />
@@ -289,6 +493,36 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                     Mensual
                     <Input value={it.mensual} onChange={(e) => cambiar(it.key, 'mensual', e.target.value)} inputMode="decimal" />
                   </label>
+                  {etapas.length > 0 && (
+                    <label className="col-span-3 text-xs text-tenue sm:col-span-1">
+                      Etapa
+                      <Select value={it.etapa} onChange={(e) => cambiar(it.key, 'etapa', e.target.value)}>
+                        <option value="">—</option>
+                        {etapas.map((_, n) => (
+                          <option key={n} value={String(n + 1)}>
+                            {n + 1}
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                  )}
+                  <label className="col-span-3 flex cursor-pointer items-center gap-2 text-xs text-tenue sm:col-span-full">
+                    <input
+                      type="checkbox"
+                      checked={it.opcional}
+                      onChange={(e) => setItems((l) => l.map((x) => (x.key === it.key ? { ...x, opcional: e.target.checked } : x)))}
+                      className="size-4 accent-(--color-acento)"
+                    />
+                    Opcional (se muestra con su precio, pero no suma al total)
+                  </label>
+                  <details className="col-span-full text-xs text-tenue">
+                    <summary className="cursor-pointer py-1 font-semibold">Tarjeta en la propuesta</summary>
+                    <div className="mt-1 flex flex-col gap-2">
+                      <Input value={it.resumen} onChange={(e) => cambiar(it.key, 'resumen', e.target.value)} placeholder="En una línea: qué es (ej.: Un asistente que atiende y vende a toda hora)" aria-label="Resumen" />
+                      <Textarea value={it.incluye} onChange={(e) => cambiar(it.key, 'incluye', e.target.value)} rows={3} placeholder="Qué incluye (uno por línea)" aria-label="Qué incluye" />
+                      <Input value={it.entregable} onChange={(e) => cambiar(it.key, 'entregable', e.target.value)} placeholder="Entregable (ej.: asistente activo en el WhatsApp del local)" aria-label="Entregable" />
+                    </div>
+                  </details>
                 </div>
               </div>
             ))}
@@ -317,7 +551,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
             <Button
               variant="secundario"
               onClick={() =>
-                setItems((l) => [...l, { key: nuevaKey(), servicio_id: null, descripcion: '', cantidad: '1', impl: '', mensual: '' }])
+                setItems((l) => [...l, { key: nuevaKey(), servicio_id: null, descripcion: '', cantidad: '1', impl: '', mensual: '', etapa: etapas.length ? String(etapas.length) : '', opcional: false, resumen: '', incluye: '', entregable: '' }])
               }
             >
               <Plus className="size-4" /> Ítem libre

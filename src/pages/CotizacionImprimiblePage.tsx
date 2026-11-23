@@ -1,19 +1,37 @@
 import { useParams } from 'react-router-dom'
 import { Printer } from 'lucide-react'
 import { useCotizacionCompleta } from '../features/cotizador/useCotizador'
+import { PropuestaImprimible } from '../features/cotizador/PropuestaImprimible'
 import { totalesCotizacion } from '../features/finanzas/calculos'
 import { LogoMark } from '../components/layout/Logo'
 import { Button } from '../components/ui/Button'
 import { PantallaCarga } from '../components/ui/Spinner'
 import { formatFechaLarga, formatMonto, numeroCotizacion } from '../lib/format'
 
-/** Cotización lista para imprimir o guardar como PDF (fondo blanco). */
+/**
+ * Cotización lista para imprimir o guardar como PDF (fondo blanco). Si tiene introducción, video o etapas es una
+ * propuesta comercial y se dibuja en hojas A4 con su diseño (PropuestaImprimible).
+ */
 export function CotizacionImprimiblePage() {
   const { id } = useParams()
   const { cotizacion: c, cargando, error } = useCotizacionCompleta(id)
 
   if (cargando) return <PantallaCarga />
   if (!c) return <p className="p-10 text-center text-tenue">{error ?? 'No se encontró la cotización.'}</p>
+
+  const imprimir = (
+    <Button onClick={() => window.print()}>
+      <Printer className="size-[18px]" /> Imprimir / guardar PDF
+    </Button>
+  )
+
+  if (c.introduccion || c.video_url || (c.etapas ?? []).length)
+    return (
+      <div className="min-h-full bg-elevada py-8 print:bg-papel print:py-0">
+        <div className="no-print mx-auto mb-4 flex max-w-[210mm] justify-end gap-2 px-4">{imprimir}</div>
+        <PropuestaImprimible c={c} />
+      </div>
+    )
 
   const t = totalesCotizacion(c)
   const items = [...c.cotizacion_items].sort((a, b) => a.orden - b.orden)
@@ -22,11 +40,7 @@ export function CotizacionImprimiblePage() {
 
   return (
     <div className="min-h-full bg-elevada py-8 print:bg-papel print:py-0">
-      <div className="no-print mx-auto mb-4 flex max-w-[800px] justify-end gap-2 px-4">
-        <Button onClick={() => window.print()}>
-          <Printer className="size-[18px]" /> Imprimir / guardar PDF
-        </Button>
-      </div>
+      <div className="no-print mx-auto mb-4 flex max-w-[800px] justify-end gap-2 px-4">{imprimir}</div>
 
       <article className="mx-auto max-w-[800px] bg-papel px-8 py-10 text-tinta shadow-2xl sm:px-12 print:max-w-none print:p-0 print:shadow-none">
         <header className="flex items-start justify-between gap-6 border-b border-linea pb-6">
@@ -72,8 +86,11 @@ export function CotizacionImprimiblePage() {
           </thead>
           <tbody>
             {items.map((it) => (
-              <tr key={it.id} className="border-b border-linea align-top">
-                <td className="py-3 pr-3">{it.descripcion}</td>
+              <tr key={it.id} className={`border-b border-linea align-top ${it.opcional ? 'text-tinta-suave' : ''}`}>
+                <td className="py-3 pr-3">
+                  {it.descripcion}
+                  {it.opcional && <span className="ml-2 text-[11px] font-semibold uppercase">Opcional · no suma al total</span>}
+                </td>
                 <td className="tabular py-3 text-right">{Number(it.cantidad)}</td>
                 <td className="tabular py-3 text-right">
                   {Number(it.precio_implementacion) ? formatMonto(Number(it.cantidad) * Number(it.precio_implementacion), c.moneda) : '—'}

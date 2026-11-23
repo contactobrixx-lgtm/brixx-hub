@@ -237,7 +237,9 @@ export class Hub {
 
   // -------------------------------------------------------------- cotizaciones
   private totales(c: Fila) {
-    const items = (c.cotizacion_items ?? []) as { cantidad: number; precio_implementacion: number; precio_mensual: number; descripcion: string }[]
+    const todos = (c.cotizacion_items ?? []) as { cantidad: number; precio_implementacion: number; precio_mensual: number; descripcion: string; opcional?: boolean }[]
+    // Los ítems opcionales (ej.: "tienda propia, si hace falta") no suman al total
+    const items = todos.filter((i) => !i.opcional)
     const impl = items.reduce((t, i) => t + Number(i.cantidad) * Number(i.precio_implementacion), 0) * (1 - Number(c.descuento_pct ?? 0) / 100)
     const mes = items.reduce((t, i) => t + Number(i.cantidad) * Number(i.precio_mensual), 0)
     return { impl: Math.round(impl), mes, items }
@@ -246,7 +248,7 @@ export class Hub {
   async cotizaciones(o: { cliente?: string; estado?: string }): Promise<string> {
     let q = this.db
       .from('cotizaciones')
-      .select('id, numero, prospecto_id, titulo, estado, fecha, valida_hasta, moneda, descuento_pct, notas, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual)')
+      .select('id, numero, prospecto_id, titulo, estado, fecha, valida_hasta, moneda, descuento_pct, notas, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual, opcional)')
       .order('fecha', { ascending: false })
       .limit(40)
     if (o.estado) q = q.eq('estado', o.estado)
@@ -303,7 +305,7 @@ export class Hub {
     const hoy = hoyAR()
     const [{ data: metas }, { data: aceptadas }] = await Promise.all([
       this.db.from('metas').select('tipo, periodo, clientes_nuevos, ingreso_recurrente').order('periodo'),
-      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada'),
+      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual, opcional)').eq('estado', 'aceptada'),
     ])
     const prospectos = await this.prospectos()
     const activos = new Set(prospectos.filter((p) => ['implementacion', 'mantenimiento'].includes(p.etapa as string)).map((p) => p.id))
@@ -480,7 +482,7 @@ export class Hub {
       this.prospectos(),
       this.tipoCambio(),
       this.db.from('cobros').select('monto, moneda').gte('fecha', inicioMes).lte('fecha', hoy),
-      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada'),
+      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual, opcional)').eq('estado', 'aceptada'),
       this.db.from('metas').select('clientes_nuevos, ingreso_recurrente').eq('tipo', 'mes').eq('periodo', inicioMes).maybeSingle(),
       this.db.from('cobros').select('prospecto_id, monto, moneda, concepto'),
     ])

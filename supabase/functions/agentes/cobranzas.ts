@@ -44,7 +44,7 @@ async function pendientes(ctx: Contexto): Promise<Pendiente[]> {
   const [prospectos, tc, { data: aceptadas }, { data: cobros }] = await Promise.all([
     ctx.hub.prospectos(),
     ctx.hub.tipoCambio(),
-    ctx.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada'),
+    ctx.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual, opcional)').eq('estado', 'aceptada'),
     ctx.db.from('cobros').select('prospecto_id, monto, moneda, concepto, fecha'),
   ])
   // Pasa un monto a la moneda de la cotización (con el tipo de cambio de ajustes)

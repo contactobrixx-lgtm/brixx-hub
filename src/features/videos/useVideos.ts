@@ -62,7 +62,7 @@ export function useVideos(filtro: { grabacion_id?: string | null; prospecto_id?:
   }, [enCurso, recargar])
 
   const borrar = async (v: Video) => {
-    const paths = v.audios.map((a) => a.path).filter((p): p is string => !!p)
+    const paths = v.audios.map((a) => a.path).filter((p): p is string => !!p && !p.startsWith('/'))
     if (paths.length) await supabase.storage.from('videos').remove(paths)
     const { error } = await supabase.from('videos').delete().eq('id', v.id)
     if (error) throw new Error(error.message)
@@ -100,11 +100,17 @@ export function useVideo(id: string | undefined) {
   return { video, cargando, error, recargar }
 }
 
-/** Baja los audios de las escenas (bucket privado "videos") */
+/** Baja los audios de las escenas (bucket privado "videos", o del sitio si la ruta empieza con "/") */
 export async function bajarAudios(v: Video): Promise<(ArrayBuffer | null)[]> {
   return Promise.all(
     v.audios.map(async (a) => {
       if (!a.path) return null
+      // Voces publicadas con el hub (videos armados a mano, 0026): se bajan del sitio, no de Storage
+      if (a.path.startsWith('/')) {
+        const r = await fetch(a.path)
+        if (!r.ok) throw new Error(`No pude bajar la voz del video (${r.status}).`)
+        return r.arrayBuffer()
+      }
       const { data, error } = await supabase.storage.from('videos').download(a.path)
       if (error || !data) throw new Error(`No pude bajar la voz del video: ${error?.message ?? 'sin datos'}`)
       return data.arrayBuffer()

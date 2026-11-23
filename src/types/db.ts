@@ -159,6 +159,14 @@ export interface CotizacionItem {
   precio_implementacion: number
   precio_mensual: number
   orden: number
+  /** Etapa de la propuesta (1, 2, 3…; null = sin etapa). 0027 */
+  etapa?: number | null
+  /** Se ofrece aparte: se muestra con su precio pero no suma al total. 0027 */
+  opcional?: boolean
+  /** Tarjeta del servicio en la propuesta: una línea, qué incluye y qué se entrega. 0027 */
+  resumen?: string | null
+  incluye?: string[]
+  entregable?: string | null
 }
 export type CotizacionItemInput = Omit<CotizacionItem, 'id' | 'cotizacion_id'>
 
@@ -173,9 +181,42 @@ export interface Cotizacion {
   moneda: Moneda
   descuento_pct: number
   notas: string | null
+  /** Primera hoja de la propuesta: para quién y por qué. 0027 */
+  introduccion?: string | null
+  /** Video de la segunda hoja: "/material/….html", YouTube o un .mp4. 0027 */
+  video_url?: string | null
+  /** Etapas en orden (Etapa 1, 2, 3…). 0027 */
+  etapas?: EtapaCotizacion[]
+  /** Los demás textos de la propuesta (portada, punto de partida, mantenimiento, condiciones). 0027 */
+  propuesta?: ContenidoPropuesta
   created_at: string
   updated_at: string
   cotizacion_items: CotizacionItem[]
+}
+
+export interface ContenidoPropuesta {
+  /** Segunda línea gris del título de la portada ("en automatización y gestión.") */
+  subtitulo?: string
+  punto_texto?: string
+  puntos?: { titulo: string; detalle: string }[]
+  objetivos?: string[]
+  plan_titulo?: string
+  plan_texto?: string
+  mantenimiento?: string[]
+  mantenimiento_nota?: string
+  aviso?: { titulo: string; texto: string }
+  pago?: string
+  moneda_texto?: string
+  validez?: string
+  cierre?: string
+  telefono?: string
+}
+
+export interface EtapaCotizacion {
+  titulo: string
+  detalle: string
+  /** Tiempo estimado ("3 a 4 semanas") */
+  plazo?: string | null
 }
 export type CotizacionInput = Omit<Cotizacion, 'id' | 'numero' | 'created_at' | 'updated_at' | 'cotizacion_items'>
 
