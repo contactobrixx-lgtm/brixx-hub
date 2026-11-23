@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { BarChart3, Clock, MessageCircle, PackageOpen, Play, Smartphone, type LucideIcon } from 'lucide-react'
 import type { Cotizacion, CotizacionItem } from '../../types/db'
 import { LogoMark } from '../../components/layout/Logo'
@@ -50,6 +51,15 @@ function Pie({ n }: { n: number }) {
  * Lo que no esté cargado se omite.
  */
 export function PropuestaImprimible({ c }: { c: ConCliente }) {
+  // En pantallas angostas (celular) las hojas A4 se achican para entrar enteras; al imprimir van a tamaño real
+  const [escala, setEscala] = useState(1)
+  useEffect(() => {
+    // El ancho de la pantalla (no innerWidth: en el celular crece si algo se sale de la pantalla)
+    const medir = () => setEscala(Math.min(1, (Math.min(document.documentElement.clientWidth, window.screen.width) - 16) / 794)) // 210 mm ≈ 794 px
+    medir()
+    window.addEventListener('resize', medir)
+    return () => window.removeEventListener('resize', medir)
+  }, [])
   const p = c.propuesta ?? {}
   const etapas = c.etapas ?? []
   const cliente = c.prospectos?.empresa || c.prospectos?.nombre || 'tu negocio'
@@ -63,7 +73,7 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
   let hoja = 1
 
   return (
-    <div className="propuesta">
+    <div className="propuesta" style={{ '--escala': escala } as React.CSSProperties}>
       {/* 1 · Portada */}
       <section className="hoja portada flex flex-col">
         <div className="flex items-center justify-between">

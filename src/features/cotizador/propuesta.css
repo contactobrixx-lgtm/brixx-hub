@@ -39,6 +39,11 @@
 .propuesta .hoja:last-child {
   break-after: auto;
 }
+@media screen {
+  .propuesta {
+    zoom: var(--escala, 1);
+  }
+}
 @media print {
   .propuesta .hoja {
     margin: 0;
