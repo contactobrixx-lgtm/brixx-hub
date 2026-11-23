@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { ErrorBox } from '../../components/ui/ErrorBox'
 import { ALTO, ANCHO, cargarFuentes, dibujarCuadro } from './lienzo'
 import { armarLinea } from './linea'
-import { bajarAudios } from './useVideos'
+import { bajarAudios, guardarArchivoVideo } from './useVideos'
 
 /** El mejor formato que el navegador sabe grabar (MP4 si puede: se manda por WhatsApp sin convertir) */
 function formatoGrabacion(): { mime: string; ext: 'mp4' | 'webm' } | null {
@@ -35,7 +35,7 @@ const nombreArchivo = (t: string) =>
  * Reproduce el video dibujándolo en un lienzo, con la voz de cada escena programada en el reloj del audio
  * (así imagen, voz y subtítulos van juntos). "Descargar" lo graba tal cual se ve (tarda lo que dura).
  */
-export function ReproductorVideo({ video }: { video: Video }) {
+export function ReproductorVideo({ video, onGuardado }: { video: Video; onGuardado?: (path: string) => void }) {
   const contenedor = useRef<HTMLDivElement>(null)
   const lienzo = useRef<HTMLCanvasElement>(null)
   const audio = useRef<AudioContext | null>(null)
@@ -53,6 +53,7 @@ export function ReproductorVideo({ video }: { video: Video }) {
   const [reproduciendo, setReproduciendo] = useState(false)
   const [t, setT] = useState(0)
   const [grabando, setGrabando] = useState(false)
+  const [guardado, setGuardado] = useState<'no' | 'guardando' | 'listo' | 'error'>('no')
   const formato = useMemo(formatoGrabacion, [])
 
   const guion = video.guion!
@@ -181,7 +182,7 @@ export function ReproductorVideo({ video }: { video: Video }) {
     salidaExtra.current = destino
     const imagen = canvas.captureStream(30)
     const pista = new MediaStream([...imagen.getVideoTracks(), ...destino.stream.getAudioTracks()])
-    const rec = new MediaRecorder(pista, { mimeType: formato.mime, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 160_000 })
+    const rec = new MediaRecorder(pista, { mimeType: formato.mime, videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 })
     const partes: Blob[] = []
     rec.ondataavailable = (e) => e.data.size && partes.push(e.data)
     const terminado = new Promise<void>((res) => (rec.onstop = () => res()))
@@ -204,6 +205,16 @@ export function ReproductorVideo({ video }: { video: Video }) {
     a.download = `${nombreArchivo(video.titulo)}.${formato.ext}`
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    // Además se guarda en el hub: queda en la carpeta del cliente para bajarlo o mandarlo después
+    setGuardado('guardando')
+    try {
+      const path = await guardarArchivoVideo(video.id, blob, formato.ext)
+      setGuardado('listo')
+      onGuardado?.(path)
+    } catch (e) {
+      setGuardado('error')
+      setError(`Se bajó, pero no se pudo guardar en el hub: ${e instanceof Error ? e.message : 'error'}`)
+    }
   }
 
   const cancelarGrabacion = () => {
@@ -288,6 +299,8 @@ export function ReproductorVideo({ video }: { video: Video }) {
                   ? `Se graba en ${formato.ext === 'mp4' ? 'MP4 (se manda directo por WhatsApp)' : 'WebM'} mientras se reproduce: tarda ${mmss(linea.total)}.`
                   : 'Este navegador no puede grabar video. Probá desde Chrome, Edge o Safari.'}
                 {!video.con_voz && ' Este video no tiene voz (falta la clave de ElevenLabs).'}
+                {guardado === 'guardando' && ' Guardándolo en la carpeta del cliente…'}
+                {guardado === 'listo' && ' Quedó guardado en la carpeta del cliente.'}
               </p>
             </div>
             <Button onClick={descargar} disabled={!listo || !formato}>

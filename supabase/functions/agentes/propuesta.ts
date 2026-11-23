@@ -53,7 +53,7 @@ export async function armarPropuesta(ctx: Contexto, prospectoId: string, grabaci
       ctx.hub.buscarGrabaciones({ cliente, limite: 6 }),
       grabacionId ? ctx.hub.leerGrabacion(grabacionId, false) : Promise.resolve(''),
     ])
-    if (!catalogo?.length) throw new Error('El catálogo de servicios está vacío: cargá servicios en el Cotizador.')
+    if (!catalogo?.length) throw new Error('El catálogo de servicios está vacío: cargá servicios en Propuestas.')
 
     const r = await pensarJSON<Salida>(ctx, {
       esquema: ESQUEMA,
@@ -121,7 +121,7 @@ ${catalogo.map((s) => `- servicio_id ${s.id} · ${s.nombre}: ${s.descripcion ?? 
         'POR QUÉ',
         r.por_que,
         '',
-        `La cotización ${numero} quedó en borrador en el Cotizador: revisala y mandala.`,
+        `La cotización ${numero} quedó en borrador en Propuestas: revisala y mandala.`,
       ].join('\n'),
       prospecto_id: prospectoId,
       datos: {

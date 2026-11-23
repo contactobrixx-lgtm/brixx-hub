@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Loader2, RotateCw, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, Loader2, RotateCw, Share2, Trash2 } from 'lucide-react'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorBox } from '../components/ui/ErrorBox'
 import { PantallaCarga } from '../components/ui/Spinner'
 import { ReproductorVideo } from '../features/videos/ReproductorVideo'
 import { ENFOQUE_VIDEO, ESTADO_VIDEO } from '../features/videos/VideosCliente'
-import { colgado, reintentarVideo, useVideo, useVideos } from '../features/videos/useVideos'
+import { colgado, linkArchivoVideo, reintentarVideo, useVideo, useVideos } from '../features/videos/useVideos'
 
 /** /videos/:id — el video explicativo: se arma, se mira y se descarga. */
 export function VideoPage() {
@@ -18,6 +18,8 @@ export function VideoPage() {
   const [ocupado, setOcupado] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
+  const [archivoNuevo, setArchivoNuevo] = useState<string | null>(null)
+  const [bajando, setBajando] = useState(false)
 
   if (cargando) return <PantallaCarga />
   if (!v) return <p className="p-10 text-center text-tenue">{error ?? 'No se encontró el video.'}</p>
@@ -25,6 +27,35 @@ export function VideoPage() {
   const cortado = colgado(v)
   const armando = (v.estado === 'guion' || v.estado === 'voz') && !cortado
   const volver = v.grabacion_id ? `/grabaciones/${v.grabacion_id}` : v.prospecto_id ? `/clientes/${v.prospecto_id}` : '/clientes'
+
+  const archivo = archivoNuevo ?? v.archivo_path ?? null
+  const nombre = (v.titulo || 'video').replace(/[\\/:*?"<>|]+/g, '').trim() || 'video'
+
+  /** Baja el video guardado; en el celular abre el menú para compartirlo (WhatsApp) */
+  const bajarGuardado = async (compartir: boolean) => {
+    if (!archivo) return
+    setBajando(true)
+    setErrorAccion(null)
+    try {
+      const url = await linkArchivoVideo(archivo, nombre)
+      if (compartir) {
+        const r = await fetch(url)
+        const blob = await r.blob()
+        const file = new File([blob], `${nombre}.${archivo.split('.').pop()}`, { type: blob.type || 'video/mp4' })
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: v.titulo }).catch(() => {})
+          return
+        }
+      }
+      const a = document.createElement('a')
+      a.href = url
+      a.click()
+    } catch (e) {
+      setErrorAccion(e instanceof Error ? e.message : 'No se pudo bajar el video.')
+    } finally {
+      setBajando(false)
+    }
+  }
 
   const reintentar = async () => {
     setOcupado(true)
@@ -78,7 +109,26 @@ export function VideoPage() {
         </div>
       )}
 
-      {v.estado === 'listo' && v.guion && <ReproductorVideo key={v.updated_at} video={v} />}
+      {archivo && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-borde bg-superficie p-4">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Video guardado</p>
+            <p className="text-sm text-tenue">Ya está grabado: bajalo o mandalo sin esperar a que se vuelva a grabar.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {'share' in navigator && (
+              <Button variant="secundario" onClick={() => bajarGuardado(true)} disabled={bajando}>
+                <Share2 className="size-4" /> Mandar
+              </Button>
+            )}
+            <Button onClick={() => bajarGuardado(false)} disabled={bajando}>
+              {bajando ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Bajar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {v.estado === 'listo' && v.guion && <ReproductorVideo key={v.updated_at} video={v} onGuardado={setArchivoNuevo} />}
 
       {v.guion && (
         <details className="mt-6 rounded-2xl border border-borde bg-superficie p-4">

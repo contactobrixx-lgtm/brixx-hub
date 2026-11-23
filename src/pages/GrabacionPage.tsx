@@ -135,7 +135,7 @@ export function GrabacionPage() {
         items,
         null,
       )
-      navigate(`/cotizador?abrir=${cotId}`)
+      navigate(`/propuestas?abrir=${cotId}`)
     })
 
   const crearCotizacion = (a: Analisis) =>

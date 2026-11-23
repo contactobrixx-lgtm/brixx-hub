@@ -190,10 +190,10 @@ function pasosTutorial(ahora: Date): PasoDemo[] {
         'En grabaciones quedan las reuniones que grabás con el celular. Las transcribo y te dejo los puntos clave, los próximos pasos y una propuesta con nuestros servicios. Después me podés preguntar qué se habló en cualquiera.',
     },
     {
-      titulo: 'Cotizador',
-      pantalla: { ruta: '/cotizador', titulo: 'Cotizador' },
+      titulo: 'Propuestas',
+      pantalla: { ruta: '/propuestas', titulo: 'Propuestas' },
       decir:
-        'En el cotizador está el catálogo de servicios, con precio de implementación y abono mensual. Armás la cotización de un cliente en un minuto y la bajás en PDF. Cuando la marcás como aceptada, el cliente pasa a cerrado solo.',
+        'En propuestas está el catálogo de servicios, con precio de implementación y abono mensual. Armás la propuesta de un cliente en un minuto, le mandás el link o la bajás en PDF, y queda también en su carpeta. Cuando la marcás como aceptada, el cliente pasa a cerrado solo.',
     },
     {
       titulo: 'Finanzas',

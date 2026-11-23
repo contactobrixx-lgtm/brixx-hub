@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
@@ -90,7 +90,8 @@ export default function App() {
         <Route path="/grabar" element={<GrabarPage />} />
         <Route path="/grabaciones" element={<GrabacionesPage />} />
         <Route path="/grabaciones/:id" element={<GrabacionPage />} />
-        <Route path="/cotizador" element={<CotizadorPage />} />
+        <Route path="/propuestas" element={<CotizadorPage />} />
+        <Route path="/cotizador" element={<APropuestas />} />
         <Route path="/finanzas" element={<FinanzasPage />} />
         <Route path="/sistemas" element={<FichasPage seccion="sistema" />} />
         <Route path="/demos" element={<FichasPage seccion="demo" />} />
@@ -102,4 +103,10 @@ export default function App() {
       <Route path="*" element={<Navigate to="/jarvis" replace />} />
     </Routes>
   )
+}
+
+/** /cotizador pasó a /propuestas: los links viejos (con ?abrir= o ?vista=) siguen andando */
+function APropuestas() {
+  const { search } = useLocation()
+  return <Navigate to={`/propuestas${search}`} replace />
 }

@@ -109,3 +109,24 @@ export function usePropuestaPublica(token: string | undefined) {
   }, [token])
   return { cotizacion, cargando, error }
 }
+
+/** Las propuestas (cotizaciones) de un cliente, para su carpeta */
+export function usePropuestasCliente(prospectoId: string | undefined) {
+  const [propuestas, setPropuestas] = useState<Cotizacion[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!prospectoId) return
+    supabase
+      .from('cotizaciones')
+      .select('*, cotizacion_items(*)')
+      .eq('prospecto_id', prospectoId)
+      .order('numero', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) setError(error.message)
+        else setPropuestas((data as Cotizacion[]) ?? [])
+        setCargando(false)
+      })
+  }, [prospectoId])
+  return { propuestas, cargando, error }
+}

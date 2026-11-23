@@ -359,8 +359,8 @@ export class Hub {
       calendario: { ruta: '/calendario', titulo: 'Calendario' },
       pipeline: { ruta: '/pipeline', titulo: 'Pipeline' },
       clientes: { ruta: '/clientes', titulo: 'Clientes' },
-      cotizador: { ruta: '/cotizador', titulo: 'Cotizaciones' },
-      catalogo: { ruta: '/cotizador?vista=servicios', titulo: 'Catálogo de servicios' },
+      cotizador: { ruta: '/propuestas', titulo: 'Propuestas' },
+      catalogo: { ruta: '/propuestas?vista=servicios', titulo: 'Catálogo de servicios' },
       finanzas: { ruta: '/finanzas', titulo: 'Finanzas' },
       costos: { ruta: '/finanzas?vista=costos', titulo: 'Costos' },
       grabaciones: { ruta: '/grabaciones', titulo: 'Grabaciones' },
@@ -387,7 +387,7 @@ export class Hub {
       if (!p) throw new Error('Falta el cliente. Preguntale cuál.')
       const { data } = await this.db.from('cotizaciones').select('id, numero').eq('prospecto_id', p.id).order('fecha', { ascending: false }).limit(1)
       if (!data?.length) throw new Error(`${quien} no tiene cotizaciones todavía.`)
-      return { ruta: `/cotizador?abrir=${data[0].id}`, titulo: `Cotización COT-${String(data[0].numero).padStart(4, '0')} de ${quien}` }
+      return { ruta: `/propuestas?abrir=${data[0].id}`, titulo: `Cotización COT-${String(data[0].numero).padStart(4, '0')} de ${quien}` }
     }
     if (nombre === 'ultima_grabacion') {
       let q = this.db.from('grabaciones').select('id, titulo').order('created_at', { ascending: false }).limit(1)

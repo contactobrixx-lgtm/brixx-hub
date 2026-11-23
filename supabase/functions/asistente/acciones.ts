@@ -282,7 +282,7 @@ export class Acciones {
           await this.db.from('cotizaciones').delete().eq('id', cot.id)
           throw new Error(r.error.message)
         }
-        return { resultado: `Listo: armé la cotización COT-${String(cot.numero).padStart(4, '0')} en borrador.`, link: `/cotizador?abrir=${cot.id}` }
+        return { resultado: `Listo: armé la cotización COT-${String(cot.numero).padStart(4, '0')} en borrador.`, link: `/propuestas?abrir=${cot.id}` }
       }
     }
   }

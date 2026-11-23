@@ -62,7 +62,7 @@ export function useVideos(filtro: { grabacion_id?: string | null; prospecto_id?:
   }, [enCurso, recargar])
 
   const borrar = async (v: Video) => {
-    const paths = v.audios.map((a) => a.path).filter((p): p is string => !!p && !p.startsWith('/'))
+    const paths = [...v.audios.map((a) => a.path), v.archivo_path].filter((p): p is string => !!p && !p.startsWith('/'))
     if (paths.length) await supabase.storage.from('videos').remove(paths)
     const { error } = await supabase.from('videos').delete().eq('id', v.id)
     if (error) throw new Error(error.message)
@@ -137,4 +137,27 @@ export function useVideosAutomaticos() {
     }
   }
   return { activo, cambiar }
+}
+
+/**
+ * Guarda el video ya grabado en Storage ({id}/video.mp4) para que quede en la carpeta del cliente
+ * y se pueda volver a bajar o mandar sin grabarlo de nuevo. Devuelve la ruta.
+ */
+export async function guardarArchivoVideo(id: string, blob: Blob, ext: 'mp4' | 'webm'): Promise<string> {
+  const path = `${id}/video.${ext}`
+  const tipo = ext === 'mp4' ? 'video/mp4' : 'video/webm'
+  const archivo = blob.type === tipo ? blob : new Blob([blob], { type: tipo })
+  const { error } = await supabase.storage.from('videos').upload(path, archivo, { upsert: true, contentType: tipo })
+  if (error) throw new Error(/maximum|size|too large/i.test(error.message) ? 'El video pesa más de 50 MB: no se pudo guardar.' : error.message)
+  const r = await supabase.from('videos').update({ archivo_path: path }).eq('id', id)
+  if (r.error) throw new Error(r.error.message)
+  return path
+}
+
+/** Link temporal para bajar el video guardado (con nombre de archivo) */
+export async function linkArchivoVideo(path: string, nombre: string): Promise<string> {
+  const ext = path.split('.').pop() ?? 'mp4'
+  const { data, error } = await supabase.storage.from('videos').createSignedUrl(path, 3600, { download: `${nombre}.${ext}` })
+  if (error || !data) throw new Error(error?.message ?? 'No se pudo armar el link del video.')
+  return data.signedUrl
 }

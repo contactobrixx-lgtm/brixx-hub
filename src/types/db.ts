@@ -554,6 +554,8 @@ export interface Video {
   audios: AudioEscenaVideo[]
   con_voz: boolean
   pedido_por: string | null
+  /** El video ya grabado (MP4 o WebM) en Storage: queda en la carpeta del cliente (0031) */
+  archivo_path?: string | null
   created_at: string
   updated_at: string
 }
