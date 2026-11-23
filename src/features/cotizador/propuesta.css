@@ -27,7 +27,9 @@
 .propuesta .hoja {
   page: propuesta;
   width: 210mm;
-  height: 297mm;
+  /* 1 mm menos que A4: si el navegador redondea, la hoja no se parte en dos */
+  height: 296mm;
+  break-inside: avoid;
   position: relative;
   overflow: hidden;
   background: var(--papel);

@@ -189,6 +189,8 @@ export interface Cotizacion {
   etapas?: EtapaCotizacion[]
   /** Los demás textos de la propuesta (portada, punto de partida, mantenimiento, condiciones). 0027 */
   propuesta?: ContenidoPropuesta
+  /** Link público de la propuesta (/p/<token>), sin iniciar sesión. null = no es pública. 0029 */
+  token_publico?: string | null
   created_at: string
   updated_at: string
   cotizacion_items: CotizacionItem[]

@@ -78,3 +78,34 @@ async function cargarCotizacion(id: string) {
     | (Cotizacion & { prospectos: { nombre: string; empresa: string | null; email: string | null; telefono: string | null } | null })
     | null
 }
+
+/** Link público de la propuesta para mandarle al cliente (/p/<token>): lo crea si no existe. */
+export async function linkPublicoPropuesta(id: string, tokenActual: string | null | undefined): Promise<string> {
+  let token = tokenActual ?? null
+  if (!token) {
+    token = crypto.randomUUID()
+    const { error } = await supabase.from('cotizaciones').update({ token_publico: token }).eq('id', id)
+    if (error) throw new Error(error.message)
+  }
+  return `${window.location.origin}/p/${token}`
+}
+
+/** La propuesta pública (sin sesión) a partir de su token */
+export function usePropuestaPublica(token: string | undefined) {
+  type Publica = Cotizacion & { prospectos?: { nombre: string; empresa: string | null } | null }
+  const [cotizacion, setCotizacion] = useState<Publica | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!token || !/^[0-9a-f-]{36}$/i.test(token)) {
+      setCargando(false)
+      return
+    }
+    supabase.rpc('propuesta_publica', { t: token }).then(({ data, error }) => {
+      if (error) setError(error.message)
+      else setCotizacion((data as Publica | null) ?? null)
+      setCargando(false)
+    })
+  }, [token])
+  return { cotizacion, cargando, error }
+}

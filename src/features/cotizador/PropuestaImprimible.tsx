@@ -74,6 +74,8 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
 
   return (
     <div className="propuesta" style={{ '--escala': escala } as React.CSSProperties}>
+      {/* Hoja A4 sin márgenes también en los navegadores que no respetan @page con nombre (Safari del iPhone) */}
+      <style>{'@page { size: A4; margin: 0; }'}</style>
       {/* 1 · Portada */}
       <section className="hoja portada flex flex-col">
         <div className="flex items-center justify-between">

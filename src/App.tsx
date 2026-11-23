@@ -20,6 +20,7 @@ import { GrabacionPage } from './pages/GrabacionPage'
 import { JarvisPage } from './pages/JarvisPage'
 import { AgentesPage } from './pages/AgentesPage'
 import { CampanaImprimiblePage } from './pages/CampanaImprimiblePage'
+import { PropuestaPublicaPage } from './pages/PropuestaPublicaPage'
 import { supabaseConfigurado } from './lib/supabase'
 
 export default function App() {
@@ -41,6 +42,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Propuesta para el cliente: pública, con su link (sin iniciar sesión) */}
+      <Route path="/p/:token" element={<PropuestaPublicaPage />} />
       <Route
         path="/nueva-clave"
         element={
