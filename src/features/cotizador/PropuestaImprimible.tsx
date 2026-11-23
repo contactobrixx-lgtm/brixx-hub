@@ -18,7 +18,10 @@ export function videoDe(url: string): { tipo: 'iframe' | 'video' | 'enlace'; src
   }
   const propio = abs.origin === window.location.origin
   if (/\.mp4$/i.test(abs.pathname)) return { tipo: 'video', src: abs.href, link: abs.href, poster: propio ? abs.pathname.replace(/\.mp4$/i, '.jpg') : null }
-  if (propio && /\.html?$/i.test(abs.pathname)) return { tipo: 'iframe', src: abs.href, link: abs.href, poster: abs.pathname.replace(/\.html?$/i, '.jpg') }
+  // Página del hub con un video (/material/x.html): se reproduce directo el x.mp4, así llena el recuadro (dentro de un
+  // iframe la página se achicaba en el iPhone). El link del PDF sigue yendo a la página.
+  if (propio && /\.html?$/i.test(abs.pathname))
+    return { tipo: 'video', src: abs.pathname.replace(/\.html?$/i, '.mp4'), link: abs.href, poster: abs.pathname.replace(/\.html?$/i, '.jpg') }
   return { tipo: 'enlace', src: abs.href, link: abs.href, poster: null }
 }
 
