@@ -1,6 +1,7 @@
 // Consultas de SOLO LECTURA a la base del hub, para las herramientas del asistente.
 // Cada función devuelve texto compacto y legible para el modelo (no JSON crudo de la base).
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { perfilInstagram, textoPerfil, usuarioInstagram, type PerfilInstagram } from './meta.ts'
 
 export const ZONA = 'America/Argentina/Buenos_Aires'
 const GANADAS = ['cerrado', 'implementacion', 'mantenimiento']
@@ -40,6 +41,42 @@ type Fila = Record<string, unknown>
 export class Hub {
   private prospectosCache: Fila[] | null = null
   constructor(private db: SupabaseClient) {}
+
+  // ------------------------------------------------------ redes (API de Meta)
+  /**
+   * Lee una cuenta de Instagram de empresa o creador con la API de Meta, guarda la foto del momento en
+   * redes_perfiles (vinculada a la carpeta si el usuario coincide con el Instagram de un prospecto) y la
+   * compara con la anterior. Devuelve el perfil y el texto para Claude.
+   */
+  async instagramPerfil(entrada: string, prospectoId?: string | null): Promise<{ perfil: PerfilInstagram; texto: string; prospecto_id: string | null }> {
+    const usuario = usuarioInstagram(entrada)
+    if (!usuario) throw new Error(`"${entrada}" no parece un usuario de Instagram.`)
+    const perfil = await perfilInstagram(usuario)
+    let pid = prospectoId ?? null
+    if (!pid) {
+      const p = (await this.prospectos()).find((x) => x.instagram && usuarioInstagram(String(x.instagram)) === perfil.usuario.toLowerCase())
+      pid = (p?.id as string) ?? null
+    }
+    const { data: previo } = await this.db
+      .from('redes_perfiles')
+      .select('datos, created_at')
+      .eq('red', 'instagram')
+      .eq('usuario', perfil.usuario.toLowerCase())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const { metricas, ...datos } = perfil
+    const { error } = await this.db
+      .from('redes_perfiles')
+      .insert({ red: 'instagram', usuario: perfil.usuario.toLowerCase(), prospecto_id: pid, datos, metricas })
+    if (error) console.error('redes_perfiles:', error.message)
+    const anterior = previo ? { seguidores: Number((previo.datos as Fila).seguidores ?? 0), fecha: String(previo.created_at).slice(0, 10) } : null
+    return { perfil, texto: textoPerfil(perfil, anterior), prospecto_id: pid }
+  }
+
+  async instagram(entrada: string): Promise<string> {
+    return (await this.instagramPerfil(entrada)).texto
+  }
 
   async prospectos(): Promise<Fila[]> {
     if (!this.prospectosCache) {

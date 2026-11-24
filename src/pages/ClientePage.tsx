@@ -13,6 +13,7 @@ import { IntervencionForm } from '../features/grabaciones/IntervencionForm'
 import { ESTADO_GRABACION, lineaDeAnalisis, ORIGEN_GRABACION } from '../features/grabaciones/estados'
 import { actualizarSintesis, dominio, useHistoriaClientes, usuarioInstagram } from '../features/clientes/useClientes'
 import { LinksCliente } from '../features/clientes/LinksCliente'
+import { InstagramCliente } from '../features/clientes/InstagramCliente'
 import { AgentesCliente } from '../features/agentes/AgentesCliente'
 import { VideosCliente } from '../features/videos/VideosCliente'
 import { PropuestasCliente } from '../features/cotizador/PropuestasCliente'
@@ -287,6 +288,7 @@ export function ClientePage() {
             <Dato label="Valor" valor={p.valor_estimado != null ? formatMonto(Number(p.valor_estimado), p.moneda) : null} />
             <Dato label="Próxima" valor={p.proxima_accion ? `${p.proxima_accion}${p.fecha_proxima_accion ? ` · ${formatFecha(p.fecha_proxima_accion)}` : ''}` : null} />
           </Bloque>
+          <InstagramCliente p={p} />
           <AgentesCliente p={p} />
           <VideosCliente prospectoId={p.id} compacto puedeGenerar={historia.some((g) => g.analisis)} />
           {p.notas && (

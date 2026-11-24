@@ -7,6 +7,7 @@
 //                                              → corre un agente ya (a pedido de un socio) → { ok, id?, resumen? }
 //   { accion: "textos_propuesta", id, fondo? } → escribe los textos de la propuesta de esa cotización (formato Alcione);
 //                                              con fondo: true responde enseguida y lo hace en segundo plano
+//   { accion: "instagram", prospecto_id?, usuario? } → lee la cuenta de Instagram (API de Meta), guarda la foto del momento → { perfil }
 //   { accion: "continuar_meta", id }           → segundo paso de la campaña de Meta Ads (se llama sola)
 //   { accion: "estado" }                       → agentes, última corrida y si el programador está andando
 //
@@ -23,6 +24,7 @@ import { correrPostventa } from './postventa.ts'
 import { prepararReunion, proximaReunion, reunionesPorPreparar } from './preparador.ts'
 import { armarPropuesta } from './propuesta.ts'
 import { armarTextosPropuesta } from './textos.ts'
+import { ErrorMeta, metaConfigurado } from '../asistente/meta.ts'
 import { auditar } from './auditor.ts'
 import { armarMeta, empezarMeta, leerParametros } from './meta.ts'
 import { correrFinanciero } from './financiero.ts'
@@ -165,7 +167,26 @@ Deno.serve(async (req) => {
           .rpc('agentes_programados')
           .then((r) => r.data === true),
       ])
-      return json({ agentes: config ?? [], programados, claude: hayClaude() })
+      return json({ agentes: config ?? [], programados, claude: hayClaude(), meta: metaConfigurado() })
+    }
+
+    if (body.accion === 'instagram') {
+      if (!llamador.socio) return json({ error: 'Solo a pedido de un socio.' }, 403)
+      if (!metaConfigurado()) return json({ error: 'Falta conectar la API de Meta.', falta: 'meta' }, 503)
+      const b = body as { prospecto_id?: string; usuario?: string }
+      let usuario = b.usuario ?? null
+      if (!usuario && b.prospecto_id) {
+        const { data: p } = await admin.from('prospectos').select('instagram').eq('id', b.prospecto_id).maybeSingle()
+        usuario = (p?.instagram as string | null) ?? null
+      }
+      if (!usuario) return json({ error: 'Este cliente no tiene Instagram cargado en su carpeta.' }, 400)
+      try {
+        const r = await ctx.hub.instagramPerfil(usuario, b.prospecto_id ?? null)
+        return json({ ok: true, perfil: r.perfil })
+      } catch (e) {
+        const motivo = e instanceof ErrorMeta ? e.motivo : 'meta'
+        return json({ error: e instanceof Error ? e.message : String(e), motivo }, motivo === 'no_encontrada' ? 404 : 502)
+      }
     }
 
     if (body.accion === 'textos_propuesta') {

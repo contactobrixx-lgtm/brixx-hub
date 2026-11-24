@@ -567,3 +567,35 @@ export interface Video {
   created_at: string
   updated_at: string
 }
+
+/** Foto del momento de una cuenta de Instagram leída con la API de Meta (0034) */
+export interface RedPerfil {
+  id: string
+  prospecto_id: string | null
+  red: 'instagram' | 'facebook'
+  usuario: string
+  datos: {
+    usuario: string
+    nombre: string | null
+    biografia: string | null
+    web: string | null
+    foto: string | null
+    seguidores: number
+    seguidos: number
+    publicaciones: number
+    ultimas: { fecha: string; tipo: string; me_gusta: number | null; comentarios: number | null; link: string | null; texto: string }[]
+  }
+  metricas: {
+    analizadas: number
+    por_semana: number | null
+    dias_desde_ultima: number | null
+    promedio_me_gusta: number | null
+    promedio_comentarios: number | null
+    interaccion_pct: number | null
+    formatos: Record<string, number>
+    interaccion_por_formato: Record<string, number>
+    hashtags: string[]
+    mejores: { link: string | null; tipo: string; interaccion: number; texto: string }[]
+  }
+  created_at: string
+}
