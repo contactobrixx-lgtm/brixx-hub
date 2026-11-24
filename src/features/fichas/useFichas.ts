@@ -137,3 +137,43 @@ export function useDemosParaSelector() {
   }, [])
   return demos
 }
+
+/** Igual que `nombre_comparable()` de la base: sin mayúsculas, tildes, "@" ni espacios */
+export function nombreComparable(s: string | null | undefined): string {
+  return (s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[@\s]/g, '')
+}
+
+/**
+ * Demos y sistemas de un cliente, para el bloque "Entregables" de su carpeta:
+ * la demo vinculada (`ficha_demo_id`) y las fichas cuyo `cliente` coincide con su empresa o nombre.
+ */
+export function useFichasCliente(p: { ficha_demo_id: string | null; empresa: string | null; nombre: string }) {
+  const [fichas, setFichas] = useState<Ficha[]>([])
+  const [cargando, setCargando] = useState(true)
+  const { ficha_demo_id, empresa, nombre } = p
+  useEffect(() => {
+    let vivo = true
+    const nombres = [empresa, nombre].map(nombreComparable).filter(Boolean)
+    supabase
+      .from('fichas')
+      .select('*')
+      .neq('estado', 'archivado')
+      .order('orden')
+      .then(({ data }) => {
+        if (!vivo) return
+        const propias = ((data ?? []) as Ficha[]).filter(
+          (f) => f.id === ficha_demo_id || (f.cliente && nombres.includes(nombreComparable(f.cliente))),
+        )
+        setFichas(propias)
+        setCargando(false)
+      })
+    return () => {
+      vivo = false
+    }
+  }, [ficha_demo_id, empresa, nombre])
+  return { fichas, cargando }
+}
