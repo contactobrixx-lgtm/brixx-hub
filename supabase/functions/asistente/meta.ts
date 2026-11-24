@@ -132,6 +132,13 @@ export async function perfilInstagram(usuario: string): Promise<PerfilInstagram>
     // 110 / 2207013 / "Invalid user id": la cuenta no existe o es personal
     if (e && (e.code === 110 || e.error_subcode === 2207013 || /invalid user id|cannot be found|does not exist/i.test(e.message ?? '')))
       throw new ErrorMeta(`No encontré @${usuario} como cuenta de empresa o creador: o no existe, o es personal (Meta no deja leer cuentas personales).`, 'no_encontrada')
+    // 10 / 200: el token anda pero le falta un permiso. Con la página asignada por Business Manager (usuario del
+    // sistema), Meta pide además ads_read (o ads_management) para Business Discovery.
+    if (e && (e.code === 10 || e.code === 200 || (e.code >= 200 && e.code < 300)))
+      throw new ErrorMeta(
+        `Al token de Meta le falta un permiso (${e.message ?? 'sin permiso'}). Generalo de nuevo sumando ads_read e instagram_manage_insights a los otros cuatro.`,
+        'token',
+      )
     if (e && (e.code === 190 || e.type === 'OAuthException'))
       throw new ErrorMeta(`La conexión con Meta no anda (${e.message ?? 'token inválido o vencido'}). Hay que renovar el token.`, 'token')
     throw new ErrorMeta(`Meta respondió con un error: ${e?.message ?? r.status}`, 'meta')
