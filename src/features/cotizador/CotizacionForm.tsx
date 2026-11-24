@@ -129,6 +129,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
     moneda_texto: p0.moneda_texto ?? '',
     validez: p0.validez ?? '',
     cierre: p0.cierre ?? '',
+    conclusion: p0.conclusion ?? '',
     telefono: p0.telefono ?? '',
   })
   const campoProp = (k: keyof typeof prop) => ({ value: prop[k], onChange: (e: { target: { value: string } }) => setProp((x) => ({ ...x, [k]: e.target.value })) })
@@ -272,6 +273,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
               moneda_texto: prop.moneda_texto.trim(),
               validez: prop.validez.trim(),
               cierre: prop.cierre.trim(),
+              conclusion: prop.conclusion.trim(),
               telefono: prop.telefono.trim(),
               sin_video: videoSel === 'ninguno' || undefined,
             }).filter(([, v]) => (Array.isArray(v) ? v.length : !!v)),
@@ -522,8 +524,11 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                 </Field>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Conclusión" ayuda="El párrafo de la última hoja. Vacío: va la introducción.">
+                  <Textarea {...campoProp('conclusion')} rows={3} />
+                </Field>
                 <Field label="Frase de cierre">
-                  <Input {...campoProp('cierre')} placeholder="Empecemos por la base." />
+                  <Input {...campoProp('cierre')} placeholder="Empecemos por las bases: USD 840 + USD 100/mes." />
                 </Field>
                 <Field label="Teléfono de brixx">
                   <Input {...campoProp('telefono')} />
