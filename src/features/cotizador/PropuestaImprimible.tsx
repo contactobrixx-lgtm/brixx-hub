@@ -380,12 +380,25 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
         <Pie n={++hoja} />
       </section>
 
-      {/* 6 · Cómo seguimos: el plan por etapas, condiciones y cierre */}
+      {/* 6 · Conclusión: qué logra, el plan por etapas, condiciones y el cierre */}
       <section className="hoja flex flex-col">
-        <div className="ojo">Próximos pasos</div>
+        <div className="ojo">Cierre de la propuesta</div>
         <h2 className="titulo">
-          Cómo <span>seguimos.</span>
+          Conclusión <span>de la propuesta.</span>
         </h2>
+        {(p.conclusion || c.introduccion) && <p className="bajada text-[10.5pt] leading-relaxed text-tinta">{p.conclusion || c.introduccion}</p>}
+        {!!p.objetivos?.length && (
+          <div className="tarjeta mt-6">
+            <div className="font-semibold">Lo que {cliente} va a lograr:</div>
+            <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 text-[9pt]">
+              {p.objetivos.map((o) => (
+                <div key={o} className="check">
+                  {o}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {etapas.length > 0 && (
           <>
             <div className="ojo mt-7">Cómo crece el plan</div>
@@ -421,7 +434,7 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
         {/* Cierre: queda arriba del pie, nunca encima */}
         <div className="cierre mt-auto mb-[16mm]">
           <div className="ojo text-tinta-gris">¿Arrancamos?</div>
-          <div className="mt-2 font-display text-[20pt] leading-tight font-bold">{p.cierre || 'Empecemos.'}</div>
+          <div className="mt-2 font-display text-[20pt] leading-tight font-bold">{p.cierre || 'Empecemos por las bases.'}</div>
           <div className="mt-5 flex items-end justify-between gap-6 border-t border-tinta-suave/40 pt-4">
             <div className="apagado text-[9pt]">
               {p.telefono ? (

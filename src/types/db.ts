@@ -215,6 +215,8 @@ export interface ContenidoPropuesta {
   moneda_texto?: string
   validez?: string
   cierre?: string
+  /** Párrafo de la última hoja ("Conclusión de la propuesta"). Vacío: la introducción */
+  conclusion?: string
   telefono?: string
   /** true: la propuesta va sin video (no se usa el último video del cliente) */
   sin_video?: boolean

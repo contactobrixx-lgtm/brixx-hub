@@ -35,6 +35,7 @@ const ESQUEMA = {
     aviso_texto: TEXTO,
     pago: TEXTO,
     cierre: TEXTO,
+    conclusion: TEXTO,
     items: {
       type: 'array',
       items: {
@@ -47,7 +48,7 @@ const ESQUEMA = {
   },
   required: [
     'introduccion', 'subtitulo', 'etapas', 'punto_texto', 'puntos', 'objetivos', 'plan_titulo', 'plan_texto', 'mantenimiento',
-    'mantenimiento_nota', 'aviso_titulo', 'aviso_texto', 'pago', 'cierre', 'items',
+    'mantenimiento_nota', 'aviso_titulo', 'aviso_texto', 'pago', 'cierre', 'conclusion', 'items',
   ],
   additionalProperties: false,
 }
@@ -67,6 +68,7 @@ interface Salida {
   aviso_texto: string
   pago: string
   cierre: string
+  conclusion: string
   items: { id: string; etapa: number; resumen: string; incluye: string[]; entregable: string }[]
 }
 
@@ -94,7 +96,8 @@ const MODELO_ALCIONE = `{
   "aviso_titulo": "Costos de terceros, a cargo de Alcione",
   "aviso_texto": "Los mensajes que cobra Meta por WhatsApp y el consumo de la IA (unos USD 20 a 60 por mes, según el volumen) y las plataformas que ya usan (Tienda Negocio, Dispac, Dragonfish) se pagan directamente a cada proveedor. Antes de arrancar les pasamos una estimación.",
   "pago": "50% al aprobar cada etapa y 50% a la entrega. Cada etapa se aprueba y se paga por separado.",
-  "cierre": "Empecemos por el asistente: USD 840 + USD 100/mes.",
+  "cierre": "Empecemos por las bases: USD 840 + USD 100/mes.",
+  "conclusion": "Con las tres etapas, Alcione atiende y vende a toda hora, opera su tienda online sin cargar nada a mano y maneja ventas, stock y caja desde el celular, sin sumar personal. Arrancamos por las bases, el asistente de WhatsApp, y con eso andando sumamos la tienda y la gestión.",
   "items": [
     {"etapa": 1, "resumen": "Un asistente que atiende y vende a toda hora.", "incluye": ["Entrenado con los chats y el catálogo de Alcione.", "Consulta el stock y manda el link del producto.", "Sugiere combinaciones y avisa del envío gratis.", "Deriva al equipo los pedidos especiales."], "entregable": "asistente activo en el WhatsApp de Alcione."},
     {"etapa": 2, "resumen": "La tienda online se actualiza sola.", "incluye": ["Productos, precios y stock de Dragonfish a Tienda Negocio.", "Pedidos de la tienda enviados solos a Dispac.", "Avisos de stock bajo y de pedidos nuevos.", "Nada se carga a mano."], "entregable": "tienda y envíos conectados a Dragonfish."},
@@ -121,7 +124,8 @@ incluye (3 o 4 puntos concretos para ESTE cliente) y entregable (en minúscula, 
 - mantenimiento: 3 cosas que cubre el abono. mantenimiento_nota: cuándo empieza el abono (con el monto real de la primera etapa si tiene) y "Sin permanencia mínima."
 - aviso: costos de terceros que paga el cliente directo al proveedor (mensajes de WhatsApp de Meta, consumo de IA, plataformas que ya usa) si aplica.
 - pago: "50% al aprobar cada etapa y 50% a la entrega." (si hay varias etapas, agregá que cada una se aprueba y paga por separado).
-- cierre: una frase corta para arrancar por la primera etapa, con su inversión real (implementación + abono) tal cual figura abajo.
+- cierre: SIEMPRE empieza con "Empecemos por las bases" y sigue con la inversión real de la primera etapa (implementación + abono) tal cual figura abajo.
+- conclusion: el párrafo de la última hoja (2 oraciones): qué logra el cliente con todo el plan y que arrancamos por las bases (la primera etapa).
 - Montos: solo los que figuran en la cotización, nunca otros. Texto plano, sin asteriscos ni emojis.
 
 <modelo_alcione>
@@ -182,6 +186,7 @@ ${c.notas ? `Notas de la cotización: ${c.notas}` : ''}
     mantenimiento_nota: r.mantenimiento_nota,
     pago: r.pago,
     cierre: r.cierre,
+    conclusion: r.conclusion,
     moneda_texto: previa.moneda_texto ?? (moneda === 'USD' ? 'Valores en USD, se pueden abonar en pesos al cambio del día de pago.' : 'Valores en pesos argentinos.'),
     telefono: previa.telefono ?? '+54 9 381 582-3919',
   }
