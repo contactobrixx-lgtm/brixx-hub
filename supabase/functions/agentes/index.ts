@@ -5,6 +5,8 @@
 //                                                cada 15 min con su token, o el hub al abrirse) → { ok, corridos }
 //   { accion: "correr", agente, reunion_id?, prospecto_id?, grabacion_id?, parametros? }
 //                                              → corre un agente ya (a pedido de un socio) → { ok, id?, resumen? }
+//   { accion: "textos_propuesta", id, fondo? } → escribe los textos de la propuesta de esa cotización (formato Alcione);
+//                                              con fondo: true responde enseguida y lo hace en segundo plano
 //   { accion: "continuar_meta", id }           → segundo paso de la campaña de Meta Ads (se llama sola)
 //   { accion: "estado" }                       → agentes, última corrida y si el programador está andando
 //
@@ -20,6 +22,7 @@ import { correrCobranzas } from './cobranzas.ts'
 import { correrPostventa } from './postventa.ts'
 import { prepararReunion, proximaReunion, reunionesPorPreparar } from './preparador.ts'
 import { armarPropuesta } from './propuesta.ts'
+import { armarTextosPropuesta } from './textos.ts'
 import { auditar } from './auditor.ts'
 import { armarMeta, empezarMeta, leerParametros } from './meta.ts'
 import { correrFinanciero } from './financiero.ts'
@@ -165,6 +168,18 @@ Deno.serve(async (req) => {
       return json({ agentes: config ?? [], programados, claude: hayClaude() })
     }
 
+    if (body.accion === 'textos_propuesta') {
+      if (!llamador.socio || !body.id) return json({ error: 'Pedido inválido.' }, 400)
+      if (!hayClaude()) return json({ error: 'Falta cargar la clave de Anthropic.', falta: 'anthropic' }, 503)
+      const trabajo = armarTextosPropuesta(ctx, body.id)
+      if ((body as { fondo?: boolean }).fondo) {
+        enSegundoPlano(trabajo)
+        return json({ ok: true })
+      }
+      await trabajo
+      return json({ ok: true })
+    }
+
     if (body.accion === 'continuar_meta') {
       if (!llamador.socio || !body.id) return json({ error: 'Pedido inválido.' }, 400)
       enSegundoPlano(ctx.hub.tipoCambio().then((tc) => armarMeta(ctx, body.id!, tc)))
@@ -179,11 +194,22 @@ Deno.serve(async (req) => {
       if (POR_CLIENTE.includes(agente)) {
         if (!body.prospecto_id) return json({ error: 'Falta el cliente.' }, 400)
         let p
-        if (agente === 'propuesta') p = await armarPropuesta(ctx, body.prospecto_id, body.grabacion_id ?? null)
+        const auth = req.headers.get('Authorization') ?? ''
+        if (agente === 'propuesta') {
+          // Los textos de la propuesta van en otra llamada a la función (con la misma sesión), por el tope de tiempo
+          const textos = async (id: string) => {
+            const r = await fetch(`${URL_SUPABASE}/functions/v1/agentes`, {
+              method: 'POST',
+              headers: { Authorization: auth, apikey: ANON, 'content-type': 'application/json' },
+              body: JSON.stringify({ accion: 'textos_propuesta', id, fondo: true }),
+            })
+            if (!r.ok) console.error(`No arrancaron los textos de la propuesta (${r.status}).`)
+          }
+          p = await armarPropuesta(ctx, body.prospecto_id, body.grabacion_id ?? null, textos)
+        }
         else if (agente === 'auditor') p = await auditar(ctx, body.prospecto_id)
         else {
           // El segundo paso va en otra llamada a la función (con la misma sesión del socio), por el tope de tiempo
-          const auth = req.headers.get('Authorization') ?? ''
           const continuar = async (id: string) => {
             const r = await fetch(`${URL_SUPABASE}/functions/v1/agentes`, {
               method: 'POST',

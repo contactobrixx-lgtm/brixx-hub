@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { Download } from 'lucide-react'
 import { PropuestaImprimible } from '../features/cotizador/PropuestaImprimible'
-import { usePropuestaPublica } from '../features/cotizador/useCotizador'
+import { usePropuestaPublica, useVideoPropuestaPublica } from '../features/cotizador/useCotizador'
 import { Button } from '../components/ui/Button'
 import { PantallaCarga } from '../components/ui/Spinner'
 
@@ -13,6 +13,7 @@ import { PantallaCarga } from '../components/ui/Spinner'
 export function PropuestaPublicaPage() {
   const { token } = useParams()
   const { cotizacion: c, cargando } = usePropuestaPublica(token)
+  const videoHub = useVideoPropuestaPublica(c ? token : undefined, !!c?.video_url)
 
   useEffect(() => {
     // Que no aparezca en buscadores
@@ -46,7 +47,7 @@ export function PropuestaPublicaPage() {
           <Download className="size-[18px]" /> Descargar PDF
         </Button>
       </div>
-      <PropuestaImprimible c={c} />
+      <PropuestaImprimible c={c} videoHub={videoHub} />
     </div>
   )
 }

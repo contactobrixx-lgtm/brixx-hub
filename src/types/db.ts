@@ -191,6 +191,8 @@ export interface Cotizacion {
   propuesta?: ContenidoPropuesta
   /** Link público de la propuesta (/p/<token>), sin iniciar sesión. null = no es pública. 0029 */
   token_publico?: string | null
+  /** Video del hub (MP4 guardado) que va en la propuesta. Sin video_id ni video_url, va el último guardado del cliente. 0032 */
+  video_id?: string | null
   created_at: string
   updated_at: string
   cotizacion_items: CotizacionItem[]
@@ -212,6 +214,8 @@ export interface ContenidoPropuesta {
   validez?: string
   cierre?: string
   telefono?: string
+  /** true: la propuesta va sin video (no se usa el último video del cliente) */
+  sin_video?: boolean
 }
 
 export interface EtapaCotizacion {

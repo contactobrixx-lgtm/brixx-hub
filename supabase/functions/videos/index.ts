@@ -6,6 +6,8 @@
 //   { accion: "config" }                                        → { anthropic, elevenlabs }
 //   { accion: "crear", grabacion_id?, prospecto_id?, enfoque? }  → crea el video y lo arma en segundo plano → { id }
 //   { accion: "reintentar", id }                                 → si falló: rehace lo que faltó (guion y/o voz)
+//   { accion: "video_propuesta", token }  (SIN sesión: la propuesta pública /p/<token>)
+//                                           → { url } link temporal al MP4 guardado que va en esa propuesta, o { url: null }
 //   { accion: "automatico", grabacion_id }  (solo con firma interna, la llama "grabaciones" al terminar un análisis)
 //                                           → si ajustes.videos_automaticos, arma el video para el cliente y el interno
 // enfoque: "cliente" (le habla al dueño del negocio, por defecto) | "equipo" (para que se lo muestre a los suyos)
@@ -47,6 +49,19 @@ async function socio(req: Request): Promise<string | null> {
   const cliente = createClient(URL_SUPABASE, ANON, { global: { headers: { Authorization: auth } }, auth: { persistSession: false } })
   const [{ data: ok, error }, { data: user }] = await Promise.all([cliente.rpc('es_miembro'), cliente.auth.getUser()])
   return !error && ok === true ? (user.user?.email ?? 'socio') : null
+}
+
+/** El MP4 guardado que va en la propuesta con ese token público (link temporal de 12 h), o null */
+async function videoDePropuestaPublica(token: unknown): Promise<string | null> {
+  if (typeof token !== 'string' || !/^[0-9a-f-]{36}$/i.test(token)) return null
+  const { data: c } = await admin.from('cotizaciones').select('id').eq('token_publico', token).maybeSingle()
+  if (!c) return null
+  const { data: videoId } = await admin.rpc('video_de_cotizacion', { cot: c.id })
+  if (!videoId) return null
+  const { data: v } = await admin.from('videos').select('archivo_path').eq('id', videoId).maybeSingle()
+  if (!v?.archivo_path) return null
+  const { data } = await admin.storage.from('videos').createSignedUrl(v.archivo_path, 12 * 3600)
+  return data?.signedUrl ?? null
 }
 
 async function guardar(id: string, cambios: Record<string, unknown>) {
@@ -150,14 +165,23 @@ async function nuevo(prospectoId: string | null, grabacionId: string | null, enf
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
-  const email = await socio(req)
-  if (!email) return json({ error: 'No autorizado' }, 401)
-  let body: { accion?: string; id?: string; grabacion_id?: string; prospecto_id?: string; enfoque?: string }
+  let body: { accion?: string; id?: string; grabacion_id?: string; prospecto_id?: string; enfoque?: string; token?: string }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'Pedido inválido' }, 400)
   }
+  // La propuesta pública: quien tiene el link puede ver el video que va en ella (y nada más)
+  if (body.accion === 'video_propuesta') {
+    try {
+      return json({ url: await videoDePropuestaPublica(body.token) })
+    } catch (e) {
+      console.error(e)
+      return json({ url: null })
+    }
+  }
+  const email = await socio(req)
+  if (!email) return json({ error: 'No autorizado' }, 401)
   const enfoque: Enfoque = body.enfoque === 'equipo' || body.enfoque === 'interno' ? body.enfoque : 'cliente'
   // Para que la voz siga en otra llamada: la misma sesión del socio o la firma interna
   const cabeceras: Record<string, string> =

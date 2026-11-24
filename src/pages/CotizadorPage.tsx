@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import type { Cotizacion, EstadoCotizacion, Servicio } from '../types/db'
-import { useCotizaciones, useServicios } from '../features/cotizador/useCotizador'
+import { leerCotizacion, useCotizaciones, useServicios } from '../features/cotizador/useCotizador'
 import { CotizacionForm } from '../features/cotizador/CotizacionForm'
 import { ServicioForm } from '../features/cotizador/ServicioForm'
 import { totalesCotizacion } from '../features/finanzas/calculos'
@@ -230,6 +230,11 @@ export function CotizadorPage() {
         onCerrar={() => setCotAbierta(false)}
         onGuardar={cotizaciones.guardarConItems}
         onEliminar={cotizaciones.eliminar}
+        onTextosListos={async (id) => {
+          const fresca = await leerCotizacion(id)
+          if (fresca) setCotEditando(fresca)
+          await cotizaciones.recargar()
+        }}
       />
       <ServicioForm
         abierto={srvAbierto}

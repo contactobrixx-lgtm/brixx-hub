@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { FileText, Link2, Plus, Trash2 } from 'lucide-react'
-import { linkPublicoPropuesta } from './useCotizador'
+import { FileText, Link2, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { armarTextosPropuesta, linkPublicoPropuesta, sinTextosPropuesta } from './useCotizador'
+import { useVideos } from '../videos/useVideos'
 import type {
   ContenidoPropuesta,
   EtapaCotizacion,
@@ -61,11 +62,13 @@ interface Props {
   onCerrar: () => void
   onGuardar: (input: CotizacionInput, items: CotizacionItemInput[], id: string | null) => Promise<string>
   onEliminar: (id: string) => Promise<void>
+  /** Claude terminó de escribir los textos de la propuesta: el formulario se vuelve a abrir con lo nuevo */
+  onTextosListos?: (id: string) => void | Promise<void>
 }
 
 export function CotizacionForm(props: Props) {
   if (!props.abierto) return null
-  return <FormInterno key={props.cotizacion?.id ?? 'nueva'} {...props} />
+  return <FormInterno key={props.cotizacion ? `${props.cotizacion.id}:${props.cotizacion.updated_at}` : 'nueva'} {...props} />
 }
 
 let contador = 0
@@ -77,7 +80,7 @@ function enDias(dias: number) {
   return isoLocal(d)
 }
 
-function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, tipoCambio, onCerrar, onGuardar, onEliminar }: Props) {
+function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, tipoCambio, onCerrar, onGuardar, onEliminar, onTextosListos }: Props) {
   const [prospectoId, setProspectoId] = useState(c?.prospecto_id ?? prospectoInicial ?? '')
   const [titulo, setTitulo] = useState(c?.titulo ?? '')
   const [estado, setEstado] = useState<EstadoCotizacion>(c?.estado ?? 'borrador')
@@ -106,6 +109,10 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
   const [introduccion, setIntroduccion] = useState(c?.introduccion ?? '')
   const [videoUrl, setVideoUrl] = useState(c?.video_url ?? '')
   const p0: ContenidoPropuesta = c?.propuesta ?? {}
+  // Video del hub: "auto" = el último video guardado del cliente; "ninguno"; o el id de un video
+  const [videoSel, setVideoSel] = useState<string>(c?.video_id ?? (p0.sin_video ? 'ninguno' : 'auto'))
+  const [escribiendo, setEscribiendo] = useState(false)
+  const [confirmarTextos, setConfirmarTextos] = useState(false)
   const [prop, setProp] = useState({
     subtitulo: p0.subtitulo ?? '',
     punto_texto: p0.punto_texto ?? '',
@@ -129,6 +136,25 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
   const [guardando, setGuardando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
   const [link, setLink] = useState<string | null>(null)
+  const { videos } = useVideos({ prospecto_id: prospectoId || null })
+  const videosCliente = videos.filter((v) => v.estado === 'listo' && v.enfoque !== 'interno')
+
+  /** Claude escribe los textos de la propuesta (formato Alcione) con la carpeta del cliente; no toca precios */
+  const escribirTextos = async () => {
+    if (!c) return
+    if (!sinTextosPropuesta(c) && !confirmarTextos) return setConfirmarTextos(true)
+    setConfirmarTextos(false)
+    setEscribiendo(true)
+    setError(null)
+    try {
+      await armarTextosPropuesta(c.id)
+      await onTextosListos?.(c.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron escribir los textos.')
+    } finally {
+      setEscribiendo(false)
+    }
+  }
 
   /** Link de la propuesta para el cliente: se abre sin iniciar sesión. En el celular abre el menú para mandarlo. */
   const compartir = async () => {
@@ -225,6 +251,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           notas: vacioANull(notas),
           introduccion: vacioANull(introduccion),
           video_url: vacioANull(videoUrl),
+          video_id: videoSel !== 'auto' && videoSel !== 'ninguno' ? videoSel : null,
           etapas: etapas
             .filter((e) => e.titulo.trim())
             .map((e): EtapaCotizacion => ({ titulo: e.titulo.trim(), detalle: e.detalle.trim(), plazo: vacioANull(e.plazo) })),
@@ -244,6 +271,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
               validez: prop.validez.trim(),
               cierre: prop.cierre.trim(),
               telefono: prop.telefono.trim(),
+              sin_video: videoSel === 'ninguno' || undefined,
             }).filter(([, v]) => (Array.isArray(v) ? v.length : !!v)),
           ) as ContenidoPropuesta,
         },
@@ -279,7 +307,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
     <Modal
       abierto
       onCerrar={onCerrar}
-      titulo={c ? numeroCotizacion(c.numero) : 'Nueva cotización'}
+      titulo={c ? numeroCotizacion(c.numero) : 'Nueva propuesta'}
       pie={
         <>
           {c && (
@@ -357,11 +385,36 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
 
         {/* Propuesta: primera hoja, video y etapas */}
         <section className="space-y-4">
-          <h3 className="text-[19px] font-bold">Propuesta</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="min-w-0 flex-1 text-[19px] font-bold">Propuesta</h3>
+            {c && (
+              <Button size="sm" variant={confirmarTextos ? 'peligro' : 'secundario'} onClick={escribirTextos} disabled={escribiendo || guardando}>
+                {escribiendo ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                {escribiendo ? 'Escribiendo… (un minuto)' : confirmarTextos ? 'Reemplaza los textos: tocá de nuevo' : 'Armar los textos con Claude'}
+              </Button>
+            )}
+          </div>
+          <p className="-mt-2 text-xs text-tenue">
+            {c
+              ? 'Claude escribe la introducción, las etapas, el punto de partida, la tarjeta de cada servicio y las condiciones con la carpeta del cliente, como la propuesta de Alcione. No toca precios. Lo que no guardaste se pierde.'
+              : 'Guardala y después Claude puede escribir los textos con la carpeta del cliente (también se escriben solos al abrir el PDF).'}
+          </p>
           <Field label="Introducción" ayuda="Primera hoja del PDF: para quién es y qué resuelve.">
             <Textarea value={introduccion} onChange={(e) => setIntroduccion(e.target.value)} rows={4} />
           </Field>
-          <Field label="Video" ayuda='Va en la segunda hoja. Una página del hub ("/material/….html"), un link de YouTube o un .mp4. En el PDF queda como link.'>
+          <Field label="Video del hub" ayuda="Va en la segunda hoja. Solo los videos ya guardados (abrilo y tocá Descargar una vez). En el PDF queda como link a la propuesta.">
+            <Select value={videoSel} onChange={(e) => setVideoSel(e.target.value)}>
+              <option value="auto">Automático: el último video guardado del cliente</option>
+              {videosCliente.map((v) => (
+                <option key={v.id} value={v.id} disabled={!v.archivo_path}>
+                  {v.titulo} · {new Date(v.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                  {v.archivo_path ? '' : ' (sin guardar: descargalo una vez)'}
+                </option>
+              ))}
+              <option value="ninguno">Sin video</option>
+            </Select>
+          </Field>
+          <Field label="O un link de video" ayuda='Si lo cargás, va este en lugar del video del hub: una página del hub ("/material/….html"), un link de YouTube o un .mp4.'>
             <Input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="/material/setter-alcione-deco.html" />
           </Field>
           <div>
