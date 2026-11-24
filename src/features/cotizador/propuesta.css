@@ -198,3 +198,24 @@
   padding: 3mm 4mm;
   text-align: left;
 }
+
+/* Forma de pago en grande (sugiere la financiación) */
+.propuesta .pago {
+  background: var(--blanco);
+  border: 2px solid var(--azul);
+  border-radius: 4.5mm;
+  padding: 6mm 6.5mm;
+}
+
+/* Cierre de la última hoja */
+.propuesta .cierre {
+  background:
+    radial-gradient(circle at 92% 8%, color-mix(in oklab, var(--azul) 45%, transparent) 0, transparent 40%),
+    var(--noche);
+  color: var(--blanco);
+  border-radius: 4.5mm;
+  padding: 9mm 8mm 7mm;
+}
+.propuesta .cierre .apagado {
+  color: var(--gris);
+}
