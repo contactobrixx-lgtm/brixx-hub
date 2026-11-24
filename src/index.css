@@ -107,6 +107,14 @@
   scrollbar-color: var(--color-borde-fuerte) transparent;
 }
 
+/* Tiras deslizables sin barra visible (barra inferior del celular) */
+@utility sin-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @keyframes aparecer {
   from {
     opacity: 0;
