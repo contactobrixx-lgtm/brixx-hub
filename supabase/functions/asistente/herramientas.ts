@@ -56,6 +56,11 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
     texto: opcional({ type: 'string', description: 'Nombre, empresa o rubro a buscar.' }),
     tipo: { type: 'string', enum: ['clientes', 'prospectos', 'perdidos', 'todos'] },
   }),
+  herramienta(
+    'instagram',
+    'Datos REALES de una cuenta de Instagram de empresa o creador, por la API oficial de Meta: seguidores (y cuánto cambió desde la última vez), bio, web, publicaciones por semana, días desde la última, me gusta y comentarios promedio, interacción en %, formatos (reels, carruseles, fotos), hashtags y las mejores publicaciones. Sirve para clientes, prospectos y competencia. Usala SIEMPRE antes que la web para analizar un Instagram.',
+    { usuario: { type: 'string', description: 'Usuario (@nombre) o link de Instagram.' } },
+  ),
   herramienta('cotizaciones', 'Cotizaciones con estado, montos (implementación y abono mensual) e ítems.', {
     cliente: opcional({ type: 'string' }),
     estado: opcional({ type: 'string', enum: ['borrador', 'enviada', 'aceptada', 'rechazada'] }),
@@ -304,6 +309,13 @@ export async function ejecutar(
       return hub.leerGrabacion(String(e.id), e.incluir_transcripcion === true)
     case 'clientes_y_prospectos':
       return hub.clientes({ texto: s(e.texto), tipo: (s(e.tipo) as 'clientes' | 'prospectos' | 'perdidos' | 'todos') ?? 'todos' })
+    case 'instagram':
+      try {
+        return await hub.instagram(String(e.usuario ?? ''))
+      } catch (err) {
+        // Sin la API o con una cuenta personal: que siga con la web
+        return `${err instanceof Error ? err.message : String(err)} Si tenés web_search, buscalo en la web y aclará que no son datos de la API.`
+      }
     case 'cotizaciones':
       return hub.cotizaciones({ cliente: s(e.cliente), estado: s(e.estado) })
     case 'finanzas':

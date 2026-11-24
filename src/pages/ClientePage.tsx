@@ -14,6 +14,7 @@ import { IntervencionForm } from '../features/grabaciones/IntervencionForm'
 import { ESTADO_GRABACION, lineaDeAnalisis, ORIGEN_GRABACION } from '../features/grabaciones/estados'
 import { actualizarSintesis, dominio, useHistoriaClientes, usuarioInstagram } from '../features/clientes/useClientes'
 import { LinksCliente } from '../features/clientes/LinksCliente'
+import { InstagramCliente } from '../features/clientes/InstagramCliente'
 import { AgentesCliente } from '../features/agentes/AgentesCliente'
 import { VideosCliente } from '../features/videos/VideosCliente'
 import { PropuestasCliente } from '../features/cotizador/PropuestasCliente'
@@ -341,6 +342,7 @@ export function ClientePage() {
 
         {/* Entregables: todo lo que le armamos al cliente, a mano en la columna de al lado */}
         <aside className="flex min-w-0 flex-col gap-4">
+          <InstagramCliente p={p} />
           {/* Contenedor "Entregables" con un subcontenedor por tipo. Cada bloque trae su propia caja;
               acá se la pasa a una caja interna (fondo más oscuro, menos aire, título más chico). */}
           <section

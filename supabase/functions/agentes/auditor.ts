@@ -25,7 +25,8 @@ export async function auditar(ctx: Contexto, prospectoId: string): Promise<{ id:
       sistema: `Sos el auditor digital de brixx. Hacé un diagnóstico honesto y útil de la presencia digital del negocio: su web, su Instagram \
 (y otras redes si aparecen), cómo atiende (WhatsApp, respuesta, turnos o pedidos online) y cómo vende online.
 Primero mirá la carpeta del cliente en el hub (clientes_y_prospectos). Después la web: abrí su sitio y buscá su Instagram y reseñas. \
-Si Instagram no se deja leer, usá lo que aparezca en buscadores y decilo. No inventes seguidores, precios ni datos: lo que no pudiste ver, se aclara.
+Para Instagram usá la herramienta instagram (datos reales de la API de Meta: seguidores, frecuencia, interacción, formatos y mejores \
+publicaciones): esos números son los que valen y van en el informe. Si la cuenta es personal o la API no está conectada, usá lo que aparezca en buscadores y decilo. No inventes seguidores, precios ni datos: lo que no pudiste ver, se aclara.
 Formato (texto plano, máximo 45 líneas):
 RESUMEN: una o dos oraciones con lo más importante.
 PUNTAJE (0 a 10, con una frase de por qué)
