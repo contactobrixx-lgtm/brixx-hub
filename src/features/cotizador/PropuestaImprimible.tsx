@@ -79,6 +79,12 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
   const plata = (n: number) => (n ? `${c.moneda} ${Math.round(n).toLocaleString('es-AR')}` : 'A definir')
   const deItem = (it: CotizacionItem) => Number(it.cantidad) * Number(it.precio_implementacion)
   const etapaDe = (it: CotizacionItem) => (it.etapa ? etapas[it.etapa - 1] : undefined)
+  const pago = p.pago || (etapas.length > 1 ? '50% al aprobar cada etapa y 50% a la entrega.' : '50% al aprobar y 50% a la entrega.')
+  const financiacion =
+    p.financiacion ||
+    (etapas.length > 1
+      ? 'No hace falta invertir todo junto: cada etapa se aprueba y se paga por separado, recién cuando la anterior está andando. Si lo necesitan, lo financiamos en cuotas: consultanos.'
+      : 'No hace falta pagar todo de entrada. Si lo necesitan, lo financiamos en cuotas: consultanos.')
   const conPuntos = !!(p.punto_texto || p.puntos?.length || p.objetivos?.length)
   let hoja = 1
 
@@ -122,7 +128,57 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
         </div>
       </section>
 
-      {/* 2 · El video */}
+      {/* 2 · Punto de partida: dónde está el cliente hoy */}
+      {conPuntos && (
+        <section className="hoja">
+          <div className="ojo">Punto de partida</div>
+          <h2 className="titulo">
+            Dónde está {cliente} <span>hoy.</span>
+          </h2>
+          {p.punto_texto && <p className="bajada">{p.punto_texto}</p>}
+          {!!p.puntos?.length && (
+            <div className="mt-6 grid grid-cols-2 gap-3.5">
+              {p.puntos.map((x, k) => {
+                const Icono = ICONOS[k % ICONOS.length]
+                return (
+                  <div key={k} className="tarjeta">
+                    <span className="grid size-[8mm] place-items-center rounded-[2.2mm] bg-campo-fondo text-acento">
+                      <Icono className="size-[4mm]" />
+                    </span>
+                    <div className="mt-3 font-semibold">{x.titulo}</div>
+                    <p className="mt-1 text-[8.5pt] text-tinta-suave">{x.detalle}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {!!p.objetivos?.length && (
+            <>
+              <div className="ojo mt-9">Nuestro compromiso</div>
+              <div className="tarjeta mt-3">
+                <div className="font-semibold">Objetivos de la propuesta:</div>
+                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 text-[9pt]">
+                  {p.objetivos.map((o) => (
+                    <div key={o} className="check">
+                      {o}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          {(p.plan_titulo || p.plan_texto) && (
+            <div className="oscura mt-6">
+              <div className="ojo text-tinta-gris">Un plan por etapas</div>
+              {p.plan_titulo && <div className="mt-2 text-[11pt] font-semibold">{p.plan_titulo}</div>}
+              {p.plan_texto && <p className="apagado mt-1.5 text-[8.5pt]">{p.plan_texto}</p>}
+            </div>
+          )}
+          <Pie n={++hoja} />
+        </section>
+      )}
+
+      {/* 3 · El video */}
       {video && (
         <section className="hoja">
           <div className="ojo">Cómo funcionaría</div>
@@ -169,56 +225,6 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
                   {e.detalle && <p className="mt-1.5 text-[8pt] text-tinta-suave">{e.detalle}</p>}
                 </div>
               ))}
-            </div>
-          )}
-          <Pie n={++hoja} />
-        </section>
-      )}
-
-      {/* 3 · Punto de partida */}
-      {conPuntos && (
-        <section className="hoja">
-          <div className="ojo">Punto de partida</div>
-          <h2 className="titulo">
-            Dónde está {cliente} <span>hoy.</span>
-          </h2>
-          {p.punto_texto && <p className="bajada">{p.punto_texto}</p>}
-          {!!p.puntos?.length && (
-            <div className="mt-6 grid grid-cols-2 gap-3.5">
-              {p.puntos.map((x, k) => {
-                const Icono = ICONOS[k % ICONOS.length]
-                return (
-                  <div key={k} className="tarjeta">
-                    <span className="grid size-[8mm] place-items-center rounded-[2.2mm] bg-campo-fondo text-acento">
-                      <Icono className="size-[4mm]" />
-                    </span>
-                    <div className="mt-3 font-semibold">{x.titulo}</div>
-                    <p className="mt-1 text-[8.5pt] text-tinta-suave">{x.detalle}</p>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {!!p.objetivos?.length && (
-            <>
-              <div className="ojo mt-9">Nuestro compromiso</div>
-              <div className="tarjeta mt-3">
-                <div className="font-semibold">Objetivos de la propuesta:</div>
-                <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 text-[9pt]">
-                  {p.objetivos.map((o) => (
-                    <div key={o} className="check">
-                      {o}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-          {(p.plan_titulo || p.plan_texto) && (
-            <div className="oscura mt-6">
-              <div className="ojo text-tinta-gris">Un plan por etapas</div>
-              {p.plan_titulo && <div className="mt-2 text-[11pt] font-semibold">{p.plan_titulo}</div>}
-              {p.plan_texto && <p className="apagado mt-1.5 text-[8.5pt]">{p.plan_texto}</p>}
             </div>
           )}
           <Pie n={++hoja} />
@@ -287,7 +293,7 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
         <Pie n={++hoja} />
       </section>
 
-      {/* 5 · Resumen, plan y condiciones */}
+      {/* 5 · Resumen de la inversión y forma de pago (con financiación, en grande) */}
       <section className="hoja">
         <div className="ojo">Inversión</div>
         <h2 className="titulo">
@@ -327,6 +333,27 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
           </table>
         </div>
 
+        {/* Forma de pago en grande: que se note que no hay que pagar todo junto */}
+        <div className="pago mt-5">
+          <div className="ojo">Forma de pago · Financiación</div>
+          <div className="mt-2 font-display text-[17pt] leading-tight font-bold">{pago}</div>
+          <p className="mt-2.5 text-[9.5pt] text-tinta-suave">{financiacion}</p>
+          {etapas.length > 1 && (
+            <div className={`mt-4 grid gap-2.5 ${etapas.length >= 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              {etapas.map((e, n) => {
+                const total = items.filter((i) => i.etapa === n + 1 && !i.opcional).reduce((a, i) => a + deItem(i), 0)
+                return (
+                  <div key={n} className="rounded-[3mm] bg-papel px-3.5 py-2.5">
+                    <div className="text-[7pt] font-bold tracking-[0.15em] text-tinta-suave uppercase">Etapa {n + 1}</div>
+                    <div className="mt-0.5 text-[8.5pt] leading-snug font-semibold">{e.titulo}</div>
+                    {total > 0 && <div className="mt-1 text-[8pt] text-tinta-suave">2 pagos de {plata(total / 2)}</div>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="mt-4 grid grid-cols-2 gap-3.5">
           <div className="oscura">
             <div className="ojo text-tinta-gris">Mantenimiento mensual</div>
@@ -350,7 +377,15 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
             </div>
           )}
         </div>
+        <Pie n={++hoja} />
+      </section>
 
+      {/* 6 · Cómo seguimos: el plan por etapas, condiciones y cierre */}
+      <section className="hoja flex flex-col">
+        <div className="ojo">Próximos pasos</div>
+        <h2 className="titulo">
+          Cómo <span>seguimos.</span>
+        </h2>
         {etapas.length > 0 && (
           <>
             <div className="ojo mt-7">Cómo crece el plan</div>
@@ -363,38 +398,44 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
                   </div>
                   <div className="mt-1 font-semibold">{e.titulo}</div>
                   {e.plazo && <div className="mt-1 text-[8pt] text-tinta-suave">{e.plazo}</div>}
+                  {e.detalle && <p className="mt-1.5 text-[8pt] text-tinta-suave">{e.detalle}</p>}
                 </div>
               ))}
             </div>
           </>
         )}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {[
+            ['Moneda', p.moneda_texto || (c.moneda === 'USD' ? 'Valores en USD, se pueden abonar en pesos al cambio del día de pago.' : 'Valores en pesos argentinos.')],
+            ['Validez', p.validez ?? (c.valida_hasta ? `Válida hasta el ${formatFechaLarga(c.valida_hasta)}.` : undefined)],
+          ]
+            .filter(([, v]) => v)
+            .map(([k, v]) => (
+              <div key={k} className="tarjeta">
+                <div className="ojo text-tinta-suave">{k}</div>
+                <p className="mt-1.5 text-[8.5pt]">{v}</p>
+              </div>
+            ))}
+        </div>
 
-        {
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            {[
-              ['Forma de pago', p.pago || (etapas.length > 1 ? '50% al aprobar cada etapa y 50% a la entrega.' : '50% al aprobar y 50% a la entrega.')],
-              ['Moneda', p.moneda_texto || (c.moneda === 'USD' ? 'Valores en USD, se pueden abonar en pesos al cambio del día de pago.' : 'Valores en pesos argentinos.')],
-              ['Validez', p.validez ?? (c.valida_hasta ? `Válida hasta el ${formatFechaLarga(c.valida_hasta)}.` : undefined)],
-            ]
-              .filter(([, v]) => v)
-              .map(([k, v]) => (
-                <div key={k} className="tarjeta">
-                  <div className="ojo text-tinta-suave">{k}</div>
-                  <p className="mt-1.5 text-[8.5pt]">{v}</p>
-                </div>
-              ))}
-          </div>
-        }
-        {c.notas && <p className="mt-3 text-[8.5pt] whitespace-pre-line text-tinta-suave">{c.notas}</p>}
-
-        <div className="oscura mt-5 flex items-center justify-between">
-          <div>
-            <div className="font-display text-[14pt] font-bold">{p.cierre || 'Empecemos.'}</div>
-            {p.telefono && <div className="apagado mt-1 text-[8.5pt]">{p.telefono}</div>}
-          </div>
-          <div className="text-right">
-            <Logo className="text-[16pt]" />
-            <div className="apagado mt-1 text-[6.5pt] tracking-[0.2em] uppercase">Soluciones digitales</div>
+        {/* Cierre: queda arriba del pie, nunca encima */}
+        <div className="cierre mt-auto mb-[16mm]">
+          <div className="ojo text-tinta-gris">¿Arrancamos?</div>
+          <div className="mt-2 font-display text-[20pt] leading-tight font-bold">{p.cierre || 'Empecemos.'}</div>
+          <div className="mt-5 flex items-end justify-between gap-6 border-t border-tinta-suave/40 pt-4">
+            <div className="apagado text-[9pt]">
+              {p.telefono ? (
+                <>
+                  Escribinos al <b className="text-papel">{p.telefono}</b> y coordinamos el arranque.
+                </>
+              ) : (
+                'Respondé este mensaje y coordinamos el arranque.'
+              )}
+            </div>
+            <div className="text-right">
+              <Logo className="text-[16pt]" />
+              <div className="apagado mt-1 text-[6.5pt] tracking-[0.2em] uppercase">Soluciones digitales</div>
+            </div>
           </div>
         </div>
         <Pie n={++hoja} />

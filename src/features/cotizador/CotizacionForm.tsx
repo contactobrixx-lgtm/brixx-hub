@@ -125,6 +125,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
     aviso_titulo: p0.aviso?.titulo ?? '',
     aviso_texto: p0.aviso?.texto ?? '',
     pago: p0.pago ?? '',
+    financiacion: p0.financiacion ?? '',
     moneda_texto: p0.moneda_texto ?? '',
     validez: p0.validez ?? '',
     cierre: p0.cierre ?? '',
@@ -267,6 +268,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
               mantenimiento_nota: prop.mantenimiento_nota.trim(),
               aviso: prop.aviso_titulo.trim() ? { titulo: prop.aviso_titulo.trim(), texto: prop.aviso_texto.trim() } : undefined,
               pago: prop.pago.trim(),
+              financiacion: prop.financiacion.trim(),
               moneda_texto: prop.moneda_texto.trim(),
               validez: prop.validez.trim(),
               cierre: prop.cierre.trim(),
@@ -509,6 +511,9 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                 <Field label="Forma de pago">
                   <Textarea {...campoProp('pago')} rows={2} />
                 </Field>
+                <Field label="Financiación" ayuda='Va en grande debajo de la forma de pago. Vacío: "Pagás cada etapa por separado… consultanos por cuotas".'>
+                  <Textarea {...campoProp('financiacion')} rows={2} />
+                </Field>
                 <Field label="Moneda">
                   <Textarea {...campoProp('moneda_texto')} rows={2} />
                 </Field>
@@ -659,7 +664,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
           </div>
         </section>
 
-        <Field label="Notas y condiciones" ayuda="Aparecen en el PDF. Ej: forma de pago, plazos de entrega.">
+        <Field label="Notas y condiciones" ayuda="Internas: no aparecen en la propuesta. Las condiciones para el cliente van en los textos de la propuesta.">
           <Textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={4} placeholder="50% de anticipo y 50% contra entrega. Plazo estimado: 4 semanas." />
         </Field>
 

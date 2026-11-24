@@ -210,6 +210,8 @@ export interface ContenidoPropuesta {
   mantenimiento_nota?: string
   aviso?: { titulo: string; texto: string }
   pago?: string
+  /** Debajo de la forma de pago, en grande: que se puede financiar */
+  financiacion?: string
   moneda_texto?: string
   validez?: string
   cierre?: string
