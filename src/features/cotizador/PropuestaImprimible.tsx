@@ -4,6 +4,7 @@ import type { Cotizacion, CotizacionItem } from '../../types/db'
 import { LogoMark } from '../../components/layout/Logo'
 import { formatFechaLarga } from '../../lib/format'
 import { totalesCotizacion } from '../finanzas/calculos'
+import type { VideoPropuesta } from './useCotizador'
 import './propuesta.css'
 
 type ConCliente = Cotizacion & { prospectos?: { nombre: string; empresa: string | null } | null }
@@ -30,6 +31,8 @@ const dos = (n: number) => String(n).padStart(2, '0')
 
 /** "Bot de WhatsApp con IA — Califica consultas…" → "Bot de WhatsApp con IA" */
 const nombreServicio = (it: CotizacionItem) => it.descripcion.split(' — ')[0]
+/** Sin resumen cargado, la descripción del catálogo ("… — Califica consultas…") */
+const resumenDe = (it: CotizacionItem) => it.resumen || it.descripcion.split(' — ').slice(1).join(' — ') || null
 
 function Logo({ claro = false, className = '' }: { claro?: boolean; className?: string }) {
   return (
@@ -53,7 +56,7 @@ function Pie({ n }: { n: number }) {
  * dónde está el cliente hoy, qué incluye cada servicio y el resumen de la inversión con las etapas y condiciones.
  * Lo que no esté cargado se omite.
  */
-export function PropuestaImprimible({ c }: { c: ConCliente }) {
+export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El video guardado del hub (si no hay video_url) */ videoHub?: VideoPropuesta | null }) {
   // En pantallas angostas (celular) las hojas A4 se achican para entrar enteras; al imprimir van a tamaño real
   const [escala, setEscala] = useState(1)
   useEffect(() => {
@@ -66,7 +69,11 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
   const p = c.propuesta ?? {}
   const etapas = c.etapas ?? []
   const cliente = c.prospectos?.empresa || c.prospectos?.nombre || 'tu negocio'
-  const video = c.video_url ? videoDe(c.video_url) : null
+  const video = c.video_url
+    ? videoDe(c.video_url)
+    : videoHub
+      ? { tipo: 'video' as const, src: `${videoHub.src}#t=0.1`, link: videoHub.link ?? window.location.href, poster: null }
+      : null
   const t = totalesCotizacion(c)
   const items = [...c.cotizacion_items].sort((a, b) => (a.etapa ?? 99) - (b.etapa ?? 99) || Number(!!a.opcional) - Number(!!b.opcional) || a.orden - b.orden)
   const plata = (n: number) => (n ? `${c.moneda} ${Math.round(n).toLocaleString('es-AR')}` : 'A definir')
@@ -93,7 +100,7 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
           </h1>
           {c.introduccion && <p className="mt-6 max-w-[140mm] text-[11pt] leading-relaxed text-linea">{c.introduccion}</p>}
           <div className="mt-6 flex flex-wrap gap-2.5">
-            {(etapas.length ? etapas.map((e) => e.titulo) : items.map(nombreServicio)).map((x) => (
+            {[...new Set(etapas.length ? etapas.map((e) => e.titulo) : items.filter((i) => !i.opcional).map(nombreServicio))].map((x) => (
               <span key={x} className="pastilla">
                 {x}
               </span>
@@ -222,7 +229,7 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
       <section className="hoja">
         <div className="ojo">Servicios</div>
         <h2 className="titulo">
-          Qué incluye <span>cada etapa.</span>
+          Qué incluye <span>{etapas.length ? 'cada etapa.' : 'cada servicio.'}</span>
         </h2>
         <div className="mt-6 grid grid-cols-2 gap-3.5">
           {items.map((it, k) => {
@@ -245,7 +252,7 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
                     )}
                   </div>
                 </div>
-                {it.resumen && <p className="mt-3 text-[8.5pt] text-tinta-suave">{it.resumen}</p>}
+                {resumenDe(it) && <p className="mt-3 text-[8.5pt] text-tinta-suave">{resumenDe(it)}</p>}
                 {!!it.incluye?.length && (
                   <div className="mt-3 flex flex-col gap-1.5 text-[8.5pt]">
                     {it.incluye.map((x) => (
@@ -255,7 +262,7 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
                     ))}
                   </div>
                 )}
-                {it.opcional && <p className="aviso mt-3 text-[8pt]">Opcional: no está incluido en el total. Lo vemos juntos en la etapa 2.</p>}
+                {it.opcional && <p className="aviso mt-3 text-[8pt]">Opcional: no está incluido en el total.{it.etapa ? ` Lo vemos juntos en la etapa ${it.etapa}.` : ' Lo vemos juntos.'}</p>}
                 {it.entregable && (
                   <p className="mt-auto border-t border-linea pt-3 text-[8pt] text-tinta-suave">
                     <b className="text-tinta">Entregable:</b> {it.entregable}
@@ -362,11 +369,11 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
           </>
         )}
 
-        {(p.pago || p.moneda_texto || p.validez || c.notas) && (
+        {
           <div className="mt-3 grid grid-cols-3 gap-3">
             {[
-              ['Forma de pago', p.pago],
-              ['Moneda', p.moneda_texto],
+              ['Forma de pago', p.pago || (etapas.length > 1 ? '50% al aprobar cada etapa y 50% a la entrega.' : '50% al aprobar y 50% a la entrega.')],
+              ['Moneda', p.moneda_texto || (c.moneda === 'USD' ? 'Valores en USD, se pueden abonar en pesos al cambio del día de pago.' : 'Valores en pesos argentinos.')],
               ['Validez', p.validez ?? (c.valida_hasta ? `Válida hasta el ${formatFechaLarga(c.valida_hasta)}.` : undefined)],
             ]
               .filter(([, v]) => v)
@@ -377,7 +384,7 @@ export function PropuestaImprimible({ c }: { c: ConCliente }) {
                 </div>
               ))}
           </div>
-        )}
+        }
         {c.notas && <p className="mt-3 text-[8.5pt] whitespace-pre-line text-tinta-suave">{c.notas}</p>}
 
         <div className="oscura mt-5 flex items-center justify-between">

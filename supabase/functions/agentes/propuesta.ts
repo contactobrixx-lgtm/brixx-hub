@@ -39,7 +39,13 @@ interface Salida {
 const usd = (n: number) => `US$ ${Math.round(n).toLocaleString('es-AR')}`
 
 /** Arma la propuesta de un cliente (y, si viene, a partir de una intervención puntual). */
-export async function armarPropuesta(ctx: Contexto, prospectoId: string, grabacionId: string | null): Promise<{ id: string; trabajo: Promise<void> }> {
+export async function armarPropuesta(
+  ctx: Contexto,
+  prospectoId: string,
+  grabacionId: string | null,
+  /** Pide los textos de la propuesta (formato Alcione) para la cotización recién creada */
+  textos?: (cotizacionId: string) => Promise<void>,
+): Promise<{ id: string; trabajo: Promise<void> }> {
   const p = (await ctx.hub.prospectos()).find((x) => x.id === prospectoId)
   if (!p) throw new Error('No encontré ese cliente.')
   const cliente = nombreCliente(p)
@@ -105,6 +111,8 @@ ${catalogo.map((s) => `- servicio_id ${s.id} · ${s.nombre}: ${s.descripcion ?? 
       throw new Error(ins.error.message)
     }
 
+    await textos?.(cot.id).catch((e) => console.error('Textos de la propuesta:', e))
+
     const impl = items.reduce((t, x) => t + x.precio_implementacion * x.cantidad, 0) * (1 - descuento / 100)
     const mes = items.reduce((t, x) => t + x.precio_mensual * x.cantidad, 0)
     const numero = `COT-${String(cot.numero).padStart(4, '0')}`
@@ -121,7 +129,7 @@ ${catalogo.map((s) => `- servicio_id ${s.id} · ${s.nombre}: ${s.descripcion ?? 
         'POR QUÉ',
         r.por_que,
         '',
-        `La cotización ${numero} quedó en borrador en Propuestas: revisala y mandala.`,
+        `La propuesta ${numero} quedó en borrador en Propuestas (los textos se terminan de escribir en un minuto): revisala y mandala.`,
       ].join('\n'),
       prospecto_id: prospectoId,
       datos: {

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { useTabla } from '../../lib/useTabla'
 import { ETAPAS_ABIERTAS, type Cotizacion, type CotizacionInput, type CotizacionItemInput, type Servicio, type ServicioInput } from '../../types/db'
@@ -57,14 +58,87 @@ export function useCotizacionCompleta(id: string | undefined) {
   const [cotizacion, setCotizacion] = useState<CotizacionCompleta>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => {
+  const recargar = useCallback(async () => {
     if (!id) return
-    cargarCotizacion(id)
+    await cargarCotizacion(id)
       .then(setCotizacion)
       .catch((e: Error) => setError(e.message))
       .finally(() => setCargando(false))
   }, [id])
-  return { cotizacion, cargando, error }
+  useEffect(() => {
+    recargar()
+  }, [recargar])
+  return { cotizacion, cargando, error, recargar }
+}
+
+/** Una cotización con sus ítems (para volver a abrir el formulario con lo último) */
+export async function leerCotizacion(id: string): Promise<Cotizacion | null> {
+  const { data, error } = await supabase.from('cotizaciones').select('*, cotizacion_items(*)').eq('id', id).maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as Cotizacion | null
+}
+
+/** ¿Le faltan los textos de la propuesta? (introducción, etapas y textos vacíos) */
+export const sinTextosPropuesta = (c: Pick<Cotizacion, 'introduccion' | 'etapas' | 'propuesta'>) =>
+  !c.introduccion && !(c.etapas ?? []).length && !(c.propuesta?.punto_texto || c.propuesta?.puntos?.length || c.propuesta?.cierre)
+
+/**
+ * Claude escribe los textos de la propuesta con el formato de la de Alcione (portada, punto de partida, etapas,
+ * tarjeta de cada servicio y condiciones) a partir de la carpeta del cliente. No toca precios. Tarda ~1 min.
+ */
+export async function armarTextosPropuesta(id: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('agentes', { body: { accion: 'textos_propuesta', id } })
+  if (!error) return
+  if (error instanceof FunctionsHttpError) {
+    const cuerpo = await error.context.json().catch(() => null)
+    throw new Error(cuerpo?.error ?? `La función respondió ${error.context.status}.`)
+  }
+  throw new Error(error.message)
+}
+
+export interface VideoPropuesta {
+  src: string
+  /** A dónde lleva el video en el PDF (el link público de la propuesta) */
+  link: string | null
+}
+
+/** El video del hub que va en la propuesta (elegido o el último guardado del cliente), con link temporal */
+export function useVideoPropuesta(c: Pick<Cotizacion, 'id' | 'video_url' | 'video_id' | 'propuesta' | 'token_publico' | 'prospecto_id'> | null) {
+  const [video, setVideo] = useState<VideoPropuesta | null>(null)
+  const clave = c ? `${c.id}|${c.video_url ?? ''}|${c.video_id ?? ''}|${c.propuesta?.sin_video ?? ''}` : ''
+  useEffect(() => {
+    if (!c || c.video_url) return setVideo(null)
+    let vivo = true
+    ;(async () => {
+      const { data: videoId } = await supabase.rpc('video_de_cotizacion', { cot: c.id })
+      if (!videoId) return vivo && setVideo(null)
+      const { data: v } = await supabase.from('videos').select('archivo_path').eq('id', videoId).maybeSingle()
+      if (!v?.archivo_path) return vivo && setVideo(null)
+      const { data } = await supabase.storage.from('videos').createSignedUrl(v.archivo_path, 12 * 3600)
+      if (!data) return
+      // En el PDF el video lleva al link público de la propuesta (el link firmado vence)
+      const link = await linkPublicoPropuesta(c.id, c.token_publico).catch(() => null)
+      if (vivo) setVideo({ src: data.signedUrl, link })
+    })()
+    return () => {
+      vivo = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clave])
+  return video
+}
+
+/** El video de la propuesta pública (lo da la función "videos" con el token, sin sesión) */
+export function useVideoPropuestaPublica(token: string | undefined, conLinkPropio: boolean) {
+  const [video, setVideo] = useState<VideoPropuesta | null>(null)
+  useEffect(() => {
+    if (!token || conLinkPropio) return
+    supabase.functions
+      .invoke('videos', { body: { accion: 'video_propuesta', token } })
+      .then(({ data }) => data?.url && setVideo({ src: data.url as string, link: window.location.href }))
+      .catch(() => {})
+  }, [token, conLinkPropio])
+  return video
 }
 
 async function cargarCotizacion(id: string) {
