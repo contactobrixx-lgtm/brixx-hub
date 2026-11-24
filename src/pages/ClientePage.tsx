@@ -340,17 +340,26 @@ export function ClientePage() {
         </div>
 
         {/* Entregables: todo lo que le armamos al cliente, a mano en la columna de al lado */}
-        <aside className="flex min-w-0 flex-col gap-4" aria-labelledby="titulo-entregables">
-          <div className="flex items-center gap-2 px-1 lg:-mb-1">
-            <PackageCheck className="size-5 text-acento-texto" />
-            <h2 id="titulo-entregables" className="text-[22px] font-bold">
-              Entregables
-            </h2>
-          </div>
-          <PropuestasCliente prospectoId={p.id} nombre={p.empresa || p.nombre} />
-          <FichasCliente p={p} />
-          <AgentesCliente p={p} />
-          <VideosCliente prospectoId={p.id} compacto puedeGenerar={historia.some((g) => g.analisis)} />
+        <aside className="flex min-w-0 flex-col gap-4">
+          {/* Contenedor "Entregables" con un subcontenedor por tipo. Cada bloque trae su propia caja;
+              acá se la pasa a una caja interna (fondo más oscuro, menos aire, título más chico). */}
+          <section
+            aria-labelledby="titulo-entregables"
+            className="rounded-2xl border border-borde bg-superficie p-3 sm:p-4"
+          >
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <PackageCheck className="size-5 text-acento-texto" />
+              <h2 id="titulo-entregables" className="text-[19px] font-bold">
+                Entregables
+              </h2>
+            </div>
+            <div className="flex flex-col gap-3 [&>section]:rounded-xl [&>section]:border-borde [&>section]:bg-fondo [&>section]:p-3.5 [&>section_h2]:text-base">
+              <PropuestasCliente prospectoId={p.id} nombre={p.empresa || p.nombre} />
+              <FichasCliente p={p} />
+              <AgentesCliente p={p} />
+              <VideosCliente prospectoId={p.id} compacto puedeGenerar={historia.some((g) => g.analisis)} />
+            </div>
+          </section>
           {p.notas && (
             <Bloque titulo="Notas">
               <p className="text-sm whitespace-pre-line text-suave">{p.notas}</p>
