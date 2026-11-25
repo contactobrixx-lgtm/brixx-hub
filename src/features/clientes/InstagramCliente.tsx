@@ -26,7 +26,7 @@ const nivelInteraccion = (pct: number | null) => (pct == null ? null : pct >= 3 
  * cómo evoluciona. Solo cuentas de empresa o creador.
  */
 export function InstagramCliente({ p }: { p: Prospecto }) {
-  const { ultima, anterior, cargando, actualizando, error, sinMeta, actualizar } = useInstagram(p.id)
+  const { ultima, anterior, cargando, actualizando, error, sinMeta, actualizar, diagnostico, diagnosticar } = useInstagram(p.id)
   const d = ultima?.datos
   const m = ultima?.metricas
   const cambio = ultima && anterior ? ultima.datos.seguidores - anterior.datos.seguidores : null
@@ -112,7 +112,15 @@ export function InstagramCliente({ p }: { p: Prospecto }) {
       {error && (
         <div className="mt-3">
           <ErrorBox mensaje={sinMeta ? 'Falta conectar la API de Meta al hub (los pasos te los paso por el chat).' : error} />
+          {!sinMeta && !diagnostico && (
+            <Button size="sm" variant="fantasma" className="-ml-2 mt-1" onClick={() => diagnosticar(p.instagram)}>
+              Ver diagnóstico de la conexión
+            </Button>
+          )}
         </div>
+      )}
+      {diagnostico && (
+        <pre className="mt-3 overflow-x-auto rounded-xl bg-elevada p-3 text-xs leading-relaxed whitespace-pre-wrap text-suave">{diagnostico.join('\n')}</pre>
       )}
     </section>
   )

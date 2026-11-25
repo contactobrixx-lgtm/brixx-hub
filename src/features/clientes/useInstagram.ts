@@ -50,5 +50,16 @@ export function useInstagram(prospectoId: string) {
     }
   }
 
-  return { ultima: fotos[0] ?? null, anterior: fotos[1] ?? null, cargando, actualizando, error, sinMeta, actualizar }
+  /** Qué permisos tiene el token de Meta y si puede leer cuentas (para resolver errores de conexión) */
+  const [diagnostico, setDiagnostico] = useState<string[] | null>(null)
+  const diagnosticar = async (usuario: string | null) => {
+    setDiagnostico(['Revisando la conexión con Meta…'])
+    const { data, error } = await supabase.functions.invoke('agentes', { body: { accion: 'meta_diagnostico', usuario } })
+    if (error) {
+      const cuerpo = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null
+      setDiagnostico([`No se pudo revisar: ${cuerpo?.error ?? error.message}`])
+    } else setDiagnostico((data?.lineas as string[]) ?? [])
+  }
+
+  return { ultima: fotos[0] ?? null, anterior: fotos[1] ?? null, cargando, actualizando, error, sinMeta, actualizar, diagnostico, diagnosticar }
 }

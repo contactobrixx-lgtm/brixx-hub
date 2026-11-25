@@ -7,6 +7,7 @@
 //                                              → corre un agente ya (a pedido de un socio) → { ok, id?, resumen? }
 //   { accion: "textos_propuesta", id, fondo? } → escribe los textos de la propuesta de esa cotización (formato Alcione);
 //                                              con fondo: true responde enseguida y lo hace en segundo plano
+//   { accion: "meta_diagnostico", usuario? } → qué permisos tiene el token, qué ve y si puede leer cuentas (sin mostrar el token)
 //   { accion: "instagram", prospecto_id?, usuario? } → lee la cuenta de Instagram (API de Meta), guarda la foto del momento → { perfil }
 //   { accion: "continuar_meta", id }           → segundo paso de la campaña de Meta Ads (se llama sola)
 //   { accion: "estado" }                       → agentes, última corrida y si el programador está andando
@@ -24,7 +25,7 @@ import { correrPostventa } from './postventa.ts'
 import { prepararReunion, proximaReunion, reunionesPorPreparar } from './preparador.ts'
 import { armarPropuesta } from './propuesta.ts'
 import { armarTextosPropuesta } from './textos.ts'
-import { ErrorMeta, metaConfigurado } from '../asistente/meta.ts'
+import { diagnosticoMeta, ErrorMeta, metaConfigurado, usuarioInstagram } from '../asistente/meta.ts'
 import { auditar } from './auditor.ts'
 import { armarMeta, empezarMeta, leerParametros } from './meta.ts'
 import { correrFinanciero } from './financiero.ts'
@@ -168,6 +169,12 @@ Deno.serve(async (req) => {
           .then((r) => r.data === true),
       ])
       return json({ agentes: config ?? [], programados, claude: hayClaude(), meta: metaConfigurado() })
+    }
+
+    if (body.accion === 'meta_diagnostico') {
+      if (!llamador.socio) return json({ error: 'Solo a pedido de un socio.' }, 403)
+      const b = body as { usuario?: string }
+      return json({ ok: true, lineas: await diagnosticoMeta(b.usuario ? usuarioInstagram(b.usuario) : null) })
     }
 
     if (body.accion === 'instagram') {
