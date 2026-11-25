@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     const tContexto = Date.now() - t0
     // Misión: se crea acá y la corre la función "misiones" en segundo plano (con la misma sesión del socio)
     const lanzarMision = async (pedidoMision: string): Promise<string> => {
-      const pedidoLimpio = pedidoMision.trim().slice(0, 2000)
+      const pedidoLimpio = Array.from(pedidoMision.trim()).slice(0, 2000).join('')
       if (!pedidoLimpio) throw new Error('Falta el pedido de la misión.')
       const { data, error } = await admin.from('jarvis_misiones').insert({ usuario: usuario.email, pedido: pedidoLimpio }).select('id').single()
       if (error) throw new Error(`No se pudo crear la misión: ${error.message}`)

@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
   }
 
   if (body.accion === 'crear') {
-    const pedido = typeof body.pedido === 'string' ? body.pedido.trim().slice(0, 2000) : ''
+    const pedido = typeof body.pedido === 'string' ? Array.from(body.pedido.trim()).slice(0, 2000).join('') : ''
     if (!pedido) return json({ error: 'Falta el pedido.' }, 400)
     const { data, error } = await admin.from('jarvis_misiones').insert({ usuario: email, pedido }).select('id').single()
     if (error) return json({ error: error.message }, 500)

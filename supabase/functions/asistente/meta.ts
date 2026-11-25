@@ -7,6 +7,8 @@
 // META_IG_USER_ID (opcional: id de la cuenta de Instagram de empresa de brixx; si falta, se busca solo con el
 // token entre las páginas de Facebook que maneja), META_GRAPH_VERSION (opcional).
 
+import { bienFormado, recortar } from './datos.ts'
+
 const VERSION = () => Deno.env.get('META_GRAPH_VERSION') || 'v23.0'
 
 export const metaConfigurado = () => Boolean(Deno.env.get('META_ACCESS_TOKEN'))
@@ -86,9 +88,8 @@ export interface MetricasInstagram {
  * rechaza el JSON: "Empty or invalid json"). Recorta por caracteres completos y limpia lo que venga roto.
  */
 export function textoSeguro(t: string | null | undefined, max?: number): string {
-  const limpio = (t ?? '').replace(/\s+/g, ' ').trim()
-  const cortado = max ? Array.from(limpio).slice(0, max).join('') : limpio
-  return cortado.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+  const limpio = bienFormado((t ?? '').replace(/\s+/g, ' ').trim())
+  return max ? recortar(limpio, max) : limpio
 }
 
 const tipoDe = (m: Media) =>
