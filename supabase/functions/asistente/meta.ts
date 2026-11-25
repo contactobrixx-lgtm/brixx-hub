@@ -7,6 +7,8 @@
 // META_IG_USER_ID (opcional: id de la cuenta de Instagram de empresa de brixx; si falta, se busca solo con el
 // token entre las páginas de Facebook que maneja), META_GRAPH_VERSION (opcional).
 
+import { bienFormado, recortar } from './datos.ts'
+
 const VERSION = () => Deno.env.get('META_GRAPH_VERSION') || 'v23.0'
 
 export const metaConfigurado = () => Boolean(Deno.env.get('META_ACCESS_TOKEN'))
@@ -81,6 +83,15 @@ export interface MetricasInstagram {
   mejores: { link: string | null; tipo: string; interaccion: number; texto: string }[]
 }
 
+/**
+ * Texto seguro para guardar: sin mitades de emoji (un recorte por posición puede partir un emoji en dos y la base
+ * rechaza el JSON: "Empty or invalid json"). Recorta por caracteres completos y limpia lo que venga roto.
+ */
+export function textoSeguro(t: string | null | undefined, max?: number): string {
+  const limpio = bienFormado((t ?? '').replace(/\s+/g, ' ').trim())
+  return max ? recortar(limpio, max) : limpio
+}
+
 const tipoDe = (m: Media) =>
   m.media_product_type === 'REELS' ? 'reel' : m.media_type === 'CAROUSEL_ALBUM' ? 'carrusel' : m.media_type === 'VIDEO' ? 'video' : 'foto'
 const redondo = (n: number, d = 1) => Math.round(n * 10 ** d) / 10 ** d
@@ -114,7 +125,7 @@ function calcular(media: Media[], seguidores: number): MetricasInstagram {
     mejores: [...media]
       .sort((a, b) => inter(b) - inter(a))
       .slice(0, 3)
-      .map((m) => ({ link: m.permalink ?? null, tipo: tipoDe(m), interaccion: inter(m), texto: (m.caption ?? '').replace(/\s+/g, ' ').slice(0, 120) })),
+      .map((m) => ({ link: m.permalink ?? null, tipo: tipoDe(m), interaccion: inter(m), texto: textoSeguro(m.caption, 120) })),
   }
 }
 
@@ -148,8 +159,8 @@ export async function perfilInstagram(usuario: string): Promise<PerfilInstagram>
   const seguidores = Number(d.followers_count ?? 0)
   return {
     usuario: d.username ?? usuario,
-    nombre: d.name ?? null,
-    biografia: d.biography ?? null,
+    nombre: d.name ? textoSeguro(d.name) : null,
+    biografia: d.biography ? textoSeguro(d.biography, 500) : null,
     web: d.website ?? null,
     foto: d.profile_picture_url ?? null,
     seguidores,
@@ -162,7 +173,7 @@ export async function perfilInstagram(usuario: string): Promise<PerfilInstagram>
       me_gusta: m.like_count ?? null,
       comentarios: m.comments_count ?? null,
       link: m.permalink ?? null,
-      texto: (m.caption ?? '').replace(/\s+/g, ' ').slice(0, 140),
+      texto: textoSeguro(m.caption, 140),
     })),
   }
 }

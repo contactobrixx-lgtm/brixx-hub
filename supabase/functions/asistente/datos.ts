@@ -33,7 +33,23 @@ function rangoUTC(desde: string, hasta: string) {
   return { ini: new Date(`${desde}T00:00:00-03:00`).toISOString(), fin: new Date(new Date(`${hasta}T00:00:00-03:00`).getTime() + 864e5).toISOString() }
 }
 
-const corto = (t: string | null | undefined, n: number) => (!t ? '' : t.length > n ? `${t.slice(0, n)}…` : t)
+/**
+ * Saca las mitades de emoji sueltas. Un texto recortado por posición puede partir un emoji en dos, y con eso
+ * Anthropic ("unexpected end of hex escape") y la base ("Empty or invalid json") rechazan el pedido entero.
+ */
+export const bienFormado = (t: string) => t.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+
+/** Recorta por caracteres completos (nunca en la mitad de un emoji) */
+export const recortar = (t: string, n: number) => {
+  const c = Array.from(t)
+  return c.length > n ? c.slice(0, n).join('') : t
+}
+
+const corto = (t: string | null | undefined, n: number) => {
+  if (!t) return ''
+  const r = recortar(bienFormado(t), n)
+  return r.length < t.length ? `${r}…` : r
+}
 
 type Fila = Record<string, unknown>
 

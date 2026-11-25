@@ -2,7 +2,7 @@
 // acciones que el socio tiene que confirmar antes de que se hagan y, del lado de Anthropic,
 // búsqueda y lectura web.
 import type Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
-import type { Hub } from './datos.ts'
+import { bienFormado, type Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import { ETAPAS, type Acciones, type TipoAccion } from './acciones.ts'
 import type { Lugares } from './lugares.ts'
@@ -252,7 +252,12 @@ const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefi
  * Ejecuta una herramienta. Escribe solo en la memoria de Jarvis; las acciones sobre el hub
  * se preparan y se ejecutan recién cuando el socio confirma.
  */
-export async function ejecutar(
+/** Ejecuta una herramienta y devuelve su texto limpio (sin mitades de emoji que rompan el pedido a Claude) */
+export async function ejecutar(...args: Parameters<typeof ejecutarCrudo>): Promise<string> {
+  return bienFormado(await ejecutarCrudo(...args))
+}
+
+async function ejecutarCrudo(
   hub: Hub,
   memoria: Memoria,
   acciones: Acciones,

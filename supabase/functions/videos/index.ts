@@ -107,7 +107,7 @@ async function armar(id: string, cabeceras: Record<string, string> | null = null
       await guardar(id, { estado: 'guion', error: null })
       const r = await armarGuion(await material(v.prospecto_id, v.grabacion_id), enfoque)
       guion = r.guion
-      await guardar(id, { guion, titulo: guion.titulo.slice(0, 140), estado: 'voz' })
+      await guardar(id, { guion, titulo: Array.from(guion.titulo).slice(0, 140).join(''), estado: 'voz' })
       if (cabeceras && vozConfigurada()) {
         const r = await fetch(`${URL_SUPABASE}/functions/v1/videos`, {
           method: 'POST',

@@ -143,7 +143,7 @@ export class Acciones {
         const p = await this.cliente(texto(e.cliente))
         const nota = texto(e.nota)
         if (!nota) throw new Error('Falta la nota.')
-        return { datos: { prospecto_id: p.id, nota: nota.slice(0, 1000) }, resumen: `Anotar en la carpeta de ${this.nombre(p)}: «${nota.slice(0, 1000)}»` }
+        return { datos: { prospecto_id: p.id, nota: Array.from(nota).slice(0, 1000).join('') }, resumen: `Anotar en la carpeta de ${this.nombre(p)}: «${Array.from(nota).slice(0, 1000).join('')}»` }
       }
       case 'cotizacion_borrador': {
         const p = await this.cliente(texto(e.cliente))
