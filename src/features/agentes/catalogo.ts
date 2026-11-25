@@ -1,4 +1,4 @@
-import { BellRing, BriefcaseBusiness, ChartLine, FileSignature, HeartHandshake, Lightbulb, Megaphone, Radar, ScanSearch, type LucideIcon } from 'lucide-react'
+import { BellRing, BriefcaseBusiness, ChartLine, FileSignature, HeartHandshake, Lightbulb, Megaphone, Radar, ScanSearch, TrendingUp, type LucideIcon } from 'lucide-react'
 import type { IdAgente } from '../../types/db'
 
 export interface DescripcionAgente {
@@ -89,6 +89,17 @@ export const AGENTES: DescripcionAgente[] = [
     cuando: 'A pedido, desde la carpeta del cliente',
     conHora: false,
     correrAhora: 'Auditar redes y web',
+    porCliente: true,
+  },
+  {
+    id: 'contenido',
+    nombre: 'Competencia y contenido',
+    icono: TrendingUp,
+    queHace:
+      'Compara su Instagram con los referentes del rubro (datos reales de Meta), busca más referentes y tendencias, y te da lo que hacen ellos y el cliente no, 8 publicaciones listas para hacer y un calendario de 2 semanas.',
+    cuando: 'A pedido, desde la carpeta del cliente',
+    conHora: false,
+    correrAhora: 'Analizar competencia y contenido',
     porCliente: true,
   },
   {
