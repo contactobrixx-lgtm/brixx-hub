@@ -132,6 +132,13 @@ export async function perfilInstagram(usuario: string): Promise<PerfilInstagram>
     // 110 / 2207013 / "Invalid user id": la cuenta no existe o es personal
     if (e && (e.code === 110 || e.error_subcode === 2207013 || /invalid user id|cannot be found|does not exist/i.test(e.message ?? '')))
       throw new ErrorMeta(`No encontré @${usuario} como cuenta de empresa o creador: o no existe, o es personal (Meta no deja leer cuentas personales).`, 'no_encontrada')
+    // 10 / 200: el token anda pero le falta un permiso. Con la página asignada por Business Manager (usuario del
+    // sistema), Meta pide además ads_read (o ads_management) para Business Discovery.
+    if (e && (e.code === 10 || e.code === 200 || (e.code >= 200 && e.code < 300)))
+      throw new ErrorMeta(
+        `Al token de Meta le falta un permiso (${e.message ?? 'sin permiso'}). Generalo de nuevo sumando ads_read e instagram_manage_insights a los otros cuatro.`,
+        'token',
+      )
     if (e && (e.code === 190 || e.type === 'OAuthException'))
       throw new ErrorMeta(`La conexión con Meta no anda (${e.message ?? 'token inválido o vencido'}). Hay que renovar el token.`, 'token')
     throw new ErrorMeta(`Meta respondió con un error: ${e?.message ?? r.status}`, 'meta')
@@ -190,4 +197,53 @@ export function textoPerfil(p: PerfilInstagram, previo?: { seguidores: number; f
     ...p.ultimas.slice(0, 8).map((x) => `- ${x.fecha} ${x.tipo}: ${x.me_gusta ?? 'oculto'} me gusta, ${x.comentarios ?? 0} comentarios · "${x.texto}"`),
     'Referencia: en cuentas de comercios chicos, una interacción de 1 a 3% es normal, más de 3% es buena y menos de 0,5% es baja.',
   ].join('\n')
+}
+
+/**
+ * Diagnóstico de la conexión con Meta (sin mostrar el token): quién es el token, qué permisos tiene de verdad,
+ * qué páginas e Instagram ve y si puede leer la propia cuenta y otra cuenta de empresa conocida.
+ */
+export async function diagnosticoMeta(usuarioPrueba?: string | null): Promise<string[]> {
+  if (!metaConfigurado()) return ['No hay META_ACCESS_TOKEN cargado en Supabase.']
+  const get = async (ruta: string) => {
+    const r = await fetch(`https://graph.facebook.com/${VERSION()}/${ruta}`, {
+      headers: { Authorization: `Bearer ${Deno.env.get('META_ACCESS_TOKEN')}` },
+      signal: AbortSignal.timeout(10_000),
+    })
+    const j = await r.json().catch(() => null)
+    return { ok: r.ok, j, error: j?.error ? `(#${j.error.code}${j.error.error_subcode ? `/${j.error.error_subcode}` : ''}) ${j.error.message}` : null }
+  }
+  const lineas: string[] = [`Versión de la API: ${VERSION()}`]
+  const yo = await get('me?fields=id,name')
+  lineas.push(yo.ok ? `Token de: ${yo.j.name} (${yo.j.id})` : `Token: ERROR ${yo.error}`)
+  const permisos = await get('me/permissions')
+  if (permisos.ok) {
+    const dados = (permisos.j.data ?? []).filter((p: { status: string }) => p.status === 'granted').map((p: { permission: string }) => p.permission)
+    const faltan = ['instagram_basic', 'pages_show_list', 'pages_read_engagement', 'business_management', 'ads_read'].filter((p) => !dados.includes(p))
+    lineas.push(`Permisos del token: ${dados.join(', ') || 'ninguno'}`)
+    lineas.push(faltan.length ? `FALTAN: ${faltan.join(', ')}` : 'Están todos los permisos necesarios.')
+  } else lineas.push(`Permisos: ERROR ${permisos.error}`)
+  const paginas = await get('me/accounts?fields=name,tasks,instagram_business_account{id,username}&limit=50')
+  let propia: { id: string; username: string } | null = null
+  if (paginas.ok) {
+    const lista = paginas.j.data ?? []
+    if (!lista.length) lineas.push('Páginas de Facebook que ve: ninguna (asignale la página al usuario del sistema).')
+    for (const p of lista) {
+      const ig = p.instagram_business_account
+      if (ig && !propia) propia = ig
+      lineas.push(`Página: ${p.name} · tareas: ${(p.tasks ?? []).join(', ') || 'ninguna'} · Instagram: ${ig ? `@${ig.username} (${ig.id})` : 'no conectado'}`)
+    }
+  } else lineas.push(`Páginas: ERROR ${paginas.error}`)
+  const igId = Deno.env.get('META_IG_USER_ID') || propia?.id
+  if (!igId) return [...lineas, 'No encontré una cuenta de Instagram de empresa para hacer las consultas.']
+  const cuenta = await get(`${igId}?fields=username,followers_count,media_count`)
+  lineas.push(cuenta.ok ? `Cuenta propia: @${cuenta.j.username}, ${cuenta.j.followers_count} seguidores` : `Cuenta propia: ERROR ${cuenta.error}`)
+  const probar = async (u: string) => {
+    const r = await get(`${igId}?fields=${encodeURIComponent(`business_discovery.username(${u}){username,followers_count}`)}`)
+    lineas.push(r.ok ? `Leer @${u}: OK (${r.j.business_discovery?.followers_count} seguidores)` : `Leer @${u}: ERROR ${r.error}`)
+  }
+  if (propia?.username) await probar(propia.username)
+  await probar('instagram')
+  if (usuarioPrueba) await probar(usuarioPrueba)
+  return lineas
 }
