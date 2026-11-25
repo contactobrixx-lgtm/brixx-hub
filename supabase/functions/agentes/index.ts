@@ -9,6 +9,7 @@
 //                                              con fondo: true responde enseguida y lo hace en segundo plano
 //   { accion: "meta_diagnostico", usuario? } → qué permisos tiene el token, qué ve y si puede leer cuentas (sin mostrar el token)
 //   { accion: "instagram", prospecto_id?, usuario? } → lee la cuenta de Instagram (API de Meta), guarda la foto del momento → { perfil }
+//   { accion: "continuar_contenido", id }     → segundo paso de Competencia y contenido (se llama sola)
 //   { accion: "continuar_meta", id }           → segundo paso de la campaña de Meta Ads (se llama sola)
 //   { accion: "estado" }                       → agentes, última corrida y si el programador está andando
 //
@@ -25,6 +26,7 @@ import { correrPostventa } from './postventa.ts'
 import { prepararReunion, proximaReunion, reunionesPorPreparar } from './preparador.ts'
 import { armarPropuesta } from './propuesta.ts'
 import { armarTextosPropuesta } from './textos.ts'
+import { armarContenido, empezarContenido, leerParametrosContenido } from './contenido.ts'
 import { diagnosticoMeta, ErrorMeta, metaConfigurado, usuarioInstagram } from '../asistente/meta.ts'
 import { auditar } from './auditor.ts'
 import { armarMeta, empezarMeta, leerParametros } from './meta.ts'
@@ -45,12 +47,12 @@ const CORS = {
 }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'content-type': 'application/json' } })
 
-const AGENTES = ['preparador', 'postventa', 'monitor', 'cobranzas', 'propuesta', 'auditor', 'meta_ads', 'financiero', 'ventas'] as const
+const AGENTES = ['preparador', 'postventa', 'monitor', 'cobranzas', 'propuesta', 'auditor', 'meta_ads', 'contenido', 'financiero', 'ventas'] as const
 type Agente = (typeof AGENTES)[number]
 /** Los que necesitan Claude (el monitor no) */
-const CON_IA: Agente[] = ['preparador', 'postventa', 'cobranzas', 'propuesta', 'auditor', 'meta_ads', 'financiero', 'ventas']
+const CON_IA: Agente[] = ['preparador', 'postventa', 'cobranzas', 'propuesta', 'auditor', 'meta_ads', 'contenido', 'financiero', 'ventas']
 /** Los que trabajan sobre un cliente puntual */
-const POR_CLIENTE: Agente[] = ['propuesta', 'auditor', 'meta_ads']
+const POR_CLIENTE: Agente[] = ['propuesta', 'auditor', 'meta_ads', 'contenido']
 
 /** Quién llama: un socio (con su sesión) o el programador de la base (con el token interno) */
 async function quien(req: Request): Promise<{ socio: string | null } | null> {
@@ -214,6 +216,12 @@ Deno.serve(async (req) => {
       return json({ ok: true })
     }
 
+    if (body.accion === 'continuar_contenido') {
+      if (!llamador.socio || !body.id) return json({ error: 'Pedido inválido.' }, 400)
+      enSegundoPlano(armarContenido(ctx, body.id))
+      return json({ ok: true })
+    }
+
     if (body.accion === 'continuar_meta') {
       if (!llamador.socio || !body.id) return json({ error: 'Pedido inválido.' }, 400)
       enSegundoPlano(ctx.hub.tipoCambio().then((tc) => armarMeta(ctx, body.id!, tc)))
@@ -242,7 +250,18 @@ Deno.serve(async (req) => {
           p = await armarPropuesta(ctx, body.prospecto_id, body.grabacion_id ?? null, textos)
         }
         else if (agente === 'auditor') p = await auditar(ctx, body.prospecto_id)
-        else {
+        else if (agente === 'contenido') {
+          // El segundo paso (la estrategia) va en otra llamada a la función, por el tope de tiempo
+          const continuar = async (id: string) => {
+            const r = await fetch(`${URL_SUPABASE}/functions/v1/agentes`, {
+              method: 'POST',
+              headers: { Authorization: auth, apikey: ANON, 'content-type': 'application/json' },
+              body: JSON.stringify({ accion: 'continuar_contenido', id }),
+            })
+            if (!r.ok) throw new Error(`No arrancó el segundo paso (${r.status}).`)
+          }
+          p = await empezarContenido(ctx, body.prospecto_id, leerParametrosContenido(body.parametros ?? {}), continuar)
+        } else {
           // El segundo paso va en otra llamada a la función (con la misma sesión del socio), por el tope de tiempo
           const continuar = async (id: string) => {
             const r = await fetch(`${URL_SUPABASE}/functions/v1/agentes`, {

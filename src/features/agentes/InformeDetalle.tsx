@@ -9,6 +9,7 @@ import { ErrorBox } from '../../components/ui/ErrorBox'
 import { Spinner } from '../../components/ui/Spinner'
 import { DESCRIPCION } from './catalogo'
 import { colgado, linkWhatsApp } from './useAgentes'
+import { ContenidoVista } from './ContenidoVista'
 
 function Copiar({ texto }: { texto: string }) {
   const [hecho, setHecho] = useState(false)
@@ -125,7 +126,7 @@ export function InformeDetalle({ informe, onCerrar, onBorrar }: Props) {
         {colgado(informe) && <ErrorBox mensaje="Este agente se cortó antes de terminar (tardó demasiado). Borralo y volvé a correrlo." />}
         {informe.estado === 'trabajando' && !colgado(informe) && (
           <div className="flex items-center gap-2.5 rounded-xl bg-acento-tenue/60 px-3.5 py-3 text-sm text-acento-texto">
-            <Spinner className="size-4" /> Trabajando: puede tardar {informe.agente === 'meta_ads' ? 'unos 3 minutos' : 'un par de minutos'}. Podés cerrar esto,
+            <Spinner className="size-4" /> Trabajando: puede tardar {informe.agente === 'meta_ads' || informe.agente === 'contenido' ? 'unos 3 minutos' : 'un par de minutos'}. Podés cerrar esto,
             el informe queda guardado.
           </div>
         )}
@@ -180,7 +181,9 @@ export function InformeDetalle({ informe, onCerrar, onBorrar }: Props) {
           </div>
         )}
 
-        {informe.contenido && informe.agente !== 'cobranzas' && informe.agente !== 'postventa' && (
+        {informe.datos?.estrategia && <ContenidoVista cuentas={informe.datos.cuentas ?? []} e={informe.datos.estrategia} />}
+
+        {informe.contenido && informe.agente !== 'cobranzas' && informe.agente !== 'postventa' && !informe.datos?.estrategia && (
           <div className="rounded-xl border border-borde bg-superficie p-4 text-[15px] leading-relaxed whitespace-pre-line text-suave">{informe.contenido}</div>
         )}
 

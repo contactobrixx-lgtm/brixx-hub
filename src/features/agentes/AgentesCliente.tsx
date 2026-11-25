@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Megaphone } from 'lucide-react'
+import { Megaphone, TrendingUp } from 'lucide-react'
 import type { IdAgente, Prospecto } from '../../types/db'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
@@ -126,6 +126,78 @@ function MetaAdsForm({
   )
 }
 
+/** Referentes del rubro para comparar (los últimos que se usaron con este cliente; si es deco o bazar, @ganga.home) */
+function ContenidoForm({
+  abierto,
+  cliente,
+  sugeridos,
+  onCerrar,
+  onLanzar,
+}: {
+  abierto: boolean
+  cliente: string
+  sugeridos: string
+  onCerrar: () => void
+  onLanzar: (p: Record<string, unknown>) => Promise<void>
+}) {
+  const [referentes, setReferentes] = useState(sugeridos)
+  const [objetivo, setObjetivo] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault()
+    setEnviando(true)
+    setError(null)
+    try {
+      await onLanzar({ referentes, objetivo })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo lanzar.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <Modal
+      abierto={abierto}
+      onCerrar={onCerrar}
+      titulo={`Competencia y contenido · ${cliente}`}
+      pie={
+        <div className="flex w-full justify-end gap-2">
+          <Button variant="secundario" onClick={onCerrar}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="form-contenido" disabled={enviando}>
+            {enviando ? <Spinner className="size-4" /> : <TrendingUp className="size-4" />} Analizar
+          </Button>
+        </div>
+      }
+    >
+      <form id="form-contenido" onSubmit={enviar} className="flex flex-col gap-4">
+        <p className="text-sm text-tenue">
+          Lee con la API de Meta el Instagram de {cliente} y el de sus referentes, busca más referentes grandes del rubro en Argentina y las
+          tendencias, y te devuelve lo que hacen ellos y {cliente} no, 8 publicaciones listas para hacer y un calendario de 2 semanas. Tarda unos 3
+          minutos. Nunca publica nada.
+        </p>
+        <Field label="Referentes del rubro" ayuda="Usuarios o links de Instagram, separados por coma o uno por línea (hasta 6). Tienen que ser cuentas de empresa o creador. El agente suma otros que encuentre.">
+          <textarea
+            value={referentes}
+            onChange={(e) => setReferentes(e.target.value)}
+            rows={3}
+            placeholder="@ganga.home, @otra.cuenta"
+            className="w-full rounded-[10px] border border-borde-fuerte bg-superficie px-3.5 py-2.5 text-[15px] focus:border-acento focus:outline-none"
+          />
+        </Field>
+        <Field label="Objetivo (opcional)" ayuda='Por ejemplo "vender más online para Navidad" o "que pregunten más por WhatsApp".'>
+          <Input value={objetivo} onChange={(e) => setObjetivo(e.target.value)} />
+        </Field>
+        {error && <ErrorBox mensaje={error} />}
+      </form>
+    </Modal>
+  )
+}
+
 /** En la carpeta del cliente: los agentes que trabajan sobre él y sus últimos informes. */
 export function AgentesCliente({ p }: { p: Prospecto }) {
   const navigate = useNavigate()
@@ -133,6 +205,11 @@ export function AgentesCliente({ p }: { p: Prospecto }) {
   const [corriendo, setCorriendo] = useState<IdAgente | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [meta, setMeta] = useState(false)
+  const [contenido, setContenido] = useState(false)
+  // Referentes sugeridos: los de la última vez con este cliente; si no, los grandes del rubro que ya conocemos
+  const anteriores = informes.find((i) => i.agente === 'contenido' && i.datos?.parametros?.referentes?.length)?.datos.parametros?.referentes
+  const rubro = `${p.rubro ?? ''} ${p.industria ?? ''}`.toLowerCase()
+  const sugeridos = anteriores?.length ? anteriores.map((r) => `@${r}`).join(', ') : /deco|bazar|hogar/.test(rubro) ? '@ganga.home' : ''
   const cliente = p.empresa || p.nombre
 
   const correr = async (agente: IdAgente, parametros?: Record<string, unknown>) => {
@@ -163,7 +240,7 @@ export function AgentesCliente({ p }: { p: Prospecto }) {
               variant="secundario"
               className="justify-start"
               disabled={corriendo != null}
-              onClick={() => (a.id === 'meta_ads' ? setMeta(true) : correr(a.id).catch(() => {}))}
+              onClick={() => (a.id === 'meta_ads' ? setMeta(true) : a.id === 'contenido' ? setContenido(true) : correr(a.id).catch(() => {}))}
               title={a.queHace}
             >
               {corriendo === a.id ? <Spinner className="size-4" /> : <Icono className="size-4" />} {a.correrAhora}
@@ -198,6 +275,18 @@ export function AgentesCliente({ p }: { p: Prospecto }) {
             )
           })}
         </ul>
+      )}
+      {contenido && (
+        <ContenidoForm
+          abierto
+          cliente={cliente}
+          sugeridos={sugeridos}
+          onCerrar={() => setContenido(false)}
+          onLanzar={async (parametros) => {
+            await correr('contenido', parametros)
+            setContenido(false)
+          }}
+        />
       )}
       <MetaAdsForm
         abierto={meta}

@@ -360,7 +360,7 @@ export interface Grabacion {
 }
 
 /** Agentes de Jarvis que trabajan solos (0018). */
-export type IdAgente = 'preparador' | 'postventa' | 'monitor' | 'cobranzas' | 'propuesta' | 'auditor' | 'meta_ads' | 'financiero' | 'ventas'
+export type IdAgente = 'preparador' | 'postventa' | 'monitor' | 'cobranzas' | 'propuesta' | 'auditor' | 'meta_ads' | 'contenido' | 'financiero' | 'ventas'
 
 export interface AgenteConfig {
   agente: IdAgente
@@ -396,7 +396,18 @@ export interface InformeAgente {
   titulo: string
   resumen: string | null
   contenido: string | null
-  datos: { mensajes?: MensajeAgente[]; clientes?: ClientePostventa[]; url?: string; detalle?: string; cotizacion_id?: string; numero?: string; campana?: CampanaMeta }
+  datos: {
+    mensajes?: MensajeAgente[]
+    clientes?: ClientePostventa[]
+    url?: string
+    detalle?: string
+    cotizacion_id?: string
+    numero?: string
+    campana?: CampanaMeta
+    parametros?: { referentes?: string[]; objetivo?: string }
+    cuentas?: CuentaCompetencia[]
+    estrategia?: EstrategiaContenido
+  }
   prospecto_id: string | null
   reunion_id: string | null
   estado: 'trabajando' | 'lista' | 'error'
@@ -598,4 +609,45 @@ export interface RedPerfil {
     mejores: { link: string | null; tipo: string; interaccion: number; texto: string }[]
   }
   created_at: string
+}
+
+/** Una cuenta de Instagram en la comparación del agente "Competencia y contenido" (números de la API de Meta) */
+export interface CuentaCompetencia {
+  usuario: string
+  es_cliente: boolean
+  error?: string
+  seguidores?: number
+  publicaciones?: number
+  por_semana?: number | null
+  dias_desde_ultima?: number | null
+  interaccion_pct?: number | null
+  promedio_me_gusta?: number | null
+  formatos?: Record<string, number>
+  interaccion_por_formato?: Record<string, number>
+  hashtags?: string[]
+  mejores?: { link: string | null; tipo: string; interaccion: number; texto: string }[]
+}
+
+/** La estrategia del agente "Competencia y contenido" (en sincronía con Estrategia de agentes/contenido.ts) */
+export interface EstrategiaContenido {
+  resumen: string
+  referentes_nuevos: string[]
+  que_les_funciona: { usuario: string; que: string; ejemplo: string }[]
+  tendencias: { titulo: string; detalle: string }[]
+  brechas: { que_hacen_ellos: string; que_hace_el_cliente: string; oportunidad: string }[]
+  ideas: {
+    titulo: string
+    formato: 'reel' | 'carrusel' | 'foto' | 'historia'
+    pilar: string
+    gancho: string
+    guion: string[]
+    caption: string
+    cta: string
+    hashtags: string[]
+    inspirado_en: string
+    por_que: string
+  }[]
+  calendario: { dia: string; idea: string }[]
+  recomendaciones: string[]
+  que_ofrecerle: string
 }
