@@ -220,6 +220,10 @@ export interface ContenidoPropuesta {
   telefono?: string
   /** true: la propuesta va sin video (no se usa el último video del cliente) */
   sin_video?: boolean
+  /** Hoja "Seguridad" (va sola si la propuesta tiene un bot o asistente; vacía usa el texto por defecto) */
+  seguridad?: { intro?: string; puntos?: { titulo: string; detalle: string }[]; recomendaciones?: string[] }
+  /** true: la propuesta va sin la hoja de seguridad */
+  sin_seguridad?: boolean
 }
 
 export interface EtapaCotizacion {

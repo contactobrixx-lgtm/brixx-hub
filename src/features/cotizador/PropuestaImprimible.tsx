@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Clock, MessageCircle, PackageOpen, Play, Smartphone, type LucideIcon } from 'lucide-react'
+import { BarChart3, Clock, Database, KeyRound, LifeBuoy, MessageCircle, PackageOpen, Play, Power, ShieldCheck, Smartphone, Wallet, type LucideIcon } from 'lucide-react'
 import type { Cotizacion, CotizacionItem } from '../../types/db'
 import { LogoMark } from '../../components/layout/Logo'
 import { formatFechaLarga } from '../../lib/format'
@@ -27,6 +27,33 @@ export function videoDe(url: string): { tipo: 'iframe' | 'video' | 'enlace'; src
 }
 
 const ICONOS: LucideIcon[] = [MessageCircle, PackageOpen, BarChart3, Smartphone, Clock]
+const ICONOS_SEGURIDAD: LucideIcon[] = [KeyRound, ShieldCheck, Wallet, LifeBuoy, Power, Database]
+
+/** ¿La propuesta incluye un bot o asistente que va a manejar sus cuentas? (ahí va la hoja de seguridad) */
+const conAsistente = (items: CotizacionItem[]) => items.some((it) => /\b(bot|asistente|chatbot|setter)\b|whatsapp|instagram/i.test(it.descripcion))
+
+/** La hoja de seguridad que va si la propuesta no trae la suya (se edita en "Textos de la propuesta") */
+export function seguridadPorDefecto(cliente: string) {
+  return {
+    intro: `El asistente trabaja con un permiso oficial y acotado que ${cliente} le da a brixx desde su cuenta de Meta: puede leer y responder mensajes y comentarios, y nada más. Las cuentas siguen siendo 100% de ${cliente}.`,
+    puntos: [
+      { titulo: 'Sin contraseñas', detalle: 'Nunca pedimos ni guardamos las contraseñas de Instagram, Facebook o WhatsApp. El asistente se conecta con el acceso oficial de Meta para empresas.' },
+      {
+        titulo: 'Permiso acotado y revocable',
+        detalle: `Solo lee y responde mensajes y comentarios: no puede publicar, cambiar contraseñas ni sumar administradores. ${cliente} lo corta en un clic desde su Business Manager.`,
+      },
+      { titulo: 'No compromete plata', detalle: 'No da descuentos, no cambia precios ni cobra. Precios y stock salen siempre del sistema; ante un pedido especial o un reclamo, deriva al equipo.' },
+      { titulo: 'Si algo falla, nada se pierde', detalle: 'Los mensajes siguen llegando como hoy. Si el asistente no responde, le avisa al cliente que lo atiende una persona y a nosotros nos llega una alerta.' },
+      { titulo: 'Un botón para apagarlo', detalle: 'El equipo puede pausar el asistente cuando quiera y atender todo a mano, sin perder ninguna charla.' },
+      { titulo: 'Datos cuidados', detalle: `Las charlas se guardan en una base privada y cifrada, separada por cliente, solo para ${cliente} y brixx. Las claves de acceso viven en un servidor seguro, nunca en el código.` },
+    ],
+    recomendaciones: [
+      'Verificación en dos pasos en Facebook, Instagram y WhatsApp.',
+      'Dos administradores en el Business Manager, para no quedar nunca afuera.',
+      'El asistente solo responde: nunca manda mensajes masivos ni escribe en frío (así Meta no castiga la cuenta).',
+    ],
+  }
+}
 const dos = (n: number) => String(n).padStart(2, '0')
 
 /** "Bot de WhatsApp con IA — Califica consultas…" → "Bot de WhatsApp con IA" */
@@ -85,6 +112,13 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
     (etapas.length > 1
       ? 'No hace falta invertir todo junto: cada etapa se aprueba y se paga por separado, recién cuando la anterior está andando. Si lo necesitan, lo financiamos en cuotas: consultanos.'
       : 'No hace falta pagar todo de entrada. Si lo necesitan, lo financiamos en cuotas: consultanos.')
+  const seguridad = p.sin_seguridad
+    ? null
+    : p.seguridad?.puntos?.length
+      ? p.seguridad
+      : conAsistente(c.cotizacion_items)
+        ? seguridadPorDefecto(cliente)
+        : null
   const conPuntos = !!(p.punto_texto || p.puntos?.length || p.objetivos?.length)
   let hoja = 1
 
@@ -292,6 +326,44 @@ export function PropuestaImprimible({ c, videoHub }: { c: ConCliente; /** El vid
         </div>
         <Pie n={++hoja} />
       </section>
+
+      {/* Seguridad: si la propuesta incluye un bot o asistente que va a manejar sus cuentas */}
+      {seguridad && (
+        <section className="hoja">
+          <div className="ojo">Seguridad</div>
+          <h2 className="titulo">
+            Tus cuentas, <span>siempre tuyas.</span>
+          </h2>
+          {seguridad.intro && <p className="bajada">{seguridad.intro}</p>}
+          <div className="mt-6 grid grid-cols-2 gap-3.5">
+            {(seguridad.puntos ?? []).map((x, k) => {
+              const Icono = ICONOS_SEGURIDAD[k % ICONOS_SEGURIDAD.length]
+              return (
+                <div key={k} className="tarjeta">
+                  <span className="grid size-[8mm] place-items-center rounded-[2.2mm] bg-campo-fondo text-acento">
+                    <Icono className="size-[4mm]" />
+                  </span>
+                  <div className="mt-3 font-semibold">{x.titulo}</div>
+                  <p className="mt-1 text-[8.5pt] text-tinta-suave">{x.detalle}</p>
+                </div>
+              )
+            })}
+          </div>
+          {!!seguridad.recomendaciones?.length && (
+            <div className="oscura mt-5">
+              <div className="ojo text-tinta-gris">Lo que recomendamos</div>
+              <div className="mt-3 flex flex-col gap-2 text-[9pt]">
+                {seguridad.recomendaciones.map((r) => (
+                  <div key={r} className="check">
+                    {r}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <Pie n={++hoja} />
+        </section>
+      )}
 
       {/* 5 · Resumen de la inversión y forma de pago (con financiación, en grande) */}
       <section className="hoja">
