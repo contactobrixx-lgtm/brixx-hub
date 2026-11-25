@@ -110,6 +110,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
   const [videoUrl, setVideoUrl] = useState(c?.video_url ?? '')
   const p0: ContenidoPropuesta = c?.propuesta ?? {}
   // Video del hub: "auto" = el último video guardado del cliente; "ninguno"; o el id de un video
+  const [sinSeguridad, setSinSeguridad] = useState(!!p0.sin_seguridad)
   const [videoSel, setVideoSel] = useState<string>(c?.video_id ?? (p0.sin_video ? 'ninguno' : 'auto'))
   const [escribiendo, setEscribiendo] = useState(false)
   const [confirmarTextos, setConfirmarTextos] = useState(false)
@@ -117,6 +118,9 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
     subtitulo: p0.subtitulo ?? '',
     punto_texto: p0.punto_texto ?? '',
     puntos: aPuntos(p0.puntos),
+    seguridad_intro: p0.seguridad?.intro ?? '',
+    seguridad_puntos: aPuntos(p0.seguridad?.puntos),
+    seguridad_recomendaciones: aLineas(p0.seguridad?.recomendaciones),
     objetivos: aLineas(p0.objetivos),
     plan_titulo: p0.plan_titulo ?? '',
     plan_texto: p0.plan_texto ?? '',
@@ -276,6 +280,14 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
               conclusion: prop.conclusion.trim(),
               telefono: prop.telefono.trim(),
               sin_video: videoSel === 'ninguno' || undefined,
+              sin_seguridad: sinSeguridad || undefined,
+              seguridad: dePuntos(prop.seguridad_puntos).length
+                ? {
+                    intro: prop.seguridad_intro.trim() || undefined,
+                    puntos: dePuntos(prop.seguridad_puntos),
+                    recomendaciones: deLineas(prop.seguridad_recomendaciones),
+                  }
+                : undefined,
             }).filter(([, v]) => (Array.isArray(v) ? v.length : !!v)),
           ) as ContenidoPropuesta,
         },
@@ -534,6 +546,24 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
                   <Input {...campoProp('telefono')} />
                 </Field>
               </div>
+            </div>
+          </details>
+          <details className="rounded-xl bg-superficie p-3 ring-1 ring-borde">
+            <summary className="cursor-pointer text-sm font-semibold">Hoja de seguridad (va sola si hay un bot o asistente)</summary>
+            <div className="mt-3 grid gap-3">
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                <input type="checkbox" checked={sinSeguridad} onChange={(e) => setSinSeguridad(e.target.checked)} className="size-4 accent-(--color-acento)" />
+                Sacar la hoja de seguridad de esta propuesta
+              </label>
+              <Field label="Introducción" ayuda="Vacío: el texto por defecto (permiso acotado de Meta, las cuentas siguen siendo del cliente).">
+                <Textarea {...campoProp('seguridad_intro')} rows={3} />
+              </Field>
+              <Field label="Puntos" ayuda='Uno por línea, "Título: detalle". Vacío: los 6 por defecto (sin contraseñas, permiso revocable, no compromete plata, si falla no se pierde nada, botón para apagarlo, datos cuidados).'>
+                <Textarea {...campoProp('seguridad_puntos')} rows={5} />
+              </Field>
+              <Field label="Lo que recomendamos" ayuda="Uno por línea.">
+                <Textarea {...campoProp('seguridad_recomendaciones')} rows={3} />
+              </Field>
             </div>
           </details>
         </section>
