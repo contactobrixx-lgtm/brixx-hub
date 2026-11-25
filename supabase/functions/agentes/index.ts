@@ -189,7 +189,13 @@ Deno.serve(async (req) => {
       if (!usuario) return json({ error: 'Este cliente no tiene Instagram cargado en su carpeta.' }, 400)
       try {
         const r = await ctx.hub.instagramPerfil(usuario, b.prospecto_id ?? null)
-        return json({ ok: true, perfil: r.perfil })
+        // Se devuelve también la foto armada, así la carpeta la muestra aunque no se haya podido guardar
+        const { metricas, ...datos } = r.perfil
+        return json({
+          ok: true,
+          foto: { id: r.foto_id ?? 'sin-guardar', prospecto_id: r.prospecto_id, red: 'instagram', usuario: r.perfil.usuario.toLowerCase(), datos, metricas, created_at: r.created_at ?? new Date().toISOString() },
+          error_guardado: r.error_guardado,
+        })
       } catch (e) {
         const motivo = e instanceof ErrorMeta ? e.motivo : 'meta'
         return json({ error: e instanceof Error ? e.message : String(e), motivo }, motivo === 'no_encontrada' ? 404 : 502)

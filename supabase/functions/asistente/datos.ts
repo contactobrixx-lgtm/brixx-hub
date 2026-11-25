@@ -48,7 +48,10 @@ export class Hub {
    * redes_perfiles (vinculada a la carpeta si el usuario coincide con el Instagram de un prospecto) y la
    * compara con la anterior. Devuelve el perfil y el texto para Claude.
    */
-  async instagramPerfil(entrada: string, prospectoId?: string | null): Promise<{ perfil: PerfilInstagram; texto: string; prospecto_id: string | null }> {
+  async instagramPerfil(
+    entrada: string,
+    prospectoId?: string | null,
+  ): Promise<{ perfil: PerfilInstagram; texto: string; prospecto_id: string | null; error_guardado: string | null; foto_id: string | null; created_at: string | null }> {
     const usuario = usuarioInstagram(entrada)
     if (!usuario) throw new Error(`"${entrada}" no parece un usuario de Instagram.`)
     const perfil = await perfilInstagram(usuario)
@@ -66,12 +69,21 @@ export class Hub {
       .limit(1)
       .maybeSingle()
     const { metricas, ...datos } = perfil
-    const { error } = await this.db
+    const { data: fila, error } = await this.db
       .from('redes_perfiles')
       .insert({ red: 'instagram', usuario: perfil.usuario.toLowerCase(), prospecto_id: pid, datos, metricas })
+      .select('id, created_at')
+      .maybeSingle()
     if (error) console.error('redes_perfiles:', error.message)
     const anterior = previo ? { seguidores: Number((previo.datos as Fila).seguidores ?? 0), fecha: String(previo.created_at).slice(0, 10) } : null
-    return { perfil, texto: textoPerfil(perfil, anterior), prospecto_id: pid }
+    return {
+      perfil,
+      texto: textoPerfil(perfil, anterior),
+      prospecto_id: pid,
+      error_guardado: error ? error.message : null,
+      foto_id: (fila?.id as string) ?? null,
+      created_at: (fila?.created_at as string) ?? null,
+    }
   }
 
   async instagram(entrada: string): Promise<string> {

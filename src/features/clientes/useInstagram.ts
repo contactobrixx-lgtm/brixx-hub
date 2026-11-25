@@ -33,7 +33,7 @@ export function useInstagram(prospectoId: string) {
     setActualizando(true)
     setError(null)
     try {
-      const { error } = await supabase.functions.invoke('agentes', { body: { accion: 'instagram', prospecto_id: prospectoId } })
+      const { data, error } = await supabase.functions.invoke('agentes', { body: { accion: 'instagram', prospecto_id: prospectoId } })
       if (error) {
         if (error instanceof FunctionsHttpError) {
           const cuerpo = await error.context.json().catch(() => null)
@@ -42,7 +42,11 @@ export function useInstagram(prospectoId: string) {
         }
         throw new Error(error.message)
       }
-      await recargar()
+      const foto = data?.foto as RedPerfil | undefined
+      if (!foto?.datos) throw new Error('Meta respondió pero sin datos de la cuenta. Tocá "Ver diagnóstico".')
+      // Se muestra lo que trajo Meta aunque no se haya podido guardar; la anterior queda para comparar
+      setFotos((f) => [foto, ...f.filter((x) => x.id !== foto.id)].slice(0, 2))
+      if (data?.error_guardado) setError(`Se leyó, pero no se pudo guardar para comparar después: ${data.error_guardado}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo leer el Instagram.')
     } finally {
