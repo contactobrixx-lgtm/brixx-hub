@@ -291,10 +291,23 @@ Entrá a tu dominio, logueate, y cargá tu primera ficha con **Nuevo sistema** (
 
 ---
 
+## Conector de Claude (chats → hub)
+
+Los chats de Claude (web o app de escritorio) pueden cargar clientes nuevos y actualizar los existentes en el hub, como si fuera una intervención cargada a mano (Jarvis los ve igual).
+
+1. En el hub: **Conectar con Claude → Copiar enlace** (en la compu, abajo del menú lateral; en el celular, en "Más"). Se hace una sola vez y vale para todos los clientes.
+2. En Claude: **Configuración → Conectores → Agregar conector personalizado**. Nombre `brixx hub`, URL el enlace copiado, Autenticación **Sin inicio de sesión**.
+3. En un chat, con el conector activo: *"nuevo cliente de brixx @marca + datos + links"*.
+
+El enlace es la llave: no lo compartas. Si se filtra, cargá o cambiá el secret `CONECTOR_VERSION` en Supabase (Edge Functions → Secrets) y volvé a copiar el enlace.
+
+---
+
 ## Skills de brixx para Claude Code
 
 Este repo también es un **marketplace de plugins** de Claude Code (`.claude-plugin/marketplace.json`). El plugin `brixx` (en `plugins/brixx/`) trae los skills internos del estudio:
 
+- **`/cliente-nuevo-brixx`**: "nuevo cliente de brixx @marca + datos + links" lo carga (o actualiza) en el hub con el conector de Claude y arma su carpeta.
 - **`/campanas-meta-ads`**: investiga una marca, cliente o infoproducto (página de ventas, Instagram, competencia, anuncios validados) y genera la propuesta de campaña de Meta Ads en PDF editable de 3 páginas con la marca brixx. Nunca crea ni modifica campañas en Meta.
 
 Instalarlo en Claude Code (VS Code o terminal):
