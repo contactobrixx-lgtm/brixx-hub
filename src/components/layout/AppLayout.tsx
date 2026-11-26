@@ -14,6 +14,7 @@ import {
   Mic,
   MonitorSmartphone,
   MoreHorizontal,
+  Plug,
   Wallet,
   X,
   type LucideIcon,
@@ -24,6 +25,7 @@ import { Logo } from './Logo'
 import { Asistente } from '../../features/asistente/Asistente'
 import { iniciales } from '../../lib/format'
 import { avisarAgentes } from '../../features/agentes/useAgentes'
+import { ConectorClaude } from '../../features/clientes/ConectorClaude'
 
 interface Item {
   to: string
@@ -81,6 +83,8 @@ const embebido = typeof window !== 'undefined' && window.self !== window.top
 export function AppLayout() {
   const { miembro, salir } = useAuth()
   const [masAbierto, setMasAbierto] = useState(false)
+  // Enlace del conector de Claude: se usa una vez por socio, por eso vive con la cuenta y no en una sección
+  const [conector, setConector] = useState(false)
   const { pathname } = useLocation()
 
   const tiraRef = useRef<HTMLDivElement>(null)
@@ -134,7 +138,10 @@ export function AppLayout() {
               <div className="truncate">{miembro?.email}</div>
             </div>
           </div>
-          <div className="mt-3 flex gap-4">
+          <button onClick={() => setConector(true)} className="mt-3 flex cursor-pointer items-center gap-1.5 hover:text-texto">
+            <Plug className="size-3.5" /> Conectar con Claude
+          </button>
+          <div className="mt-2 flex gap-4">
             <NavLink to="/nueva-clave" className="flex items-center gap-1.5 hover:text-texto">
               <KeyRound className="size-3.5" /> Contraseña
             </NavLink>
@@ -170,6 +177,15 @@ export function AppLayout() {
                 </button>
               </div>
               <nav className="flex flex-col gap-1">
+                <button
+                  onClick={() => {
+                    setMasAbierto(false)
+                    setConector(true)
+                  }}
+                  className="flex min-h-[42px] cursor-pointer items-center gap-2.5 rounded-[10px] px-3 font-medium text-suave hover:bg-elevada"
+                >
+                  <Plug className="size-[18px]" strokeWidth={1.8} /> Conectar con Claude
+                </button>
                 <LinkNav item={{ to: '/nueva-clave', label: 'Cambiar contraseña', icono: KeyRound }} />
                 <button
                   onClick={salir}
@@ -181,6 +197,8 @@ export function AppLayout() {
             </div>
           </div>
         )}
+
+        <ConectorClaude abierto={conector} onCerrar={() => setConector(false)} />
 
         {/* Navegación inferior móvil */}
         <nav className="fixed inset-x-0 bottom-0 z-50 flex gap-1 border-t border-borde bg-fondo/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">

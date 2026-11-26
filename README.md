@@ -295,7 +295,7 @@ Entrá a tu dominio, logueate, y cargá tu primera ficha con **Nuevo sistema** (
 
 Los chats de Claude (web o app de escritorio) pueden cargar clientes nuevos y actualizar los existentes en el hub, como si fuera una intervención cargada a mano (Jarvis los ve igual).
 
-1. En el hub: **Clientes → Conectar con Claude → Copiar enlace**.
+1. En el hub: **Conectar con Claude → Copiar enlace** (en la compu, abajo del menú lateral; en el celular, en "Más"). Se hace una sola vez y vale para todos los clientes.
 2. En Claude: **Configuración → Conectores → Agregar conector personalizado**. Nombre `brixx hub`, URL el enlace copiado, Autenticación **Sin inicio de sesión**.
 3. En un chat, con el conector activo: *"nuevo cliente de brixx @marca + datos + links"*.
 

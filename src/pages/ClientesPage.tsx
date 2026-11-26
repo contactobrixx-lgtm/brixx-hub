@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FolderOpen, Plug, Plus, Search, Sparkles } from 'lucide-react'
+import { FolderOpen, Plus, Search, Sparkles } from 'lucide-react'
 import { ETAPAS_ABIERTAS, ETAPAS_GANADAS, type Prospecto } from '../types/db'
 import { useAuth } from '../auth/AuthProvider'
 import { useMiembros, useProspectos } from '../features/pipeline/useProspectos'
@@ -12,7 +12,6 @@ import { IntervencionForm } from '../features/grabaciones/IntervencionForm'
 import { lineaDeAnalisis } from '../features/grabaciones/estados'
 import { useHistoriaClientes, type ItemHistoria } from '../features/clientes/useClientes'
 import { LinksCliente } from '../features/clientes/LinksCliente'
-import { ConectorClaude } from '../features/clientes/ConectorClaude'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/Button'
 import { Chip } from '../components/ui/Badge'
@@ -80,7 +79,6 @@ export function ClientesPage() {
   const [busqueda, setBusqueda] = useState('')
   const [nuevoCliente, setNuevoCliente] = useState(false)
   const [nuevaIntervencion, setNuevaIntervencion] = useState(false)
-  const [conector, setConector] = useState(false)
 
   // Más reciente primero: por la última intervención o el último cambio
   const ordenados = useMemo(() => {
@@ -105,9 +103,6 @@ export function ClientesPage() {
         subtitulo="Una carpeta por cliente y cliente potencial: sus datos, objetivos y lo que le proponemos."
         acciones={
           <div className="flex flex-wrap gap-2">
-            <Button variant="fantasma" onClick={() => setConector(true)}>
-              <Plug className="size-[18px]" /> Conectar con Claude
-            </Button>
             <Button variant="secundario" onClick={() => setNuevoCliente(true)}>
               <Plus className="size-[18px]" /> Nuevo cliente
             </Button>
@@ -165,7 +160,6 @@ export function ClientesPage() {
         onGuardar={guardar}
         onEliminar={eliminar}
       />
-      <ConectorClaude abierto={conector} onCerrar={() => setConector(false)} />
       <IntervencionForm
         abierto={nuevaIntervencion}
         prospectos={prospectos}

@@ -36,7 +36,7 @@ Si están disponibles las herramientas del conector del hub (`buscar_cliente`, `
 
 Nunca cargar contraseñas ni tokens aunque el usuario los pase: avisar que no se guardan. El conector no borra ni cambia etapas, cotizaciones o finanzas: eso se hace en el hub o con Jarvis.
 
-**Si el conector no está disponible:** abrir los links (WebFetch o navegador), armar un diagnóstico corto (situación, dolores, soluciones brixx que encajan, próximos pasos, qué falta saber) y dejar al final un bloque listo para pegar en el hub en **Clientes → Nueva intervención → texto**. Avisar en una línea que con el conector (Clientes → "Conectar con Claude") esto se carga solo.
+**Si el conector no está disponible:** abrir los links (WebFetch o navegador), armar un diagnóstico corto (situación, dolores, soluciones brixx que encajan, próximos pasos, qué falta saber) y dejar al final un bloque listo para pegar en el hub en **Clientes → Nueva intervención → texto**. Avisar en una línea que con el conector (en el hub: "Conectar con Claude", junto a la cuenta) esto se carga solo.
 
 ## 3. Carpeta en la computadora (si el chat está vinculado)
 

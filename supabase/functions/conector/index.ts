@@ -3,7 +3,7 @@
 // Es un servidor MCP (JSON-RPC por HTTP, sin sesión) que se agrega en Claude como "conector personalizado"
 // con la URL secreta  https://<proyecto>.supabase.co/functions/v1/conector/<clave>  y "Sin inicio de sesión".
 // La clave sale de la service role (HMAC), así que no hay que cargar ningún secret: el hub la muestra a los
-// miembros en Clientes → "Conectar con Claude". Para cambiarla (si se filtra el enlace), cargar o cambiar el
+// miembros en "Conectar con Claude", junto a la cuenta. Para cambiarla (si se filtra el enlace), cargar o cambiar el
 // secret opcional CONECTOR_VERSION y volver a copiar el enlace.
 //
 // Herramientas (lo justo para cargar clientes nuevos y actualizar los existentes; nada de borrar ni finanzas):
