@@ -61,6 +61,41 @@ function Contenido({ seccion }: { seccion: Seccion }) {
     })
   }, [fichas, busqueda, filtro, categoria])
 
+  // Fichas del mismo cliente van juntas en un mismo contorno (si son 2 o más)
+  const bloques = useMemo(() => {
+    const clave = (c: string | null) =>
+      (c ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[@\s]/g, '')
+    const grupos = new Map<string, Ficha[]>()
+    const orden: (Ficha | Ficha[])[] = []
+    for (const f of visibles) {
+      const k = clave(f.cliente)
+      if (!k) {
+        orden.push(f)
+        continue
+      }
+      const g = grupos.get(k)
+      if (g) g.push(f)
+      else {
+        const nuevo = [f]
+        grupos.set(k, nuevo)
+        orden.push(nuevo)
+      }
+    }
+    return orden.map((b) => (Array.isArray(b) && b.length === 1 ? b[0] : b))
+  }, [visibles])
+
+  const tarjeta = (f: Ficha) => (
+    <FichaCard
+      key={f.id}
+      ficha={f}
+      imagenUrl={f.imagen_path ? imagenes[f.imagen_path] : undefined}
+      onEditar={() => {
+        setEditando(f)
+        setFormAbierto(true)
+      }}
+    />
+  )
+
   const abrirNueva = () => {
     setEditando(null)
     setFormAbierto(true)
@@ -137,17 +172,22 @@ function Contenido({ seccion }: { seccion: Seccion }) {
         <p className="py-16 text-center text-tenue">Ninguna ficha coincide con los filtros.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visibles.map((f) => (
-            <FichaCard
-              key={f.id}
-              ficha={f}
-              imagenUrl={f.imagen_path ? imagenes[f.imagen_path] : undefined}
-              onEditar={() => {
-                setEditando(f)
-                setFormAbierto(true)
-              }}
-            />
-          ))}
+          {bloques.map((b) =>
+            Array.isArray(b) ? (
+              <section
+                key={`grupo-${b[0].id}`}
+                className="col-span-full rounded-[20px] border border-borde-fuerte bg-elevada/40 p-3"
+              >
+                <header className="flex items-baseline gap-2 px-2 pt-1 pb-3">
+                  <h2 className="text-lg font-bold text-acento-texto">{b[0].cliente}</h2>
+                  <span className="text-xs text-tenue">{b.length} webapps</span>
+                </header>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{b.map(tarjeta)}</div>
+              </section>
+            ) : (
+              tarjeta(b)
+            ),
+          )}
         </div>
       )}
 
