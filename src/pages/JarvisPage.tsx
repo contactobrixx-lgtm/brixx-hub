@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CalendarClock,
@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Ear,
   EarOff,
+  Globe2,
   Info,
   Presentation,
   Mic,
@@ -27,7 +28,7 @@ import { usePersonalidad } from '../features/asistente/usePersonalidad'
 import { TarjetaAccion } from '../features/asistente/TarjetaAccion'
 import { PersonalidadForm } from '../features/asistente/PersonalidadForm'
 import { VozForm } from '../features/asistente/VozForm'
-import { useConfigVoz } from '../features/asistente/useConfigVoz'
+import { ENERGIAS_VOZ, useConfigVoz } from '../features/asistente/useConfigVoz'
 import { useVoz } from '../features/asistente/useVoz'
 import { useReconocimientoVoz } from '../features/asistente/useReconocimientoVoz'
 import { useManosLibres } from '../features/asistente/useManosLibres'
@@ -38,9 +39,15 @@ import { ListaAgentes, PanelMision, RegistroMision, ResultadoMision } from '../f
 import { useMisiones } from '../features/asistente/useMisiones'
 import { useDemo } from '../features/asistente/useDemo'
 import { EscenaDemo } from '../features/asistente/EscenaDemo'
+import { useInformesRecientes } from '../features/agentes/useAgentes'
+import { DESCRIPCION } from '../features/agentes/catalogo'
 import { ESTADO_DEMO, METRICAS_DEMO, pideDemo, type TipoDemo } from '../features/asistente/demo'
 import { PanelPantalla, type DestinoPantalla } from '../features/asistente/PanelPantalla'
-import { ETAPAS_ABIERTAS } from '../types/db'
+import { ETAPAS_ABIERTAS, type AvisoMapa } from '../types/db'
+import { MapaForm } from '../features/mapa/MapaForm'
+import { useClaveMapa } from '../features/mapa/useMapa'
+// El mapa (MapLibre) pesa: se carga recién cuando se abre
+const MapaJarvis = lazy(() => import('../features/mapa/MapaJarvis'))
 import { useDashboard } from '../features/inicio/useDashboard'
 import { useReuniones } from '../features/calendario/useReuniones'
 import { useConfigGrabaciones } from '../features/grabaciones/useGrabaciones'
@@ -95,10 +102,25 @@ export function JarvisPage() {
   const voz = useVoz()
   const { mensajes, pensando, consultando, acciones, tiempos, preguntar, resolverAccion } = useAsistente()
   const memoria = useMemoria()
+  const informes = useInformesRecientes(4)
   const personalidad = usePersonalidad()
   const [editandoPersonalidad, setEditandoPersonalidad] = useState(false)
   const configVoz = useConfigVoz()
   const [editandoVoz, setEditandoVoz] = useState(false)
+  // Modo mapa: abierto con un aviso de Jarvis (búsqueda o lugar). version cambia en cada aviso para reaccionar aunque sea el mismo.
+  const [mapa, setMapa] = useState<(AvisoMapa & { version: number }) | null>(null)
+  const [configurandoMapa, setConfigurandoMapa] = useState(false)
+  const claveMapa = useClaveMapa()
+  const [params, setParams] = useSearchParams()
+  const abrirMapa = useCallback((aviso: AvisoMapa = {}) => setMapa((m) => ({ ...aviso, version: (m?.version ?? 0) + 1 })), [])
+  // Desde otra pantalla, el asistente manda a /jarvis?mapa=<búsqueda> (o =1)
+  useEffect(() => {
+    const p = params.get('mapa')
+    if (!p) return
+    abrirMapa(p === '1' ? {} : { busqueda_id: p })
+    params.delete('mapa')
+    setParams(params, { replace: true })
+  }, [params, setParams, abrirMapa])
 
   // Modo tele: la red ocupa toda la pantalla con los paneles flotando encima (para una tele o un monitor).
   // Si el navegador deja, además pide pantalla completa (en iPhone no existe: queda como pantalla fija igual).
@@ -217,7 +239,7 @@ export function JarvisPage() {
     voz.callar()
     // La voz arranca con la primera oración, mientras sigue llegando el resto
     const vivo = vozActiva ? voz.enVivo() : null
-    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: mostrarPantalla, alMision: misiones.seguir })
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: mostrarPantalla, alMision: misiones.seguir, alMapa: abrirMapa })
     vivo?.terminar()
     memoria.recargar() // por si guardó algo nuevo
     recargarReuniones() // por si confirmó una reunión por voz
@@ -313,6 +335,19 @@ export function JarvisPage() {
     return [...r, ...a]
   }, [reuniones, d.prospectos, hoy])
 
+
+  // Próxima reunión (para el cartel de tiempo del mapa)
+  const proximaReunion = useMemo(() => {
+    const desde = ahora.getTime() - 15 * 60_000
+    const r = reuniones
+      .map((x) => ({ titulo: x.titulo, inicio: new Date(x.inicio) }))
+      .filter((x) => x.inicio.getTime() >= desde)
+      .sort((a, b) => a.inicio.getTime() - b.inicio.getTime())[0]
+    return r ?? null
+    // Se recalcula cada minuto, no cada segundo
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reuniones, Math.floor(ahora.getTime() / 60_000)])
+
   const ultima = [...mensajes].reverse().find((m) => m.rol === 'asistente')
   const ultimaPregunta = [...mensajes].reverse().find((m) => m.rol === 'usuario')
   const pendientesGrab = (d.pendientes ?? []).length
@@ -332,7 +367,7 @@ export function JarvisPage() {
   const saludo = ahora.getHours() < 12 ? 'Buen día' : ahora.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-fondo px-4 pt-5 pb-28 md:px-8 md:pb-8">
+    <div className="relative min-h-full overflow-hidden bg-fondo px-4 pt-4 pb-28 md:px-8 md:pt-5 md:pb-8 [@media(max-height:520px)]:pb-6">
       {/* Fondo de grilla tenue */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.06]"
@@ -346,28 +381,28 @@ export function JarvisPage() {
 
       <div className="relative mx-auto max-w-[1400px]">
         {/* Encabezado */}
-        <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <header className="mb-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 md:mb-5 [@media(max-height:520px)]:mb-2">
           <div>
-            <div className="text-xs font-semibold tracking-[0.3em] text-acento-claro uppercase">Centro de comando</div>
-            <h1 className="text-[28px] leading-tight font-bold">
+            <div className="hidden text-xs font-semibold tracking-[0.3em] text-acento-claro uppercase sm:block [@media(max-height:520px)]:hidden">Centro de comando</div>
+            <h1 className="text-[22px] leading-tight font-bold sm:text-[28px] [@media(max-height:520px)]:text-[20px]">
               {saludo}, {miembro?.nombre.split(' ')[0]}
             </h1>
           </div>
-          <div className="sm:text-right">
-            <div className="text-sm text-tenue">
+          <div className="flex items-baseline gap-2 sm:block sm:text-right [@media(max-height:520px)]:flex">
+            <div className="text-xs text-tenue sm:text-sm">
               {ahora
                 .toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                 .replace(/^./, (c) => c.toUpperCase())}
             </div>
-            <div className="tabular font-display text-[32px] leading-none font-bold tracking-wide">
+            <div className="tabular font-display text-[17px] leading-none font-bold tracking-wide sm:text-[32px] [@media(max-height:520px)]:text-[17px]">
               {ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
             </div>
           </div>
         </header>
 
-        <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
           {/* Izquierda: estado */}
-          <div className="order-2 flex flex-col gap-4 lg:order-1">
+          <div className="order-2 flex min-w-0 flex-col gap-4 lg:order-1">
             <Panel titulo="Estado del sistema">
               <div className="flex flex-col gap-1.5">
                 <FilaEstado label="Jarvis" valor={activado ? 'Activo' : 'En espera'} ok={activado ? true : null} />
@@ -424,7 +459,7 @@ export function JarvisPage() {
               ref={hud}
               className={cn(
                 'overflow-hidden bg-fondo',
-                modoTele ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative h-[420px] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)]',
+                modoTele ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'relative h-[clamp(300px,calc(100svh-330px),520px)] rounded-2xl border border-acento/25 sm:h-[480px] lg:h-[min(70vh,760px)] [@media(max-height:520px)]:h-[calc(100svh-70px)] [@media(max-height:520px)]:min-h-[220px]',
               )}
             >
               <RedNeural
@@ -451,14 +486,23 @@ export function JarvisPage() {
                 {/* Modo tele (para una tele o un monitor) */}
                 {!modoTele && (
                   <div className="absolute top-3 right-3 z-10 flex gap-2">
+                    <button
+                      onClick={() => abrirMapa()}
+                      className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-2.5 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white sm:px-3"
+                      title="Mapa: Tucumán en 3D y los negocios que Jarvis busque"
+                      aria-label="Mapa"
+                    >
+                      <Globe2 className="size-4" /> <span className="hidden sm:inline">Mapa</span>
+                    </button>
                     <div className="relative">
                       <button
                         onClick={() => setEligiendoDemo((v) => !v)}
-                        className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                        className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-2.5 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white sm:px-3"
                         title="Modo demo: el hub con datos inventados, para mostrarlo o aprender a usarlo"
                         aria-expanded={eligiendoDemo}
+                        aria-label="Demo"
                       >
-                        <Presentation className="size-4" /> Demo
+                        <Presentation className="size-4" /> <span className="hidden sm:inline">Demo</span>
                       </button>
                       {eligiendoDemo && (
                         <div className="absolute top-12 right-0 flex w-64 flex-col gap-1 rounded-xl border border-acento/30 bg-superficie/95 p-1.5 shadow-[0_0_40px_-12px_var(--color-acento)] backdrop-blur animate-aparecer">
@@ -476,10 +520,11 @@ export function JarvisPage() {
                     </div>
                     <button
                       onClick={entrarTele}
-                      className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-3 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white"
+                      className="inline-flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-acento/30 bg-fondo/60 px-2.5 text-sm font-semibold text-acento-claro backdrop-blur hover:text-white sm:px-3"
                       title="Modo tele: la red a pantalla completa con los paneles encima"
+                      aria-label="Modo tele"
                     >
-                      <Maximize2 className="size-4" /> Modo tele
+                      <Maximize2 className="size-4" /> <span className="hidden sm:inline">Modo tele</span>
                     </button>
                   </div>
                 )}
@@ -735,7 +780,7 @@ export function JarvisPage() {
           </div>
 
           {/* Derecha: feed y conversación */}
-          <div className="order-3 flex flex-col gap-4">
+          <div className="order-3 flex min-w-0 flex-col gap-4">
             <Panel titulo="Feed del día" extra={<span className="rounded bg-ok-tenue px-1.5 py-0.5 text-[10px] font-bold text-ok">EN VIVO</span>}>
               {d.pendientes?.length ? (
                 <ul className="flex flex-col gap-1.5">
@@ -765,6 +810,29 @@ export function JarvisPage() {
               ) : null}
             </Panel>
 
+            <Panel titulo="Agentes" extra={<Link to="/agentes" className="text-xs font-semibold text-acento-texto hover:underline">Ver todos</Link>}>
+              {informes.length ? (
+                <ul className="flex flex-col gap-1.5">
+                  {informes.map((i) => {
+                    const I = DESCRIPCION[i.agente]?.icono ?? Info
+                    return (
+                      <li key={i.id}>
+                        <Link to={`/agentes?informe=${i.id}`} className="flex items-start gap-2.5 rounded-lg bg-elevada/70 px-3 py-2 hover:bg-hover">
+                          <I className={cn('mt-0.5 size-4 shrink-0', i.leido ? 'text-tenue' : 'text-acento-texto')} />
+                          <span className="min-w-0">
+                            <span className={cn('block truncate text-sm', i.leido ? 'font-medium' : 'font-semibold')}>{i.titulo}</span>
+                            {i.resumen && <span className="block truncate text-xs text-tenue">{i.resumen}</span>}
+                          </span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-tenue">Todavía no hay informes. Los agentes preparan reuniones, cobros, postventa y revisan tus sistemas solos.</p>
+              )}
+            </Panel>
+
             <Panel
               titulo="Personalidad"
               extra={
@@ -791,10 +859,34 @@ export function JarvisPage() {
               }
             >
               <p className="text-sm text-suave">
-                {configVoz.vozId ? `Voz elegida (${configVoz.vozId.slice(0, 6)}…)` : 'Daniel, la de ElevenLabs por defecto (acento británico)'}
+                {configVoz.vozId === 'KuCuu213C5LmCbAvbEb8' ? 'Luis (español neutro)' : configVoz.vozId ? `Voz elegida (${configVoz.vozId.slice(0, 6)}…)` : 'Daniel, la de ElevenLabs por defecto (acento británico)'}
                 {' · '}
                 {configVoz.modelo === 'eleven_multilingual_v2' ? 'más natural' : 'rápida'}
+                {' · '}
+                {ENERGIAS_VOZ.find((e) => e.valor === configVoz.energia)?.label.toLowerCase()}
               </p>
+            </Panel>
+
+            <Panel
+              titulo="Mapa"
+              extra={
+                claveMapa.disponible ? (
+                  <button onClick={() => setConfigurandoMapa(true)} className="cursor-pointer text-xs font-semibold text-acento-texto hover:underline">
+                    Configurar
+                  </button>
+                ) : null
+              }
+            >
+              <p className="text-sm text-suave">
+                {claveMapa.clave ? 'Satélite, relieve y edificios en 3D (MapTiler).' : 'Sin imagen satelital: calles y edificios en 3D.'}
+              </p>
+              <p className="mt-1 text-xs text-tenue">Pedile "buscame hamburgueserías en Yerba Buena" y te los marca con su contacto.</p>
+              <button
+                onClick={() => abrirMapa()}
+                className="mt-3 inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[11px] border border-acento/40 px-3 text-sm font-semibold text-acento-claro hover:bg-acento-tenue"
+              >
+                <Globe2 className="size-4" /> Abrir el mapa
+              </button>
             </Panel>
 
             <Panel titulo="Memoria">
@@ -850,11 +942,11 @@ export function JarvisPage() {
         </div>
 
         {/* Barra "Hablá con Jarvis" */}
-        <section className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 px-3 md:static md:mt-4 md:px-0">
+        <section className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-30 px-3 md:static md:mt-4 md:px-0 [@media(max-height:520px)]:static [@media(max-height:520px)]:mt-3 [@media(max-height:520px)]:px-0">
           <div className="mx-auto max-w-[1400px] rounded-2xl border border-acento/40 bg-superficie/95 p-3 shadow-[0_0_40px_-12px_var(--color-acento)] backdrop-blur md:p-4">
             <div className="mb-2 flex min-h-6 items-start gap-2 text-sm" aria-live="polite">
               <span className="shrink-0 text-[10px] font-bold tracking-[0.2em] text-acento-claro uppercase">Hablá con Jarvis</span>
-              <span className="min-w-0 flex-1 truncate text-suave md:whitespace-normal">
+              <span className={cn('min-w-0 flex-1 md:whitespace-normal', !pensando && ultima?.error ? 'whitespace-normal text-peligro' : 'truncate text-suave')}>
                 {pensando || ptt.escuchando || manos.estado === 'escuchando_pregunta' || !ultima
                   ? leyenda
                   : `${ultimaPregunta ? `«${ultimaPregunta.texto}» — ` : ''}${ultima.texto}`}
@@ -924,10 +1016,54 @@ export function JarvisPage() {
           </div>
         </section>
       </div>
+      {mapa && (
+        <Suspense fallback={<div className="fixed inset-0 z-[75] grid place-items-center bg-fondo text-sm text-acento-claro">Cargando el mapa…</div>}>
+          <MapaJarvis
+            hablando={voz.hablando}
+            aviso={mapa}
+            clave={claveMapa.clave}
+            agenda={agendaHoy}
+            proxima={proximaReunion}
+            metricas={[
+              { label: 'Cobrado', valor: formatUSD(d.cobrado ?? 0) },
+              {
+                label: 'Clientes nuevos',
+                valor: d.metasMes ? `${d.metasMes.clientes.actual}${d.metasMes.clientes.objetivo != null ? `/${d.metasMes.clientes.objetivo}` : ''}` : '—',
+                avance: d.metasMes?.clientes.objetivo ? d.metasMes.clientes.actual / d.metasMes.clientes.objetivo : null,
+              },
+              {
+                label: 'Recurrente',
+                valor: formatUSD(d.mrr ?? 0),
+                avance: d.metasMes?.ingreso.objetivo ? d.metasMes.ingreso.actual / d.metasMes.ingreso.objetivo : null,
+              },
+              { label: 'Por cobrar', valor: formatUSD(d.porCobrar ?? 0) },
+            ]}
+            frase={voz.hablando && voz.frase ? voz.frase : ptt.escuchando || manos.estado === 'escuchando_pregunta' ? leyenda : ''}
+            respuesta={ultima && !ultima.enCurso ? { texto: ultima.texto, error: ultima.error } : null}
+            consultando={consultando}
+            errorVoz={manos.error ?? ptt.error ?? null}
+            onEnviar={(t) => {
+              voz.destrabar()
+              if (!activado) setActivado(true)
+              enviar(t)
+            }}
+            escuchando={ptt.escuchando || manos.estado === 'escuchando_pregunta'}
+            pensando={pensando}
+            onMicrofono={tocarMicrofono}
+            onDecir={(t) => {
+              if (vozActiva) voz.decir(t)
+            }}
+            onCerrar={() => setMapa(null)}
+            onConfigurar={() => setConfigurandoMapa(true)}
+          />
+        </Suspense>
+      )}
+      <MapaForm abierto={configurandoMapa} clave={claveMapa.clave} onCerrar={() => setConfigurandoMapa(false)} onGuardar={claveMapa.guardar} />
       <VozForm
         abierto={editandoVoz}
         vozId={configVoz.vozId}
         modelo={configVoz.modelo}
+        energia={configVoz.energia}
         onCerrar={() => setEditandoVoz(false)}
         onGuardar={configVoz.guardar}
         onProbar={configVoz.probar}

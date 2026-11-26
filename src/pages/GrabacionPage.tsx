@@ -9,6 +9,7 @@ import { VistaAnalisis } from '../features/grabaciones/VistaAnalisis'
 import { VistaTranscripcion } from '../features/grabaciones/VistaTranscripcion'
 import { VistaIntervencion } from '../features/grabaciones/VistaIntervencion'
 import { useCotizaciones, useServicios } from '../features/cotizador/useCotizador'
+import { VideosCliente } from '../features/videos/VideosCliente'
 import { actualizarProspecto, useProspectos } from '../features/pipeline/useProspectos'
 import { useReuniones } from '../features/calendario/useReuniones'
 import { Badge, Segmentado } from '../components/ui/Badge'
@@ -134,7 +135,7 @@ export function GrabacionPage() {
         items,
         null,
       )
-      navigate(`/cotizador?abrir=${cotId}`)
+      navigate(`/propuestas?abrir=${cotId}`)
     })
 
   const crearCotizacion = (a: Analisis) =>
@@ -321,6 +322,12 @@ export function GrabacionPage() {
             />
           )}
         </>
+      )}
+
+      {g.estado === 'lista' && g.analisis && (
+        <div className="mt-6">
+          <VideosCliente grabacionId={g.id} />
+        </div>
       )}
 
       <div className="mt-10 border-t border-borde pt-4">

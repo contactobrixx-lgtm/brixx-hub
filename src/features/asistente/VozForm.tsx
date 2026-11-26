@@ -6,15 +6,17 @@ import { Segmentado } from '../../components/ui/Badge'
 import { Field, Input } from '../../components/ui/Field'
 import { ErrorBox } from '../../components/ui/ErrorBox'
 import { modoAudio } from '../../lib/audioSession'
-import { MODELOS_VOZ } from './useConfigVoz'
+import type { EnergiaVoz } from '../../types/db'
+import { ENERGIAS_VOZ, MODELOS_VOZ, type ConfigVoz } from './useConfigVoz'
 
 interface Props {
   abierto: boolean
   vozId: string
   modelo: string
+  energia: EnergiaVoz
   onCerrar: () => void
-  onGuardar: (v: { vozId: string; modelo: string }) => Promise<void>
-  onProbar: (v: { vozId: string; modelo: string }) => Promise<string>
+  onGuardar: (v: ConfigVoz) => Promise<void>
+  onProbar: (v: ConfigVoz) => Promise<string>
 }
 
 /** Elegir la voz de ElevenLabs de Jarvis (por ejemplo, una argentina) y probarla antes de guardar. */
@@ -23,9 +25,10 @@ export function VozForm(props: Props) {
   return <FormInterno {...props} />
 }
 
-function FormInterno({ vozId: inicialId, modelo: inicialModelo, onCerrar, onGuardar, onProbar }: Props) {
+function FormInterno({ vozId: inicialId, modelo: inicialModelo, energia: inicialEnergia, onCerrar, onGuardar, onProbar }: Props) {
   const [vozId, setVozId] = useState(inicialId)
   const [modelo, setModelo] = useState<string>(inicialModelo || 'eleven_flash_v2_5')
+  const [energia, setEnergia] = useState<EnergiaVoz>(inicialEnergia)
   const [ocupado, setOcupado] = useState<'probando' | 'guardando' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const audio = useRef<HTMLAudioElement | null>(null)
@@ -36,7 +39,7 @@ function FormInterno({ vozId: inicialId, modelo: inicialModelo, onCerrar, onGuar
     setOcupado('probando')
     setError(null)
     try {
-      const url = await onProbar({ vozId, modelo })
+      const url = await onProbar({ vozId, modelo, energia })
       audio.current ??= new Audio()
       audio.current.src = url
       modoAudio('playback')
@@ -52,7 +55,7 @@ function FormInterno({ vozId: inicialId, modelo: inicialModelo, onCerrar, onGuar
     setOcupado('guardando')
     setError(null)
     try {
-      await onGuardar({ vozId, modelo })
+      await onGuardar({ vozId, modelo, energia })
       onCerrar()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar.')
@@ -78,20 +81,15 @@ function FormInterno({ vozId: inicialId, modelo: inicialModelo, onCerrar, onGuar
     >
       <div className="flex flex-col gap-4">
         <div className="text-sm leading-relaxed text-suave">
-          <p>
-            La voz que viene por defecto ("Daniel") es británica: por eso suena con acento en inglés. Para una voz argentina:
-          </p>
+          <p>Usá una voz nativa en español para que no suene con acento en inglés (la que viene por defecto, "Daniel", es británica):</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>
-              En <b>elevenlabs.io</b> entrá a <b>Voices → Voice Library</b> (o <b>Explore</b>).
+              En <b>elevenlabs.io</b> entrá a <b>Voices → Voice Library</b> (o <b>Explore</b>) y filtrá por idioma <b>Spanish</b>.
             </li>
             <li>
-              Filtrá por idioma <b>Spanish</b> y acento <b>Argentinian</b> (o Latin American), y escuchá las que te gusten.
+              Elegí una que te guste y copiá su <b>Voice ID</b> (por ejemplo, <b>Luis</b>, español neutro: <code className="text-acento-texto">KuCuu213C5LmCbAvbEb8</code>).
             </li>
-            <li>
-              Tocá <b>Add to My Voices</b> en la que elijas. Después, en <b>My Voices</b>, abrila y copiá su <b>Voice ID</b>.
-            </li>
-            <li>Pegalo acá abajo, tocá Probar y, si te gusta, Guardar.</li>
+            <li>Pegalo acá abajo, elegí modelo y energía, tocá Probar y, si te gusta, Guardar.</li>
           </ol>
         </div>
 
@@ -108,6 +106,12 @@ function FormInterno({ vozId: inicialId, modelo: inicialModelo, onCerrar, onGuar
               ? 'Arranca a hablar enseguida y gasta la mitad de créditos. Recomendada para conversar.'
               : 'Suena un poco más natural, pero tarda más en arrancar y gasta el doble.'}
           </span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-semibold">Energía</span>
+          <Segmentado opciones={ENERGIAS_VOZ.map((e) => ({ valor: e.valor, label: e.label }))} valor={energia} onChange={setEnergia} />
+          <span className="text-[13px] text-tenue">{ENERGIAS_VOZ.find((e) => e.valor === energia)?.ayuda}</span>
         </div>
 
         <Button variant="secundario" className="w-fit" onClick={probar} disabled={!!ocupado || !idValido}>

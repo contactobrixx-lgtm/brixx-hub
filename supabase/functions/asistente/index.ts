@@ -25,6 +25,7 @@ import { Hub } from './datos.ts'
 import { Memoria } from './memoria.ts'
 import { Acciones, type AccionVisible } from './acciones.ts'
 import { responder, type Evento, type Resultado } from './cerebro.ts'
+import { Lugares } from './lugares.ts'
 
 const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -118,7 +119,7 @@ Deno.serve(async (req) => {
     const tContexto = Date.now() - t0
     // Misión: se crea acá y la corre la función "misiones" en segundo plano (con la misma sesión del socio)
     const lanzarMision = async (pedidoMision: string): Promise<string> => {
-      const pedidoLimpio = pedidoMision.trim().slice(0, 2000)
+      const pedidoLimpio = Array.from(pedidoMision.trim()).slice(0, 2000).join('')
       if (!pedidoLimpio) throw new Error('Falta el pedido de la misión.')
       const { data, error } = await admin.from('jarvis_misiones').insert({ usuario: usuario.email, pedido: pedidoLimpio }).select('id').single()
       if (error) throw new Error(`No se pudo crear la misión: ${error.message}`)
@@ -133,7 +134,8 @@ Deno.serve(async (req) => {
       }
       return data.id as string
     }
-    const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar, lanzarMision)
+    const lugares = new Lugares(admin, usuario.email, (mapa) => avisar({ tipo: 'mapa', mapa }))
+    const r = await responder(hub, memoria, acciones, { panorama, notas, pendientes, personalidad }, pregunta, historial, avisar, lanzarMision, lugares)
     const tiempos = { sesion_ms: tAuth, contexto_ms: tContexto, primera_palabra_ms: primeraPalabra, total_ms: Date.now() - t0, consultas: r.consultas.length }
     console.log('Tiempos de Jarvis:', JSON.stringify(tiempos)) // visible en Supabase → Edge Functions → asistente → Logs
     return { ...r, tiempos }
@@ -177,6 +179,20 @@ function errorLegible(e: unknown): { mensaje: string; status: number } {
   console.error('Error del asistente:', e)
   if (e instanceof Anthropic.AuthenticationError) return { mensaje: 'La clave de Anthropic no es válida.', status: 502 }
   if (e instanceof Anthropic.RateLimitError) return { mensaje: 'Anthropic está con mucho tráfico. Probá en unos segundos.', status: 503 }
-  if (e instanceof Anthropic.APIError) return { mensaje: `Error de Anthropic (${e.status}).`, status: 502 }
+  if (e instanceof Anthropic.APIError) return { mensaje: motivoAnthropic(e), status: 502 }
   return { mensaje: 'No pude armar la respuesta. Probá de nuevo.', status: 500 }
+}
+
+/** Traduce el error de la API de Anthropic a algo que se entienda (y que diga qué hacer). */
+export function motivoAnthropic(e: InstanceType<typeof Anthropic.APIError>): string {
+  const cuerpo = (e.error ?? {}) as { error?: { type?: string; message?: string } }
+  const tipo = cuerpo.error?.type ?? ''
+  const detalle = (cuerpo.error?.message ?? e.message ?? '').trim()
+  if (/credit balance|billing|purchase credits/i.test(detalle))
+    return 'Se terminó el saldo de la cuenta de Anthropic. Cargá crédito en console.anthropic.com → Billing y volvé a probar.'
+  if (e.status === 529 || tipo === 'overloaded_error') return 'Anthropic está sobrecargado en este momento. Probá de nuevo en un minuto.'
+  if (e.status === 403 || tipo === 'permission_error') return `La clave de Anthropic no tiene permiso para esto: ${detalle.slice(0, 160)}`
+  if (e.status === 404 || tipo === 'not_found_error') return `Anthropic no encontró el modelo o el recurso pedido: ${detalle.slice(0, 160)}`
+  if (e.status === 413 || /too long|too large|context/i.test(detalle)) return 'La consulta quedó demasiado larga para Claude. Probá con una pregunta más corta.'
+  return `Error de Anthropic (${e.status ?? 'sin código'}): ${detalle.slice(0, 200) || 'sin detalle'}`
 }

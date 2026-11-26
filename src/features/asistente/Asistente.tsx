@@ -48,7 +48,7 @@ export function Asistente() {
     voz.callar()
     // La voz arranca con la primera oración, mientras sigue llegando el resto
     const vivo = vozActiva ? voz.enVivo() : null
-    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: (d) => navigate(d.ruta) })
+    await preguntar(pregunta, { alTexto: (d) => vivo?.agregar(d), alReiniciar: () => vivo?.reiniciar(), alMostrar: (d) => navigate(d.ruta), alMapa: (m) => navigate(`/jarvis?mapa=${m.busqueda_id ?? '1'}`) })
     vivo?.terminar()
   }
 

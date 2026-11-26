@@ -1,6 +1,7 @@
 // Consultas de SOLO LECTURA a la base del hub, para las herramientas del asistente.
 // Cada función devuelve texto compacto y legible para el modelo (no JSON crudo de la base).
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { perfilInstagram, textoPerfil, usuarioInstagram, type PerfilInstagram } from './meta.ts'
 
 export const ZONA = 'America/Argentina/Buenos_Aires'
 const GANADAS = ['cerrado', 'implementacion', 'mantenimiento']
@@ -32,7 +33,23 @@ function rangoUTC(desde: string, hasta: string) {
   return { ini: new Date(`${desde}T00:00:00-03:00`).toISOString(), fin: new Date(new Date(`${hasta}T00:00:00-03:00`).getTime() + 864e5).toISOString() }
 }
 
-const corto = (t: string | null | undefined, n: number) => (!t ? '' : t.length > n ? `${t.slice(0, n)}…` : t)
+/**
+ * Saca las mitades de emoji sueltas. Un texto recortado por posición puede partir un emoji en dos, y con eso
+ * Anthropic ("unexpected end of hex escape") y la base ("Empty or invalid json") rechazan el pedido entero.
+ */
+export const bienFormado = (t: string) => t.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+
+/** Recorta por caracteres completos (nunca en la mitad de un emoji) */
+export const recortar = (t: string, n: number) => {
+  const c = Array.from(t)
+  return c.length > n ? c.slice(0, n).join('') : t
+}
+
+const corto = (t: string | null | undefined, n: number) => {
+  if (!t) return ''
+  const r = recortar(bienFormado(t), n)
+  return r.length < t.length ? `${r}…` : r
+}
 
 type Fila = Record<string, unknown>
 
@@ -40,6 +57,54 @@ type Fila = Record<string, unknown>
 export class Hub {
   private prospectosCache: Fila[] | null = null
   constructor(private db: SupabaseClient) {}
+
+  // ------------------------------------------------------ redes (API de Meta)
+  /**
+   * Lee una cuenta de Instagram de empresa o creador con la API de Meta, guarda la foto del momento en
+   * redes_perfiles (vinculada a la carpeta si el usuario coincide con el Instagram de un prospecto) y la
+   * compara con la anterior. Devuelve el perfil y el texto para Claude.
+   */
+  async instagramPerfil(
+    entrada: string,
+    prospectoId?: string | null,
+  ): Promise<{ perfil: PerfilInstagram; texto: string; prospecto_id: string | null; error_guardado: string | null; foto_id: string | null; created_at: string | null }> {
+    const usuario = usuarioInstagram(entrada)
+    if (!usuario) throw new Error(`"${entrada}" no parece un usuario de Instagram.`)
+    const perfil = await perfilInstagram(usuario)
+    let pid = prospectoId ?? null
+    if (!pid) {
+      const p = (await this.prospectos()).find((x) => x.instagram && usuarioInstagram(String(x.instagram)) === perfil.usuario.toLowerCase())
+      pid = (p?.id as string) ?? null
+    }
+    const { data: previo } = await this.db
+      .from('redes_perfiles')
+      .select('datos, created_at')
+      .eq('red', 'instagram')
+      .eq('usuario', perfil.usuario.toLowerCase())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const { metricas, ...datos } = perfil
+    const { data: fila, error } = await this.db
+      .from('redes_perfiles')
+      .insert({ red: 'instagram', usuario: perfil.usuario.toLowerCase(), prospecto_id: pid, datos, metricas })
+      .select('id, created_at')
+      .maybeSingle()
+    if (error) console.error('redes_perfiles:', error.message)
+    const anterior = previo ? { seguidores: Number((previo.datos as Fila).seguidores ?? 0), fecha: String(previo.created_at).slice(0, 10) } : null
+    return {
+      perfil,
+      texto: textoPerfil(perfil, anterior),
+      prospecto_id: pid,
+      error_guardado: error ? error.message : null,
+      foto_id: (fila?.id as string) ?? null,
+      created_at: (fila?.created_at as string) ?? null,
+    }
+  }
+
+  async instagram(entrada: string): Promise<string> {
+    return (await this.instagramPerfil(entrada)).texto
+  }
 
   async prospectos(): Promise<Fila[]> {
     if (!this.prospectosCache) {
@@ -237,7 +302,9 @@ export class Hub {
 
   // -------------------------------------------------------------- cotizaciones
   private totales(c: Fila) {
-    const items = (c.cotizacion_items ?? []) as { cantidad: number; precio_implementacion: number; precio_mensual: number; descripcion: string }[]
+    const todos = (c.cotizacion_items ?? []) as { cantidad: number; precio_implementacion: number; precio_mensual: number; descripcion: string; opcional?: boolean }[]
+    // Los ítems opcionales (ej.: "tienda propia, si hace falta") no suman al total
+    const items = todos.filter((i) => !i.opcional)
     const impl = items.reduce((t, i) => t + Number(i.cantidad) * Number(i.precio_implementacion), 0) * (1 - Number(c.descuento_pct ?? 0) / 100)
     const mes = items.reduce((t, i) => t + Number(i.cantidad) * Number(i.precio_mensual), 0)
     return { impl: Math.round(impl), mes, items }
@@ -246,7 +313,7 @@ export class Hub {
   async cotizaciones(o: { cliente?: string; estado?: string }): Promise<string> {
     let q = this.db
       .from('cotizaciones')
-      .select('id, numero, prospecto_id, titulo, estado, fecha, valida_hasta, moneda, descuento_pct, notas, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual)')
+      .select('id, numero, prospecto_id, titulo, estado, fecha, valida_hasta, moneda, descuento_pct, notas, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual, opcional)')
       .order('fecha', { ascending: false })
       .limit(40)
     if (o.estado) q = q.eq('estado', o.estado)
@@ -303,7 +370,7 @@ export class Hub {
     const hoy = hoyAR()
     const [{ data: metas }, { data: aceptadas }] = await Promise.all([
       this.db.from('metas').select('tipo, periodo, clientes_nuevos, ingreso_recurrente').order('periodo'),
-      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada'),
+      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual, opcional)').eq('estado', 'aceptada'),
     ])
     const prospectos = await this.prospectos()
     const activos = new Set(prospectos.filter((p) => ['implementacion', 'mantenimiento'].includes(p.etapa as string)).map((p) => p.id))
@@ -357,8 +424,8 @@ export class Hub {
       calendario: { ruta: '/calendario', titulo: 'Calendario' },
       pipeline: { ruta: '/pipeline', titulo: 'Pipeline' },
       clientes: { ruta: '/clientes', titulo: 'Clientes' },
-      cotizador: { ruta: '/cotizador', titulo: 'Cotizaciones' },
-      catalogo: { ruta: '/cotizador?vista=servicios', titulo: 'Catálogo de servicios' },
+      cotizador: { ruta: '/propuestas', titulo: 'Propuestas' },
+      catalogo: { ruta: '/propuestas?vista=servicios', titulo: 'Catálogo de servicios' },
       finanzas: { ruta: '/finanzas', titulo: 'Finanzas' },
       costos: { ruta: '/finanzas?vista=costos', titulo: 'Costos' },
       grabaciones: { ruta: '/grabaciones', titulo: 'Grabaciones' },
@@ -385,7 +452,7 @@ export class Hub {
       if (!p) throw new Error('Falta el cliente. Preguntale cuál.')
       const { data } = await this.db.from('cotizaciones').select('id, numero').eq('prospecto_id', p.id).order('fecha', { ascending: false }).limit(1)
       if (!data?.length) throw new Error(`${quien} no tiene cotizaciones todavía.`)
-      return { ruta: `/cotizador?abrir=${data[0].id}`, titulo: `Cotización COT-${String(data[0].numero).padStart(4, '0')} de ${quien}` }
+      return { ruta: `/propuestas?abrir=${data[0].id}`, titulo: `Cotización COT-${String(data[0].numero).padStart(4, '0')} de ${quien}` }
     }
     if (nombre === 'ultima_grabacion') {
       let q = this.db.from('grabaciones').select('id, titulo').order('created_at', { ascending: false }).limit(1)
@@ -423,6 +490,55 @@ export class Hub {
     return `Misiones de agentes en las últimas 24 h: ${data.map((m) => `[${m.id}] "${m.titulo ?? m.pedido}" (${m.estado})${m.resumen ? `: ${m.resumen}` : ''}`).join('; ')}.`
   }
 
+  /** Informes de los agentes: uno completo (por id) o los últimos, filtrando por agente o cliente. */
+  async informes(o: { id?: string; agente?: string; cliente?: string }): Promise<string> {
+    const campos = 'id, agente, titulo, resumen, contenido, datos, estado, error, created_at, prospecto_id'
+    if (o.id) {
+      const { data: i } = await this.db.from('agentes_informes').select(campos).eq('id', o.id).maybeSingle()
+      if (!i) return 'No encontré ese informe.'
+      const mensajes = ((i.datos as Record<string, unknown>)?.mensajes as { cliente: string; texto: string }[] | undefined) ?? []
+      const clientes = ((i.datos as Record<string, unknown>)?.clientes as { cliente: string; mensaje: string }[] | undefined) ?? []
+      return [
+        `${i.titulo} (agente ${i.agente}, ${fechaHoraAR(i.created_at as string)}, ${i.estado})${i.error ? ` — error: ${i.error}` : ''}`,
+        i.resumen ? `Resumen: ${i.resumen}` : '',
+        String(i.contenido ?? ''),
+        mensajes.length ? `Mensajes redactados:\n${mensajes.map((m) => `- ${m.cliente}: ${m.texto}`).join('\n')}` : '',
+        clientes.length ? `Mensajes sugeridos:\n${clientes.map((m) => `- ${m.cliente}: ${m.mensaje}`).join('\n')}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    }
+    let q = this.db.from('agentes_informes').select(campos).order('created_at', { ascending: false }).limit(8)
+    if (o.agente) q = q.eq('agente', o.agente)
+    if (o.cliente) {
+      const ids = await this.idsPorCliente(o.cliente)
+      if (!ids.length) return `No encontré un cliente que coincida con "${o.cliente}".`
+      q = q.in('prospecto_id', ids)
+    }
+    const { data } = await q
+    if (!data?.length) return 'No hay informes de los agentes todavía.'
+    return data.map((i) => `[${i.id}] ${fechaHoraAR(i.created_at as string)} · ${i.agente} · ${i.titulo}${i.resumen ? `: ${i.resumen}` : ''}${i.estado !== 'lista' ? ` (${i.estado})` : ''}`).join('\n')
+  }
+
+  /** Para el panorama: informes de las últimas 24 h y sistemas o demos caídos. */
+  async informesRecientes(): Promise<string> {
+    const [{ data }, { data: caidas }] = await Promise.all([
+      this.db
+        .from('agentes_informes')
+        .select('id, agente, titulo, resumen, leido')
+        .eq('estado', 'lista')
+        .gte('created_at', new Date(Date.now() - 864e5).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(6),
+      this.db.from('fichas').select('nombre, seccion, chequeo_detalle').eq('en_linea', false).neq('estado', 'archivado'),
+    ])
+    const lineas = [
+      `Informes de los agentes (últimas 24 h): ${(data ?? []).map((i) => `[${i.id}] ${i.titulo}${i.resumen ? `: ${i.resumen}` : ''}${i.leido ? '' : ' (sin leer)'}`).join('; ') || 'ninguno'}.`,
+    ]
+    if (caidas?.length) lineas.push(`Sistemas o demos caídos ahora: ${caidas.map((f) => `${f.nombre} (${f.chequeo_detalle ?? 'no responde'})`).join('; ')}.`)
+    return lineas.join('\n')
+  }
+
   /** Los números del mes para el "recap": cobrado, clientes nuevos (y meta), prospectos, recurrente y por cobrar. */
   async numerosMes(): Promise<string> {
     const hoy = hoyAR()
@@ -431,7 +547,7 @@ export class Hub {
       this.prospectos(),
       this.tipoCambio(),
       this.db.from('cobros').select('monto, moneda').gte('fecha', inicioMes).lte('fecha', hoy),
-      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual)').eq('estado', 'aceptada'),
+      this.db.from('cotizaciones').select('prospecto_id, moneda, descuento_pct, cotizacion_items(cantidad, precio_implementacion, precio_mensual, opcional)').eq('estado', 'aceptada'),
       this.db.from('metas').select('clientes_nuevos, ingreso_recurrente').eq('tipo', 'mes').eq('periodo', inicioMes).maybeSingle(),
       this.db.from('cobros').select('prospecto_id, monto, moneda, concepto'),
     ])
@@ -485,6 +601,7 @@ export class Hub {
       `Clientes activos: ${prospectos.filter((p) => GANADAS.includes(p.etapa as string)).map((p) => `${p.empresa || p.nombre} (${p.etapa})`).join(', ') || 'ninguno'}.`,
       await this.numerosMes().catch(() => 'Números del mes: no se pudieron calcular.'),
       await this.misionesRecientes().catch(() => ''),
+      await this.informesRecientes().catch(() => ''),
     ]
     return out.join('\n')
   }

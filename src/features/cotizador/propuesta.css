@@ -1,0 +1,221 @@
+/* Propuesta comercial (el diseño de la propuesta de Nova): A4 vertical, una hoja por .hoja, sin márgenes.
+   Solo aplica dentro de .propuesta. Colores: tokens de index.css. */
+@page propuesta {
+  size: A4;
+  margin: 0;
+}
+.propuesta {
+  --tinta: var(--color-tinta);
+  --gris: var(--color-tinta-gris);
+  --suave: var(--color-tinta-suave);
+  --papel: var(--color-papel-calido);
+  --blanco: var(--color-papel);
+  --linea: var(--color-linea);
+  --azul: var(--color-acento);
+  --noche: var(--color-noche);
+  color: var(--tinta);
+  font-family: var(--font-sans);
+  font-size: 9.5pt;
+  line-height: 1.45;
+  color-scheme: light;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.propuesta * {
+  box-sizing: border-box;
+}
+.propuesta .hoja {
+  page: propuesta;
+  width: 210mm;
+  /* 1 mm menos que A4: si el navegador redondea, la hoja no se parte en dos */
+  height: 296mm;
+  break-inside: avoid;
+  position: relative;
+  overflow: hidden;
+  background: var(--papel);
+  padding: 17mm 16mm 0;
+  margin: 0 auto 8mm;
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.35);
+  break-after: page;
+}
+.propuesta .hoja:last-child {
+  break-after: auto;
+}
+@media screen {
+  .propuesta {
+    zoom: var(--escala, 1);
+  }
+}
+@media print {
+  .propuesta .hoja {
+    margin: 0;
+    box-shadow: none;
+  }
+}
+.propuesta h1,
+.propuesta h2,
+.propuesta h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+}
+.propuesta .ojo {
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--azul);
+}
+.propuesta .titulo {
+  font-size: 22pt;
+  line-height: 1.05;
+  font-weight: 700;
+  margin-top: 2mm;
+}
+.propuesta .titulo span {
+  color: var(--gris);
+}
+.propuesta .bajada {
+  margin-top: 4mm;
+  color: var(--suave);
+  max-width: 165mm;
+}
+.propuesta .tarjeta {
+  background: var(--blanco);
+  border: 1px solid var(--linea);
+  border-radius: 4.5mm;
+  padding: 5mm 5.5mm;
+}
+.propuesta .oscura {
+  background: var(--noche);
+  color: var(--blanco);
+  border-radius: 4.5mm;
+  padding: 6mm 6.5mm;
+}
+.propuesta .oscura .apagado {
+  color: var(--gris);
+}
+.propuesta .aviso {
+  background: var(--color-aviso-papel-fondo);
+  border: 1px dashed var(--color-aviso-papel-borde);
+  color: var(--color-aviso-papel-texto);
+  border-radius: 3.5mm;
+  padding: 4mm 4.5mm;
+}
+.propuesta .check {
+  display: flex;
+  gap: 2.4mm;
+  align-items: flex-start;
+}
+.propuesta .check::before {
+  content: '✓';
+  flex: none;
+  width: 4.2mm;
+  height: 4.2mm;
+  margin-top: 0.3mm;
+  border-radius: 999px;
+  background: var(--azul);
+  color: var(--blanco);
+  font-size: 6.5pt;
+  font-weight: 700;
+  line-height: 4.2mm;
+  text-align: center;
+}
+.propuesta .pie {
+  position: absolute;
+  left: 16mm;
+  right: 16mm;
+  bottom: 8mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 7.5pt;
+  color: var(--suave);
+}
+.propuesta .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+.propuesta .logo svg {
+  height: 0.95em;
+  width: auto;
+}
+.propuesta .pastilla {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 1.6mm 4.2mm;
+  font-size: 8.5pt;
+}
+
+/* Portada */
+.propuesta .portada {
+  background:
+    radial-gradient(circle at 88% 12%, color-mix(in oklab, var(--azul) 55%, transparent) 0, transparent 34%),
+    radial-gradient(circle at 6% 92%, color-mix(in oklab, var(--color-aviso-papel-borde) 30%, transparent) 0, transparent 26%),
+    var(--noche);
+  color: var(--blanco);
+  padding: 20mm 18mm;
+}
+.propuesta .portada .pastilla {
+  border: 1px solid color-mix(in oklab, var(--blanco) 22%, transparent);
+  background: color-mix(in oklab, var(--blanco) 6%, transparent);
+}
+.propuesta .portada h1 {
+  font-size: 34pt;
+  line-height: 1.02;
+  font-weight: 700;
+}
+.propuesta .portada h1 span {
+  color: var(--color-tinta-suave);
+}
+
+/* Inversión de cada servicio */
+.propuesta .precio {
+  background: var(--papel);
+  border-radius: 3mm;
+  padding: 2mm 3.5mm;
+  text-align: right;
+  flex: none;
+}
+.propuesta .precio .ojo {
+  color: var(--suave);
+  font-size: 6pt;
+}
+.propuesta .opcional-tarjeta {
+  border-style: dashed;
+  border-color: var(--color-aviso-papel-borde);
+}
+.propuesta table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.propuesta td,
+.propuesta th {
+  padding: 3mm 4mm;
+  text-align: left;
+}
+
+/* Forma de pago en grande (sugiere la financiación) */
+.propuesta .pago {
+  background: var(--blanco);
+  border: 2px solid var(--azul);
+  border-radius: 4.5mm;
+  padding: 6mm 6.5mm;
+}
+
+/* Cierre de la última hoja */
+.propuesta .cierre {
+  background:
+    radial-gradient(circle at 92% 8%, color-mix(in oklab, var(--azul) 45%, transparent) 0, transparent 40%),
+    var(--noche);
+  color: var(--blanco);
+  border-radius: 4.5mm;
+  padding: 9mm 8mm 7mm;
+}
+.propuesta .cierre .apagado {
+  color: var(--gris);
+}

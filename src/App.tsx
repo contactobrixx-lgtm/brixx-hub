@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
@@ -7,6 +7,7 @@ import { FichasPage } from './pages/FichasPage'
 import { VisorPage } from './pages/VisorPage'
 import { ClientesPage } from './pages/ClientesPage'
 import { ClientePage } from './pages/ClientePage'
+import { VideoPage } from './pages/VideoPage'
 import { PipelinePage } from './pages/PipelinePage'
 import { InicioPage } from './pages/InicioPage'
 import { CalendarioPage } from './pages/CalendarioPage'
@@ -17,6 +18,9 @@ import { GrabarPage } from './pages/GrabarPage'
 import { GrabacionesPage } from './pages/GrabacionesPage'
 import { GrabacionPage } from './pages/GrabacionPage'
 import { JarvisPage } from './pages/JarvisPage'
+import { AgentesPage } from './pages/AgentesPage'
+import { CampanaImprimiblePage } from './pages/CampanaImprimiblePage'
+import { PropuestaPublicaPage } from './pages/PropuestaPublicaPage'
 import { supabaseConfigurado } from './lib/supabase'
 
 export default function App() {
@@ -38,6 +42,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Propuesta para el cliente: pública, con su link (sin iniciar sesión) */}
+      <Route path="/p/:token" element={<PropuestaPublicaPage />} />
       <Route
         path="/nueva-clave"
         element={
@@ -63,6 +69,14 @@ export default function App() {
         }
       />
       <Route
+        path="/informes/:id/campana"
+        element={
+          <RequireAuth>
+            <CampanaImprimiblePage />
+          </RequireAuth>
+        }
+      />
+      <Route
         element={
           <RequireAuth>
             <AppLayout />
@@ -71,19 +85,28 @@ export default function App() {
       >
         <Route path="/inicio" element={<InicioPage />} />
         <Route path="/jarvis" element={<JarvisPage />} />
+        <Route path="/agentes" element={<AgentesPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
         <Route path="/grabar" element={<GrabarPage />} />
         <Route path="/grabaciones" element={<GrabacionesPage />} />
         <Route path="/grabaciones/:id" element={<GrabacionPage />} />
-        <Route path="/cotizador" element={<CotizadorPage />} />
+        <Route path="/propuestas" element={<CotizadorPage />} />
+        <Route path="/cotizador" element={<APropuestas />} />
         <Route path="/finanzas" element={<FinanzasPage />} />
         <Route path="/sistemas" element={<FichasPage seccion="sistema" />} />
         <Route path="/demos" element={<FichasPage seccion="demo" />} />
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/clientes" element={<ClientesPage />} />
         <Route path="/clientes/:id" element={<ClientePage />} />
+        <Route path="/videos/:id" element={<VideoPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/jarvis" replace />} />
     </Routes>
   )
+}
+
+/** /cotizador pasó a /propuestas: los links viejos (con ?abrir= o ?vista=) siguen andando */
+function APropuestas() {
+  const { search } = useLocation()
+  return <Navigate to={`/propuestas${search}`} replace />
 }

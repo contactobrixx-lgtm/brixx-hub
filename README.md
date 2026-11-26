@@ -158,6 +158,25 @@ Acepta audios .opus (WhatsApp), .ogg, .m4a, .mp3 y .wav, hasta 50 MB. Claude lee
 
 **Configuración:** usa la misma clave `ANTHROPIC_API_KEY` de Supabase que las grabaciones. Se publica sola al mergear, con el token `SUPABASE_ACCESS_TOKEN`. Cada pregunta cuesta uno o dos centavos de dólar; las que buscan en internet, algunos centavos más.
 
+### Agentes que trabajan solos
+
+En **Agentes** (menú) hay cuatro agentes que trabajan sin que se lo pidas y te dejan informes. Jarvis te los cuenta en el briefing:
+- **Preparador de reuniones**: una hora antes de cada reunión del calendario arma el brief. Incluye quién es, qué le duele, qué ofrecerle con precios, preguntas para hacer, objeciones probables y competencia.
+- **Cobranzas**: todos los días junta los abonos del mes sin cobrar y los saldos de implementación, y te redacta un recordatorio amable para cada cliente.
+- **Postventa**: una vez por semana revisa a cada cliente activo. Te dice quién está en riesgo, qué otro servicio le serviría, y te deja un mensaje sugerido.
+- **Monitor**: cada hora revisa que respondan los sistemas y las demos. Si alguno se cae, te avisa y la ficha muestra "Caída".
+
+Dos analistas corren solos **una vez por mes** (o con "Correr ahora"):
+- **Analista financiero**: muestra cobrado, costos y margen de los últimos 6 meses, cuánto se va en IA y de qué clientes dependen. También cuánto cubre el recurrente de los costos fijos, cuánto falta cobrar, la proyección del mes y recomendaciones.
+- **Aprendizaje de ventas**: compara lo ganado contra lo perdido por servicio, rubro y precio, y junta los motivos de pérdida y las objeciones que se repiten. Al final te dice qué cambiar y en qué rubros buscar clientes.
+
+Y tres más que se corren **a pedido desde la carpeta de cada cliente** (bloque "Agentes"):
+- **Armador de propuestas**: con todo lo que se sabe del cliente elige servicios del catálogo, deja la cotización en **borrador** en el Cotizador y te redacta el mensaje para mandarla.
+- **Auditor de redes y web**: diagnóstico de su web, Instagram, atención y venta online, con puntaje, mejoras rápidas, qué le ofreceríamos y un mensaje para regalarle el diagnóstico.
+- **Campaña de Meta Ads**: completás presupuesto, días y lo que sepas. El agente investiga marca, competencia y ofertas, y arma la propuesta de campaña de validación de 3 páginas, con el mismo diseño del PDF del skill. Tiene precios editables y se imprime o guarda en PDF. Tarda unos 3 minutos. **Nunca crea ni toca campañas en Meta**: la carga la hace un socio a mano.
+
+Cada uno de los programados se prende o apaga, y algunos tienen hora; también podés correrlos al momento con **Correr ahora**. **Nunca mandan nada a un cliente**: los mensajes los copiás o los abrís en WhatsApp y los mandás vos. Corren solos cada 15 minutos si el proyecto de Supabase tiene el programador (pg_cron); si no, corren cada vez que alguien abre el hub. La página lo muestra arriba. Usan la misma clave de Anthropic; el monitor no la necesita.
+
 ### Voz premium (ElevenLabs, opcional)
 
 Sin configurar nada, Jarvis lee con la voz del dispositivo (la más grave en español que encuentre). Con ElevenLabs habla con una voz natural, grave y sobria. Si ElevenLabs falla o se terminan los créditos, vuelve solo a la voz del dispositivo.

@@ -1,0 +1,163 @@
+import { useCallback, useEffect, useState } from 'react'
+import { FunctionsHttpError } from '@supabase/supabase-js'
+import { supabase } from '../../lib/supabase'
+import type { EnfoqueVideo, Video } from '../../types/db'
+
+async function llamar(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('videos', { body })
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const cuerpo = await error.context.json().catch(() => null)
+      if (cuerpo?.error) throw new Error(cuerpo.error)
+      if (error.context.status === 404) throw new Error('La función de videos todavía no está publicada.')
+      throw new Error(`La función respondió ${error.context.status}.`)
+    }
+    throw new Error(error.message)
+  }
+  return data as Record<string, unknown>
+}
+
+export type { EnfoqueVideo }
+
+/** Pide un video nuevo (sale de una grabación o de la carpeta de un cliente). Devuelve su id. */
+export async function crearVideo(origen: { grabacion_id?: string | null; prospecto_id?: string | null }, enfoque: EnfoqueVideo): Promise<string> {
+  const r = await llamar({ accion: 'crear', ...origen, enfoque })
+  return String(r.id)
+}
+
+export const reintentarVideo = (id: string) => llamar({ accion: 'reintentar', id })
+
+const trabajando = (v: Video) => v.estado === 'guion' || v.estado === 'voz'
+/** Un video que sigue "trabajando" a los 6 minutos se cortó (la función tiene un tope de tiempo) */
+export const colgado = (v: Video) => trabajando(v) && Date.now() - new Date(v.updated_at).getTime() > 6 * 60_000
+
+/** Los videos de una grabación o de un cliente (relee cada 3 s mientras alguno se está armando). */
+export function useVideos(filtro: { grabacion_id?: string | null; prospecto_id?: string | null }) {
+  const [videos, setVideos] = useState<Video[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const { grabacion_id, prospecto_id } = filtro
+
+  const recargar = useCallback(async () => {
+    if (!grabacion_id && !prospecto_id) return setVideos([])
+    let q = supabase.from('videos').select('*').order('created_at', { ascending: false }).limit(20)
+    q = grabacion_id ? q.eq('grabacion_id', grabacion_id) : q.eq('prospecto_id', prospecto_id!)
+    const { data, error } = await q
+    // Si la base todavía no tiene la tabla (migración sin aplicar), no es un error para mostrar
+    if (error) setError(/videos/.test(error.message) && /exist|schema cache/i.test(error.message) ? null : error.message)
+    else {
+      setVideos(data as Video[])
+      setError(null)
+    }
+  }, [grabacion_id, prospecto_id])
+
+  useEffect(() => {
+    recargar()
+  }, [recargar])
+
+  const enCurso = videos.some((v) => trabajando(v) && !colgado(v))
+  useEffect(() => {
+    if (!enCurso) return
+    const t = setInterval(recargar, 3000)
+    return () => clearInterval(t)
+  }, [enCurso, recargar])
+
+  const borrar = async (v: Video) => {
+    const paths = [...v.audios.map((a) => a.path), v.archivo_path].filter((p): p is string => !!p && !p.startsWith('/'))
+    if (paths.length) await supabase.storage.from('videos').remove(paths)
+    const { error } = await supabase.from('videos').delete().eq('id', v.id)
+    if (error) throw new Error(error.message)
+    await recargar()
+  }
+
+  return { videos, error, recargar, borrar }
+}
+
+/** Un video (para el reproductor); relee mientras se arma. */
+export function useVideo(id: string | undefined) {
+  const [video, setVideo] = useState<Video | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const recargar = useCallback(async () => {
+    if (!id) return
+    const { data, error } = await supabase.from('videos').select('*').eq('id', id).maybeSingle()
+    if (error) setError(error.message)
+    else setVideo(data as Video | null)
+    setCargando(false)
+  }, [id])
+
+  useEffect(() => {
+    recargar()
+  }, [recargar])
+
+  const armando = !!video && trabajando(video) && !colgado(video)
+  useEffect(() => {
+    if (!armando) return
+    const t = setInterval(recargar, 3000)
+    return () => clearInterval(t)
+  }, [armando, recargar])
+
+  return { video, cargando, error, recargar }
+}
+
+/** Baja los audios de las escenas (bucket privado "videos", o del sitio si la ruta empieza con "/") */
+export async function bajarAudios(v: Video): Promise<(ArrayBuffer | null)[]> {
+  return Promise.all(
+    v.audios.map(async (a) => {
+      if (!a.path) return null
+      // Voces publicadas con el hub (videos armados a mano, 0026): se bajan del sitio, no de Storage
+      if (a.path.startsWith('/')) {
+        const r = await fetch(a.path)
+        if (!r.ok) throw new Error(`No pude bajar la voz del video (${r.status}).`)
+        return r.arrayBuffer()
+      }
+      const { data, error } = await supabase.storage.from('videos').download(a.path)
+      if (error || !data) throw new Error(`No pude bajar la voz del video: ${error?.message ?? 'sin datos'}`)
+      return data.arrayBuffer()
+    }),
+  )
+}
+
+/** ajustes.videos_automaticos: después de cada análisis con cliente, se arman solos el video para el cliente y el interno */
+export function useVideosAutomaticos() {
+  const [activo, setActivo] = useState<boolean | null>(null)
+  useEffect(() => {
+    supabase
+      .from('ajustes')
+      .select('*')
+      .maybeSingle()
+      .then(({ data }) => setActivo(data && 'videos_automaticos' in data ? data.videos_automaticos !== false : null))
+  }, [])
+  const cambiar = async (valor: boolean) => {
+    setActivo(valor)
+    const { error } = await supabase.from('ajustes').upsert({ id: true, videos_automaticos: valor })
+    if (error) {
+      setActivo(!valor)
+      throw new Error(error.message)
+    }
+  }
+  return { activo, cambiar }
+}
+
+/**
+ * Guarda el video ya grabado en Storage ({id}/video.mp4) para que quede en la carpeta del cliente
+ * y se pueda volver a bajar o mandar sin grabarlo de nuevo. Devuelve la ruta.
+ */
+export async function guardarArchivoVideo(id: string, blob: Blob, ext: 'mp4' | 'webm'): Promise<string> {
+  const path = `${id}/video.${ext}`
+  const tipo = ext === 'mp4' ? 'video/mp4' : 'video/webm'
+  const archivo = blob.type === tipo ? blob : new Blob([blob], { type: tipo })
+  const { error } = await supabase.storage.from('videos').upload(path, archivo, { upsert: true, contentType: tipo })
+  if (error) throw new Error(/maximum|size|too large/i.test(error.message) ? 'El video pesa más de 50 MB: no se pudo guardar.' : error.message)
+  const r = await supabase.from('videos').update({ archivo_path: path }).eq('id', id)
+  if (r.error) throw new Error(r.error.message)
+  return path
+}
+
+/** Link temporal para bajar el video guardado (con nombre de archivo) */
+export async function linkArchivoVideo(path: string, nombre: string): Promise<string> {
+  const ext = path.split('.').pop() ?? 'mp4'
+  const { data, error } = await supabase.storage.from('videos').createSignedUrl(path, 3600, { download: `${nombre}.${ext}` })
+  if (error || !data) throw new Error(error?.message ?? 'No se pudo armar el link del video.')
+  return data.signedUrl
+}

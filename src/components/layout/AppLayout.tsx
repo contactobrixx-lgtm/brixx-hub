@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   CalendarDays,
   AudioLines,
+  Bot,
   Calculator,
   Home,
   FolderOpen,
@@ -22,6 +23,7 @@ import { cn } from '../ui/cn'
 import { Logo } from './Logo'
 import { Asistente } from '../../features/asistente/Asistente'
 import { iniciales } from '../../lib/format'
+import { avisarAgentes } from '../../features/agentes/useAgentes'
 
 interface Item {
   to: string
@@ -32,11 +34,12 @@ interface Item {
 const ESTUDIO: Item[] = [
   { to: '/jarvis', label: 'Jarvis', icono: AudioLines },
   { to: '/inicio', label: 'Inicio', icono: Home },
+  { to: '/agentes', label: 'Agentes', icono: Bot },
   { to: '/calendario', label: 'Calendario', icono: CalendarDays },
   { to: '/grabaciones', label: 'Grabaciones', icono: Mic },
   { to: '/pipeline', label: 'Pipeline', icono: KanbanSquare },
   { to: '/clientes', label: 'Clientes', icono: FolderOpen },
-  { to: '/cotizador', label: 'Cotizador', icono: Calculator },
+  { to: '/propuestas', label: 'Propuestas', icono: Calculator },
   { to: '/finanzas', label: 'Finanzas', icono: Wallet },
 ]
 
@@ -45,8 +48,14 @@ const PROYECTOS: Item[] = [
   { to: '/demos', label: 'Demos web', icono: MonitorSmartphone },
 ]
 
-/** En el celular, la barra inferior muestra estas y el resto va a "Más". */
-const MOVIL = ['/jarvis', '/inicio', '/grabaciones', '/pipeline']
+/**
+ * En el celular, la barra inferior es una tira deslizable con todas las secciones, en este orden
+ * (las primeras cuatro se ven al abrir; el resto aparece deslizando hacia la izquierda).
+ * "Más" queda fijo a la derecha, solo con la cuenta.
+ */
+const MOVIL = ['/jarvis', '/inicio', '/grabaciones', '/pipeline', '/clientes', '/calendario', '/propuestas', '/finanzas', '/agentes', '/sistemas', '/demos']
+const TODAS = [...ESTUDIO, ...PROYECTOS]
+const BARRA_MOVIL = MOVIL.map((to) => TODAS.find((i) => i.to === to)).filter((i): i is Item => !!i)
 
 function LinkNav({ item }: { item: Item }) {
   const Icono = item.icono
@@ -74,10 +83,23 @@ export function AppLayout() {
   const [masAbierto, setMasAbierto] = useState(false)
   const { pathname } = useLocation()
 
-  useEffect(() => setMasAbierto(false), [pathname])
+  const tiraRef = useRef<HTMLDivElement>(null)
 
-  const enMas = ![...MOVIL, '/grabar'].some((r) => pathname.startsWith(r))
-  const resto = [...ESTUDIO, ...PROYECTOS].filter((i) => !MOVIL.includes(i.to))
+  useEffect(() => setMasAbierto(false), [pathname])
+  // En la tira deslizable, la sección activa queda siempre a la vista
+  useEffect(() => {
+    const tira = tiraRef.current
+    const activo = tira?.querySelector<HTMLElement>('[aria-current="page"]')
+    if (!tira || !activo) return
+    const destino = activo.offsetLeft - (tira.clientWidth - activo.offsetWidth) / 2
+    tira.scrollTo({ left: Math.max(0, destino), behavior: 'smooth' })
+  }, [pathname])
+  // Al abrir el hub, los agentes programados corren lo que tengan pendiente (por si la base no los programa sola)
+  useEffect(() => {
+    if (!embebido) avisarAgentes()
+  }, [])
+
+  const enMas = pathname.startsWith('/nueva-clave')
 
   // Abierta dentro de un panel de Jarvis ("mostrame la carpeta de Nova"): solo la pantalla, sin menú ni asistente
   if (embebido) {
@@ -148,9 +170,6 @@ export function AppLayout() {
                 </button>
               </div>
               <nav className="flex flex-col gap-1">
-                {resto.map((i) => (
-                  <LinkNav key={i.to} item={i} />
-                ))}
                 <LinkNav item={{ to: '/nueva-clave', label: 'Cambiar contraseña', icono: KeyRound }} />
                 <button
                   onClick={salir}
@@ -165,25 +184,31 @@ export function AppLayout() {
 
         {/* Navegación inferior móvil */}
         <nav className="fixed inset-x-0 bottom-0 z-50 flex gap-1 border-t border-borde bg-fondo/95 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
-          {ESTUDIO.filter((i) => MOVIL.includes(i.to)).map(({ to, label, icono: Icono }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  'flex flex-1 flex-col items-center gap-0.5 rounded-[10px] py-1.5 text-[11px] font-medium',
-                  isActive && !masAbierto ? 'bg-superficie text-texto ring-1 ring-borde ring-inset' : 'text-tenue',
-                )
-              }
-            >
-              <Icono className="size-5" strokeWidth={1.8} />
-              {label}
-            </NavLink>
-          ))}
+          {/* Tira deslizable: el ancho fijo deja asomar la siguiente sección como pista de que hay más */}
+          <div
+            ref={tiraRef}
+            className="sin-scrollbar flex min-w-0 flex-1 snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain"
+          >
+            {BARRA_MOVIL.map(({ to, label, icono: Icono }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  cn(
+                    'flex w-[4.75rem] shrink-0 snap-start flex-col items-center gap-0.5 rounded-[10px] py-1.5 text-[11px] font-medium whitespace-nowrap',
+                    isActive && !masAbierto ? 'bg-superficie text-texto ring-1 ring-borde ring-inset' : 'text-tenue',
+                  )
+                }
+              >
+                <Icono className="size-5" strokeWidth={1.8} />
+                {label}
+              </NavLink>
+            ))}
+          </div>
           <button
             onClick={() => setMasAbierto((v) => !v)}
             className={cn(
-              'flex flex-1 cursor-pointer flex-col items-center gap-0.5 rounded-[10px] py-1.5 text-[11px] font-medium',
+              'flex w-16 shrink-0 cursor-pointer flex-col items-center gap-0.5 rounded-[10px] border-l border-borde py-1.5 text-[11px] font-medium',
               masAbierto || enMas ? 'bg-superficie text-texto ring-1 ring-borde ring-inset' : 'text-tenue',
             )}
           >

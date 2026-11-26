@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FunctionsHttpError } from '@supabase/supabase-js'
 import { claveAnon, supabase, urlFunciones } from '../../lib/supabase'
-import type { AccionJarvis } from '../../types/db'
+import type { AvisoMapa, AccionJarvis } from '../../types/db'
 
 export interface Mensaje {
   id: string
@@ -27,6 +27,8 @@ export interface OpcionesPregunta {
   alMostrar?: (destino: { ruta: string; titulo: string }) => void
   /** Jarvis lanzó una misión de agentes */
   alMision?: (id: string) => void
+  /** Jarvis abre el mapa: una búsqueda de negocios o un lugar */
+  alMapa?: (mapa: AvisoMapa) => void
 }
 
 const CLAVE = 'brixx-asistente-historial'
@@ -46,6 +48,7 @@ type Evento =
   | { tipo: 'accion'; accion: AccionJarvis }
   | { tipo: 'mostrar'; destino: { ruta: string; titulo: string } }
   | { tipo: 'mision'; id: string }
+  | { tipo: 'mapa'; mapa: AvisoMapa }
   | { tipo: 'fin'; respuesta: string; respuesta_voz?: string; consultas?: string[]; acciones?: AccionJarvis[]; tiempos?: Record<string, number>; modelo?: string }
   | { tipo: 'error'; error: string }
 
@@ -186,6 +189,8 @@ export function useAsistente() {
               op.alMision?.(e.id)
             } else if (e.tipo === 'mostrar') {
               op.alMostrar?.(e.destino)
+            } else if (e.tipo === 'mapa') {
+              op.alMapa?.(e.mapa)
             } else if (e.tipo === 'accion') {
               guardarAccion(e.accion)
               setMensajes((ms) =>

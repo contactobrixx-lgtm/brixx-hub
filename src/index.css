@@ -46,6 +46,25 @@
   --color-tinta: #16181d;
   --color-tinta-suave: #5b5e66;
   --color-linea: #e2ded3;
+
+  /* Propuesta de campaña de Meta Ads (mismo diseño que el PDF del skill campanas-meta-ads) */
+  --color-papel-calido: #f4f4f1;
+  /* Propuestas comerciales (portada oscura y avisos en papel) */
+  --color-noche: #0b0b0c;
+  --color-tinta-gris: #9b9b9b;
+  --color-aviso-papel-fondo: #fff8e8;
+  --color-aviso-papel-borde: #f0c36d;
+  --color-aviso-papel-texto: #8a5a00;
+  --color-papel-tabla: #fafaf7;
+  --color-tinta-media: #3a3a40;
+  --color-hero-acento: #8fa8ff;
+  --color-ok-papel: #15803d;
+  --color-peligro-papel: #b42318;
+  --color-chip-video: #e0362c;
+  --color-campo-fondo: #eef2ff;
+  --color-campo-borde: #9db0ff;
+  --color-aud-fondo: #f5f7ff;
+  --color-sin-imagen: #eef0f6;
 }
 
 @layer base {
@@ -86,6 +105,14 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-borde-fuerte) transparent;
+}
+
+/* Tiras deslizables sin barra visible (barra inferior del celular) */
+@utility sin-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes aparecer {

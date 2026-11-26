@@ -28,6 +28,7 @@ export function totalesCotizacion(c: Pick<Cotizacion, 'descuento_pct' | 'cotizac
   let implementacion = 0
   let mensual = 0
   for (const it of c.cotizacion_items) {
+    if (it.opcional) continue // opcional: se ofrece aparte y no suma al total
     implementacion += Number(it.cantidad) * Number(it.precio_implementacion)
     mensual += Number(it.cantidad) * Number(it.precio_mensual)
   }

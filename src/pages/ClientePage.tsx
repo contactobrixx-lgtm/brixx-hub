@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarPlus, ListChecks, Pencil, RefreshCw, Sparkles } from 'lucide-react'
+import { ArrowLeft, CalendarPlus, IdCard, ListChecks, PackageCheck, Pencil, RefreshCw, Sparkles, X } from 'lucide-react'
+import { FichasCliente } from '../features/fichas/FichasCliente'
 import type { Sintesis } from '../types/db'
 import { useAuth } from '../auth/AuthProvider'
 import { actualizarProspecto, useMiembros, useProspectos } from '../features/pipeline/useProspectos'
@@ -13,6 +14,10 @@ import { IntervencionForm } from '../features/grabaciones/IntervencionForm'
 import { ESTADO_GRABACION, lineaDeAnalisis, ORIGEN_GRABACION } from '../features/grabaciones/estados'
 import { actualizarSintesis, dominio, useHistoriaClientes, usuarioInstagram } from '../features/clientes/useClientes'
 import { LinksCliente } from '../features/clientes/LinksCliente'
+import { InstagramCliente } from '../features/clientes/InstagramCliente'
+import { AgentesCliente } from '../features/agentes/AgentesCliente'
+import { VideosCliente } from '../features/videos/VideosCliente'
+import { PropuestasCliente } from '../features/cotizador/PropuestasCliente'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { ErrorBox } from '../components/ui/ErrorBox'
@@ -56,6 +61,24 @@ export function ClientePage() {
   const [sintesisNueva, setSintesisNueva] = useState<Sintesis | null>(null)
   const [actualizando, setActualizando] = useState(false)
   const [mensaje, setMensaje] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
+  const [datosAbierto, setDatosAbierto] = useState(false)
+  const datosRef = useRef<HTMLDivElement>(null)
+
+  // El box de datos se cierra con Esc, tocando afuera o al cambiar de cliente
+  useEffect(() => setDatosAbierto(false), [id])
+  useEffect(() => {
+    if (!datosAbierto) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDatosAbierto(false)
+    const onClick = (e: PointerEvent) => {
+      if (datosRef.current && !datosRef.current.contains(e.target as Node)) setDatosAbierto(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onClick)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onClick)
+    }
+  }, [datosAbierto])
 
   if (cargando || cargandoHistoria) return <PantallaCarga />
   const p = prospectos.find((x) => x.id === id)
@@ -102,8 +125,62 @@ export function ClientePage() {
         </div>
         <h1 className="mt-2 text-[28px] leading-tight font-bold sm:text-[32px]">{p.empresa || p.nombre}</h1>
         {p.empresa && <p className="text-suave">{p.nombre}</p>}
-        <div className="mt-3">
+        <div ref={datosRef} className="relative mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <button
+            type="button"
+            onClick={() => setDatosAbierto((v) => !v)}
+            aria-expanded={datosAbierto}
+            aria-controls="datos-cliente"
+            title="Datos del cliente"
+            className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border px-2.5 text-sm font-semibold transition-colors ${
+              datosAbierto ? 'border-acento bg-acento-tenue text-acento-texto' : 'border-borde text-suave hover:bg-elevada hover:text-texto'
+            }`}
+          >
+            <IdCard className="size-4" /> Datos
+          </button>
           <LinksCliente p={p} />
+
+          {datosAbierto && (
+            <div
+              id="datos-cliente"
+              role="dialog"
+              aria-label="Datos del cliente"
+              className="absolute top-full right-0 left-0 z-30 mt-2 rounded-2xl border border-borde-fuerte bg-superficie p-4 shadow-2xl animate-aparecer sm:right-auto sm:w-[380px] sm:p-5"
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <h2 className="min-w-0 flex-1 text-[19px] font-bold">Datos</h2>
+                <Button
+                  size="sm"
+                  variant="fantasma"
+                  onClick={() => {
+                    setDatosAbierto(false)
+                    setEditando(true)
+                  }}
+                >
+                  <Pencil className="size-4" /> Editar
+                </Button>
+                <Button size="icono" variant="fantasma" onClick={() => setDatosAbierto(false)} aria-label="Cerrar datos">
+                  <X className="size-4" />
+                </Button>
+              </div>
+              <Dato label="Contacto" valor={p.nombre} />
+              <Dato label="Empresa" valor={p.empresa} />
+              <Dato label="Mail" valor={p.email} />
+              <Dato label="Teléfono" valor={p.telefono} />
+              <Dato
+                label="Instagram"
+                valor={p.instagram && <a href={normalizarUrl(p.instagram)} target="_blank" rel="noreferrer" className="text-acento-texto hover:underline">{usuarioInstagram(p.instagram)}</a>}
+              />
+              <Dato
+                label="Web"
+                valor={p.web && <a href={normalizarUrl(p.web)} target="_blank" rel="noreferrer" className="text-acento-texto hover:underline">{dominio(p.web)}</a>}
+              />
+              <Dato label="Rubro" valor={p.rubro} />
+              <Dato label="Industria" valor={p.industria} />
+              <Dato label="Valor" valor={p.valor_estimado != null ? formatMonto(Number(p.valor_estimado), p.moneda) : null} />
+              <Dato label="Próxima" valor={p.proxima_accion ? `${p.proxima_accion}${p.fecha_proxima_accion ? ` · ${formatFecha(p.fecha_proxima_accion)}` : ''}` : null} />
+            </div>
+          )}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={() => setIntervencion(true)}>
@@ -176,11 +253,13 @@ export function ClientePage() {
                 <Bloque titulo="Hacé ahora">
                   <ul className="flex flex-col gap-2">
                     {s.hacer_ahora.map((h, i) => (
-                      <li key={i} className="flex flex-wrap items-center gap-2 rounded-xl bg-elevada p-3">
-                        <span className="min-w-0 flex-1 leading-snug">
+                      <li key={i} className="flex flex-col gap-1.5 rounded-xl bg-elevada p-3 sm:flex-row sm:items-center sm:gap-2">
+                        <span className="min-w-0 leading-snug sm:flex-1">
                           {h.accion}
                           {h.fecha && <span className="text-tenue"> · {formatFecha(h.fecha)}</span>}
                         </span>
+                        {/* En el celular los botones van abajo del texto (al lado lo dejaban en una columnita) */}
+                        <span className="-ml-2 flex shrink-0 flex-wrap gap-1 sm:ml-0">
                         <Button size="sm" variant="fantasma" onClick={() => aPipeline(h.accion, h.fecha)}>
                           <ListChecks className="size-4" /> Al pipeline
                         </Button>
@@ -193,6 +272,7 @@ export function ClientePage() {
                         >
                           <CalendarPlus className="size-4" /> Agendar
                         </Button>
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -260,25 +340,28 @@ export function ClientePage() {
           </Bloque>
         </div>
 
-        <aside className="flex flex-col gap-4">
-          <Bloque titulo="Datos">
-            <Dato label="Contacto" valor={p.nombre} />
-            <Dato label="Empresa" valor={p.empresa} />
-            <Dato label="Mail" valor={p.email} />
-            <Dato label="Teléfono" valor={p.telefono} />
-            <Dato
-              label="Instagram"
-              valor={p.instagram && <a href={normalizarUrl(p.instagram)} target="_blank" rel="noreferrer" className="text-acento-texto hover:underline">{usuarioInstagram(p.instagram)}</a>}
-            />
-            <Dato
-              label="Web"
-              valor={p.web && <a href={normalizarUrl(p.web)} target="_blank" rel="noreferrer" className="text-acento-texto hover:underline">{dominio(p.web)}</a>}
-            />
-            <Dato label="Rubro" valor={p.rubro} />
-            <Dato label="Industria" valor={p.industria} />
-            <Dato label="Valor" valor={p.valor_estimado != null ? formatMonto(Number(p.valor_estimado), p.moneda) : null} />
-            <Dato label="Próxima" valor={p.proxima_accion ? `${p.proxima_accion}${p.fecha_proxima_accion ? ` · ${formatFecha(p.fecha_proxima_accion)}` : ''}` : null} />
-          </Bloque>
+        {/* Entregables: todo lo que le armamos al cliente, a mano en la columna de al lado */}
+        <aside className="flex min-w-0 flex-col gap-4">
+          <InstagramCliente p={p} />
+          {/* Contenedor "Entregables" con un subcontenedor por tipo. Cada bloque trae su propia caja;
+              acá se la pasa a una caja interna (fondo más oscuro, menos aire, título más chico). */}
+          <section
+            aria-labelledby="titulo-entregables"
+            className="rounded-2xl border border-borde bg-superficie p-3 sm:p-4"
+          >
+            <div className="mb-3 flex items-center gap-2 px-1">
+              <PackageCheck className="size-5 text-acento-texto" />
+              <h2 id="titulo-entregables" className="text-[19px] font-bold">
+                Entregables
+              </h2>
+            </div>
+            <div className="flex flex-col gap-3 [&>section]:rounded-xl [&>section]:border-borde [&>section]:bg-fondo [&>section]:p-3.5 [&>section_h2]:text-base">
+              <PropuestasCliente prospectoId={p.id} nombre={p.empresa || p.nombre} />
+              <FichasCliente p={p} />
+              <AgentesCliente p={p} />
+              <VideosCliente prospectoId={p.id} compacto puedeGenerar={historia.some((g) => g.analisis)} />
+            </div>
+          </section>
           {p.notas && (
             <Bloque titulo="Notas">
               <p className="text-sm whitespace-pre-line text-suave">{p.notas}</p>

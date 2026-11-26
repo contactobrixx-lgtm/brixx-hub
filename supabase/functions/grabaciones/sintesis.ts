@@ -60,7 +60,7 @@ export async function armarMaterial(db: SupabaseClient, prospectoId: string): Pr
     db.from('reuniones').select('id, titulo, inicio, notas').eq('prospecto_id', prospectoId).order('inicio'),
     db
       .from('cotizaciones')
-      .select('numero, titulo, estado, fecha, descuento_pct, moneda, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual)')
+      .select('numero, titulo, estado, fecha, descuento_pct, moneda, cotizacion_items(descripcion, cantidad, precio_implementacion, precio_mensual, opcional)')
       .eq('prospecto_id', prospectoId)
       .order('fecha'),
     db.from('servicios').select('id, nombre, descripcion, precio_implementacion, precio_mensual').eq('activo', true).order('orden'),
@@ -108,9 +108,9 @@ export async function armarMaterial(db: SupabaseClient, prospectoId: string): Pr
         .join('\n')
     })
 
-  type Item = { descripcion: string; cantidad: number; precio_implementacion: number; precio_mensual: number }
+  type Item = { descripcion: string; cantidad: number; precio_implementacion: number; precio_mensual: number; opcional?: boolean }
   const bloquesCot = (cotizaciones ?? []).map((c) => {
-    const items = (c.cotizacion_items ?? []) as Item[]
+    const items = ((c.cotizacion_items ?? []) as Item[]).filter((i) => !i.opcional) // los opcionales no suman
     const impl = items.reduce((t, i) => t + Number(i.precio_implementacion) * Number(i.cantidad), 0) * (1 - Number(c.descuento_pct ?? 0) / 100)
     const mes = items.reduce((t, i) => t + Number(i.precio_mensual) * Number(i.cantidad), 0)
     return `- #${c.numero} "${c.titulo}" (${c.estado}, ${c.fecha}): ${items.map((i) => i.descripcion).join('; ')} — implementación ${c.moneda} ${Math.round(impl)}, abono ${c.moneda} ${Math.round(mes)}/mes`

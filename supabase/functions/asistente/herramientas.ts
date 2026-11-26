@@ -2,9 +2,10 @@
 // acciones que el socio tiene que confirmar antes de que se hagan y, del lado de Anthropic,
 // búsqueda y lectura web.
 import type Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
-import type { Hub } from './datos.ts'
+import { bienFormado, type Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import { ETAPAS, type Acciones, type TipoAccion } from './acciones.ts'
+import type { Lugares } from './lugares.ts'
 
 const fecha = { type: 'string', description: 'Fecha en formato AAAA-MM-DD (hora de Argentina).' }
 const opcional = (t: Record<string, unknown>) => ({ anyOf: [t, { type: 'null' }] })
@@ -18,6 +19,15 @@ function herramienta(name: string, description: string, properties: Record<strin
   }
 }
 
+// Anthropic acepta como máximo 20 herramientas "strict" por pedido. Las de consulta son simples y van sin
+// strict; strict queda para las que escriben o mueven algo (acciones, memoria, mapa, pantallas, misiones).
+export const MAX_ESTRICTAS = 20
+
+/** Resguardo: si alguna vez se pasan de MAX_ESTRICTAS, las que sobran van sin strict (en vez de que falle todo el pedido). */
+export function conTopeEstrictas<T extends Anthropic.Beta.BetaToolUnion>(tools: T[]): T[] {
+  let n = 0
+  return tools.map((t) => ('strict' in t && t.strict ? (++n > MAX_ESTRICTAS ? { ...t, strict: false } : t) : t))
+}
 export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   herramienta('agenda', 'Reuniones agendadas y próximas acciones del pipeline entre dos fechas (inclusive). Para "hoy", "mañana", "esta semana", etc.', {
     desde: fecha,
@@ -46,6 +56,11 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
     texto: opcional({ type: 'string', description: 'Nombre, empresa o rubro a buscar.' }),
     tipo: { type: 'string', enum: ['clientes', 'prospectos', 'perdidos', 'todos'] },
   }),
+  herramienta(
+    'instagram',
+    'Datos REALES de una cuenta de Instagram de empresa o creador, por la API oficial de Meta: seguidores (y cuánto cambió desde la última vez), bio, web, publicaciones por semana, días desde la última, me gusta y comentarios promedio, interacción en %, formatos (reels, carruseles, fotos), hashtags y las mejores publicaciones. Sirve para clientes, prospectos y competencia. Usala SIEMPRE antes que la web para analizar un Instagram.',
+    { usuario: { type: 'string', description: 'Usuario (@nombre) o link de Instagram.' } },
+  ),
   herramienta('cotizaciones', 'Cotizaciones con estado, montos (implementación y abono mensual) e ítems.', {
     cliente: opcional({ type: 'string' }),
     estado: opcional({ type: 'string', enum: ['borrador', 'enviada', 'aceptada', 'rechazada'] }),
@@ -62,7 +77,16 @@ export const HERRAMIENTAS: Anthropic.Beta.BetaTool[] = [
   herramienta('leer_mision', 'El resultado (o el avance) de una misión de agentes. Sin id, la última.', {
     id: opcional({ type: 'string', description: 'Id de la misión (aparece en el panorama).' }),
   }),
-]
+  herramienta(
+    'leer_informes',
+    'Informes de los agentes: preparador (brief de cada reunión), cobranzas (pendientes con el mensaje redactado), postventa (salud de clientes y oportunidades), monitor (sistemas o demos caídos), propuesta (cotización en borrador armada para un cliente), auditor (diagnóstico de redes y web), meta_ads (propuesta de campaña), financiero (análisis mensual de la plata del estudio) y ventas (aprendizajes de lo ganado y lo perdido). Con id, el informe completo; si no, los últimos (filtrando por agente o cliente).',
+    {
+      id: opcional({ type: 'string', description: 'Id del informe (aparece en el panorama).' }),
+      agente: opcional({ type: 'string', enum: ['preparador', 'cobranzas', 'postventa', 'monitor', 'propuesta', 'auditor', 'meta_ads', 'financiero', 'ventas'] }),
+      cliente: opcional({ type: 'string' }),
+    },
+  ),
+].map((t) => ({ ...t, strict: false }))
 
 /** Lanzar una misión: varios agentes trabajando en paralelo en segundo plano (no modifican el hub). */
 export const HERRAMIENTA_MISION: Anthropic.Beta.BetaTool = herramienta(
@@ -143,6 +167,45 @@ export const HERRAMIENTA_PANTALLA: Anthropic.Beta.BetaTool = herramienta(
   { pantalla: { type: 'string', enum: [...PANTALLAS] }, cliente: opcional({ type: 'string', description: 'Nombre del cliente, si la pantalla es de un cliente.' }) },
 )
 
+/** Mapa de Jarvis: buscar negocios por zona y mover el mapa (no cambian datos del hub). */
+const textoNulo = opcional({ type: 'string' })
+export const HERRAMIENTAS_MAPA: Anthropic.Beta.BetaTool[] = [
+  herramienta(
+    'buscar_negocios',
+    'Busca negocios de un rubro en una zona (por defecto, Tucumán) en OpenStreetMap, con dirección y contacto, y los marca en el mapa de Jarvis. Para "buscame hamburgueserías en Yerba Buena", "qué gimnasios hay en el centro", "buscá prospectos de…".',
+    {
+      rubro: { type: 'string', description: 'El rubro como lo dijo el socio, en plural (ej. "hamburgueserías").' },
+      zona: { type: 'string', description: 'Barrio y ciudad (ej. "Yerba Buena, Tucumán"). Si no la dijo, "San Miguel de Tucumán".' },
+      palabras: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'De 2 a 6 palabras o raíces para encontrar el rubro en nombres y categorías de OpenStreetMap, en español e inglés (ej. ["hamburgues", "burger"], ["gimnasio", "gym", "fitness"], ["pizzer", "pizza"]).',
+      },
+    },
+  ),
+  herramienta(
+    'completar_busqueda',
+    'Suma o completa lugares de una búsqueda con lo que encontraste en la web (teléfono, Instagram, web, dirección). Los nuevos con dirección se ubican solos en el mapa.',
+    {
+      busqueda_id: { type: 'string', description: 'El id que devolvió buscar_negocios.' },
+      lugares: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: { nombre: { type: 'string' }, direccion: textoNulo, telefono: textoNulo, instagram: textoNulo, web: textoNulo, nota: textoNulo },
+          required: ['nombre', 'direccion', 'telefono', 'instagram', 'web', 'nota'],
+          additionalProperties: false,
+        },
+      },
+    },
+  ),
+  herramienta(
+    'mostrar_mapa',
+    'Abre el mapa de Jarvis y vuela a un lugar ("mostrame el mapa", "llevame a Yerba Buena", "dónde queda la calle Aconquija 1500"). Sin lugar, abre Tucumán.',
+    { lugar: opcional({ type: 'string', description: 'Dirección, barrio o ciudad.' }) },
+  ),
+]
+
 const TIPOS_ACCION = new Set<string>(['agendar_reunion', 'proxima_accion', 'mover_etapa', 'nota_cliente', 'cotizacion_borrador'])
 
 /** Búsqueda y lectura web: corren en los servidores de Anthropic (no hay que ejecutarlas acá). */
@@ -173,7 +236,11 @@ export const NOMBRE_CONSULTA: Record<string, string> = {
   mostrar_pantalla: 'pantallas',
   lanzar_mision: 'misión',
   leer_mision: 'misión',
+  leer_informes: 'informes de los agentes',
   cancelar_accion: 'acción',
+  buscar_negocios: 'mapa · OpenStreetMap',
+  completar_busqueda: 'mapa',
+  mostrar_mapa: 'mapa',
   web_search: 'búsqueda web',
   web_fetch: 'lectura web',
 }
@@ -185,7 +252,12 @@ const s = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefi
  * Ejecuta una herramienta. Escribe solo en la memoria de Jarvis; las acciones sobre el hub
  * se preparan y se ejecutan recién cuando el socio confirma.
  */
-export async function ejecutar(
+/** Ejecuta una herramienta y devuelve su texto limpio (sin mitades de emoji que rompan el pedido a Claude) */
+export async function ejecutar(...args: Parameters<typeof ejecutarCrudo>): Promise<string> {
+  return bienFormado(await ejecutarCrudo(...args))
+}
+
+async function ejecutarCrudo(
   hub: Hub,
   memoria: Memoria,
   acciones: Acciones,
@@ -193,7 +265,15 @@ export async function ejecutar(
   e: Entrada,
   mostrar: (destino: { ruta: string; titulo: string }) => void = () => {},
   lanzarMision?: (pedido: string) => Promise<string>,
+  lugares?: Lugares,
 ): Promise<string> {
+  if (nombre === 'buscar_negocios' || nombre === 'completar_busqueda' || nombre === 'mostrar_mapa') {
+    if (!lugares) throw new Error('Desde acá no se puede usar el mapa.')
+    if (nombre === 'mostrar_mapa') return lugares.mostrar(s(e.lugar))
+    if (nombre === 'buscar_negocios')
+      return lugares.buscar(String(e.rubro ?? ''), String(e.zona ?? ''), Array.isArray(e.palabras) ? e.palabras.map(String) : [])
+    return lugares.completar(String(e.busqueda_id ?? ''), Array.isArray(e.lugares) ? (e.lugares as Record<string, string | null>[]).map((l) => ({ ...l, nombre: String(l.nombre ?? '') })) : [])
+  }
   if (TIPOS_ACCION.has(nombre)) return acciones.preparar(nombre as TipoAccion, e)
   switch (nombre) {
     case 'lanzar_mision': {
@@ -203,6 +283,8 @@ export async function ejecutar(
     }
     case 'leer_mision':
       return hub.mision(s(e.id))
+    case 'leer_informes':
+      return hub.informes({ id: s(e.id), agente: s(e.agente), cliente: s(e.cliente) })
     case 'mostrar_pantalla': {
       const destino = await hub.pantalla(String(e.pantalla ?? ''), s(e.cliente))
       mostrar(destino)
@@ -232,6 +314,13 @@ export async function ejecutar(
       return hub.leerGrabacion(String(e.id), e.incluir_transcripcion === true)
     case 'clientes_y_prospectos':
       return hub.clientes({ texto: s(e.texto), tipo: (s(e.tipo) as 'clientes' | 'prospectos' | 'perdidos' | 'todos') ?? 'todos' })
+    case 'instagram':
+      try {
+        return await hub.instagram(String(e.usuario ?? ''))
+      } catch (err) {
+        // Sin la API o con una cuenta personal: que siga con la web
+        return `${err instanceof Error ? err.message : String(err)} Si tenés web_search, buscalo en la web y aclará que no son datos de la API.`
+      }
     case 'cotizaciones':
       return hub.cotizaciones({ cliente: s(e.cliente), estado: s(e.estado) })
     case 'finanzas':

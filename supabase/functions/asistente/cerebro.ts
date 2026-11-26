@@ -6,7 +6,8 @@ import Anthropic from 'npm:@anthropic-ai/sdk@1.8.0'
 import type { Hub } from './datos.ts'
 import type { Memoria } from './memoria.ts'
 import type { Acciones, AccionVisible } from './acciones.ts'
-import { ejecutar, HERRAMIENTA_MISION, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import { conTopeEstrictas, ejecutar, HERRAMIENTA_MISION, HERRAMIENTA_PANTALLA, HERRAMIENTAS, HERRAMIENTAS_ACCIONES, HERRAMIENTAS_MAPA, HERRAMIENTAS_MEMORIA, HERRAMIENTAS_WEB, NOMBRE_CONSULTA } from './herramientas.ts'
+import type { AvisoMapa, Lugares } from './lugares.ts'
 
 export const MODELO = 'claude-sonnet-5-5' // análisis e investigación (con búsqueda web)
 export const MODELO_RAPIDO = 'claude-haiku-5-5' // el día a día: agenda, clientes, acciones, briefing
@@ -19,8 +20,15 @@ export const MODELO_RAPIDO = 'claude-haiku-5-5' // el día a día: agenda, clien
 export function elegirModelo(pregunta: string): string {
   if ((Deno.env.get('JARVIS_MODELO') ?? '').toLowerCase().includes('sonnet')) return MODELO
   const t = pregunta.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  // Con Google Maps, buscar negocios por zona es una sola consulta: va al modelo rápido (salvo que pidan internet o un análisis)
+  if (
+    (Deno.env.get('GOOGLE_MAPS_API_KEY') ?? '').trim() &&
+    /\b(busca(me|r)?|encontra(me)?|donde hay|que hay)\b/.test(t) &&
+    !/\b(internet|web|google|instagram|redes|analiz|investig|competencia|estrategia|que le conviene)/.test(t)
+  )
+    return MODELO_RAPIDO
   const investigar =
-    /\b(analiz|investig|averigu|busca(me|lo|la)? en|buscar en|internet|google|web|pagina|sitio|instagram|redes|tiktok|facebook|linkedin|competencia|competidor|mercado|tendencia|estrategia|compara|que le conviene|recomenda|recomendacion|propuesta comercial|plan de)/
+    /\b(analiz|investig|averigu|busca(me|lo|la|r)?\b|encontra(me)?\b|negocios|locales|comercios|prospectos en|en la zona|cerca de|internet|google|web|pagina|sitio|instagram|redes|tiktok|facebook|linkedin|competencia|competidor|mercado|tendencia|estrategia|compara|que le conviene|recomenda|recomendacion|propuesta comercial|plan de)/
   return investigar.test(t) ? MODELO : MODELO_RAPIDO
 }
 const MAX_VUELTAS = 8 // pedidos a Claude por pregunta (incluye consultas a la base y pausas de la búsqueda web)
@@ -41,6 +49,13 @@ Para el briefing o "¿qué hay para hoy?", respondé directo con el panorama, si
 - Misiones: si te piden algo GRANDE de varios pasos (preparar una reunión, investigar un cliente y su competencia, buscar prospectos \
 y armarles un mensaje, armar una estrategia o un plan), usá lanzar_mision: un equipo de agentes lo trabaja en paralelo. \
 Decí en una oración que armaste el equipo. Para preguntas simples, contestá vos. Si preguntan por el resultado o el avance, usá leer_mision.
+- Agentes: trabajan solos y dejan informes (brief antes de cada reunión, cobranzas, postventa, sistemas o demos caídos). \
+El panorama trae los de las últimas 24 h: en el briefing mencioná lo importante en una oración. Para el detalle, usá leer_informes.
+- Mapa y búsqueda de negocios: el estudio está en Tucumán (San Miguel de Tucumán y Yerba Buena). Para "buscame hamburgueserías en Yerba Buena" \
+o cualquier rubro en una zona, usá SIEMPRE primero buscar_negocios (aunque tengas web_search), con palabras en español e inglés para encontrar el rubro: abre el mapa y los marca. \
+Si hay pocos resultados o les falta contacto y tenés web_search, buscá en la web (Google Maps, Instagram, guías de la zona) y sumalo con completar_busqueda; \
+nunca inventes teléfonos ni cuentas. Contestá cuántos encontraste y nombrá los dos o tres más prometedores con su contacto. \
+Para "mostrame el mapa" o "llevame a tal lugar", usá mostrar_mapa. Para sumar uno al pipeline, el socio toca "Sumar al pipeline" en el mapa.
 - Pantallas: si te piden mostrar, abrir o ver algo del hub ("mostrame la carpeta de Nova", "abrí el pipeline"), usá mostrar_pantalla \
 y contestá en una oración qué abriste. Si te preguntan un dato, contestá el dato; podés además abrir la pantalla si ayuda a verlo.
 - La charla previa está en los mensajes anteriores: si la pregunta actual es una respuesta a algo que preguntaste vos \
@@ -50,8 +65,10 @@ y contestá en una oración qué abriste. Si te preguntan un dato, contestá el 
 No adivines: si un dato no está en el panorama, consultalo.
 - Para "¿qué se sabe de X?": buscá sus grabaciones e intervenciones y leelas. Pedí la transcripción solo si te preguntan qué se dijo exactamente.
 - Para analizar redes sociales, webs o competidores (por ejemplo "analizá el Instagram de tal y tal y decime qué le conviene a tal cliente"): \
-usá web_search y web_fetch, y cruzalo con la carpeta del cliente y el catálogo. Instagram y otras redes suelen no dejarse leer directo: \
-si no podés ver un perfil, buscalo en la web y decí con qué información contás. Si en esta respuesta no tenés web_search, \
+para Instagram usá PRIMERO la herramienta instagram (datos reales de la API de Meta: seguidores, frecuencia, interacción, formatos, \
+mejores publicaciones; los números salen de ahí, no los inventes ni los recalcules). Para webs, otras redes o si la cuenta es personal, \
+usá web_search y web_fetch. Cruzalo con la carpeta del cliente y el catálogo. Facebook no se puede leer por la API (Meta lo restringe): \
+buscalo en la web y decí con qué información contás. Si en esta respuesta no tenés web_search, \
 decí que para eso te lo pidan como "buscá en internet…" o "analizá…".
 - Memoria: cuando te dicen "recordá…", "acordate…" o "anotá…", o aparece un dato duradero (una preferencia, un acuerdo con un cliente, \
 una decisión del estudio), guardalo con recordar, corto y autocontenido. Si te piden olvidar algo, usá olvidar. No guardes lo que ya está en el hub.
@@ -142,6 +159,7 @@ export type Evento =
   | { tipo: 'accion'; accion: AccionVisible }
   | { tipo: 'mostrar'; destino: { ruta: string; titulo: string } }
   | { tipo: 'mision'; id: string }
+  | { tipo: 'mapa'; mapa: AvisoMapa }
 
 export async function responder(
   hub: Hub,
@@ -153,6 +171,8 @@ export async function responder(
   avisar: (e: Evento) => void = () => {},
   /** Crea y arranca una misión de agentes; devuelve su id */
   lanzarMision?: (pedido: string) => Promise<string>,
+  /** Búsquedas de negocios y mapa */
+  lugares?: Lugares,
 ): Promise<Resultado> {
   const fin = (respuesta: string, modelo: string, consultas: string[]): Resultado => ({
     respuesta,
@@ -198,7 +218,7 @@ export async function responder(
           // Esfuerzo bajo: en lo simple ni siquiera razona antes de contestar
           output_config: { effort: 'low' },
           // Sin búsqueda web (eso va al otro modelo)
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES],
+          tools: conTopeEstrictas([...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES]),
         })
       : client.beta.messages.stream({
           ...comun,
@@ -210,7 +230,7 @@ export async function responder(
           // bloques "thinking" y se reenvían tal cual.
           thinking: { type: 'between_tools' },
           output_config: { effort: 'low' },
-          tools: [...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB],
+          tools: conTopeEstrictas([...HERRAMIENTAS, HERRAMIENTA_PANTALLA, HERRAMIENTA_MISION, ...HERRAMIENTAS_MAPA, ...HERRAMIENTAS_MEMORIA, ...HERRAMIENTAS_ACCIONES, ...HERRAMIENTAS_WEB]),
         })
     for await (const e of stream) {
       if (e.type === 'content_block_delta' && e.delta.type === 'text_delta') avisar({ tipo: 'texto', delta: e.delta.text })
@@ -250,6 +270,7 @@ export async function responder(
                         return id
                       }
                     : undefined,
+                  lugares,
                 ),
               }
           } catch (e) {

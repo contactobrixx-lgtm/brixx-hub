@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import type { Cotizacion, EstadoCotizacion, Servicio } from '../types/db'
-import { useCotizaciones, useServicios } from '../features/cotizador/useCotizador'
+import { leerCotizacion, useCotizaciones, useServicios } from '../features/cotizador/useCotizador'
 import { CotizacionForm } from '../features/cotizador/CotizacionForm'
 import { ServicioForm } from '../features/cotizador/ServicioForm'
 import { totalesCotizacion } from '../features/finanzas/calculos'
@@ -33,6 +33,7 @@ export function CotizadorPage() {
   const [filtro, setFiltro] = useState<EstadoCotizacion | null>(null)
   const [cotAbierta, setCotAbierta] = useState(false)
   const [cotEditando, setCotEditando] = useState<Cotizacion | null>(null)
+  const [prospectoNuevo, setProspectoNuevo] = useState<string | null>(null)
   const [srvAbierto, setSrvAbierto] = useState(false)
   const [srvEditando, setSrvEditando] = useState<Servicio | null>(null)
 
@@ -48,10 +49,20 @@ export function CotizadorPage() {
     setCotAbierta(true)
     setParams({}, { replace: true })
   }, [abrirId, cotizaciones.filas, setParams])
+  // ?nueva=<prospecto>: nueva propuesta para ese cliente (desde su carpeta)
+  const nuevaPara = params.get('nueva')
+  useEffect(() => {
+    if (!nuevaPara) return
+    setProspectoNuevo(nuevaPara)
+    setCotEditando(null)
+    setCotAbierta(true)
+    setParams({}, { replace: true })
+  }, [nuevaPara, setParams])
   const visibles = cotizaciones.filas.filter((c) => !filtro || c.estado === filtro)
   const sinPrecio = servicios.filas.filter((s) => s.activo && !Number(s.precio_implementacion) && !Number(s.precio_mensual)).length
 
   const nuevaCot = () => {
+    setProspectoNuevo(null)
     setCotEditando(null)
     setCotAbierta(true)
   }
@@ -65,12 +76,12 @@ export function CotizadorPage() {
   return (
     <div className="mx-auto w-full max-w-[1240px] px-4 pt-6 pb-16 md:px-10 md:pt-8">
       <PageHeader
-        titulo="Cotizador"
-        subtitulo="Armá cotizaciones con los servicios del estudio. El precio sale de la suma de lo que elegís."
+        titulo="Propuestas"
+        subtitulo="Propuestas y cotizaciones para cada cliente, armadas con los servicios del estudio."
         acciones={
           vista === 'cotizaciones' ? (
             <Button onClick={nuevaCot}>
-              <Plus className="size-[18px]" /> Nueva cotización
+              <Plus className="size-[18px]" /> Nueva propuesta
             </Button>
           ) : (
             <Button onClick={nuevoSrv}>
@@ -85,7 +96,7 @@ export function CotizadorPage() {
           valor={vista}
           onChange={setVista}
           opciones={[
-            { valor: 'cotizaciones', label: `Cotizaciones · ${cotizaciones.filas.length}` },
+            { valor: 'cotizaciones', label: `Propuestas · ${cotizaciones.filas.length}` },
             { valor: 'servicios', label: `Servicios · ${servicios.filas.length}` },
           ]}
         />
@@ -102,7 +113,7 @@ export function CotizadorPage() {
           <PantallaCarga />
         ) : cotizaciones.filas.length === 0 ? (
           <EmptyState
-            titulo="Todavía no hay cotizaciones"
+            titulo="Todavía no hay propuestas"
             texto={
               sinPrecio
                 ? `Primero cargá los precios en Servicios (${sinPrecio} sin precio) y después armá la primera cotización.`
@@ -212,12 +223,18 @@ export function CotizadorPage() {
       <CotizacionForm
         abierto={cotAbierta}
         cotizacion={cotEditando}
+        prospectoInicial={prospectoNuevo}
         prospectos={prospectos}
         servicios={servicios.filas}
         tipoCambio={tipoCambio}
         onCerrar={() => setCotAbierta(false)}
         onGuardar={cotizaciones.guardarConItems}
         onEliminar={cotizaciones.eliminar}
+        onTextosListos={async (id) => {
+          const fresca = await leerCotizacion(id)
+          if (fresca) setCotEditando(fresca)
+          await cotizaciones.recargar()
+        }}
       />
       <ServicioForm
         abierto={srvAbierto}

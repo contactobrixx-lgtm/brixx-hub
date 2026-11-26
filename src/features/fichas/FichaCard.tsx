@@ -14,6 +14,7 @@ interface Props {
 }
 
 function dominio(url: string) {
+  if (url.startsWith('/')) return 'en el hub'
   try {
     return new URL(url).host.replace(/^www\./, '')
   } catch {
@@ -59,6 +60,11 @@ export function FichaCard({ ficha, imagenUrl, onEditar }: Props) {
             <Badge tono={ficha.estado === 'en_desarrollo' ? 'aviso' : 'neutro'}>
               {ESTADO_LABEL[ficha.estado]}
             </Badge>
+          )}
+          {ficha.en_linea === false && (
+            <span title={ficha.chequeo_detalle ?? 'No responde'}>
+              <Badge tono="peligro">Caída</Badge>
+            </span>
           )}
         </div>
       </div>
