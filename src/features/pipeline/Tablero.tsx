@@ -16,7 +16,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { Plus } from 'lucide-react'
-import { ETAPAS, type Etapa, type Miembro, type Moneda, type Prospecto } from '../../types/db'
+import { ETAPAS_TABLERO, type Etapa, type Miembro, type Moneda, type Prospecto } from '../../types/db'
 import { ETAPA_LABEL, formatMonto } from '../../lib/format'
 import { cn } from '../../components/ui/cn'
 import { ProspectoCard } from './ProspectoCard'
@@ -103,7 +103,7 @@ export function Tablero({ prospectos, miembros, onMover, onAbrir, onNuevo }: Pro
       onDragCancel={() => setActivo(null)}
     >
       <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-6 md:snap-none md:px-10">
-        {ETAPAS.map((etapa) => (
+        {ETAPAS_TABLERO.map((etapa) => (
           <Columna
             key={etapa}
             etapa={etapa}

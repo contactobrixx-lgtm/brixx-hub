@@ -3,7 +3,8 @@
 // con un mensaje sugerido. No manda nada ni cambia datos.
 import { ahoraAR, empezarInforme, marcarCorrida, nombreCliente, pensarJSON, terminarInforme, totales, type Contexto, type Fila } from './comun.ts'
 
-const GANADAS = ['cerrado', 'implementacion', 'mantenimiento']
+// Cliente ganado = aceptó la propuesta (demo) en adelante
+const GANADAS = ['demo', 'implementacion', 'mantenimiento']
 
 const ESQUEMA = {
   type: 'object',

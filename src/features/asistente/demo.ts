@@ -193,7 +193,7 @@ function pasosTutorial(ahora: Date): PasoDemo[] {
       titulo: 'Propuestas',
       pantalla: { ruta: '/propuestas', titulo: 'Propuestas' },
       decir:
-        'En propuestas está el catálogo de servicios, con precio de implementación y abono mensual. Armás la propuesta de un cliente en un minuto, le mandás el link o la bajás en PDF, y queda también en su carpeta. Cuando la marcás como aceptada, el cliente pasa a cerrado solo.',
+        'En propuestas está el catálogo de servicios, con precio de implementación y abono mensual. Armás la propuesta de un cliente en un minuto, le mandás el link o la bajás en PDF, y queda también en su carpeta. Cuando la marcás como aceptada, el cliente pasa solo a demo.',
     },
     {
       titulo: 'Finanzas',

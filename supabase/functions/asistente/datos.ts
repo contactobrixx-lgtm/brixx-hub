@@ -4,7 +4,8 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { perfilInstagram, textoPerfil, usuarioInstagram, type PerfilInstagram } from './meta.ts'
 
 export const ZONA = 'America/Argentina/Buenos_Aires'
-const GANADAS = ['cerrado', 'implementacion', 'mantenimiento']
+// Cliente ganado = aceptó la propuesta (demo) en adelante
+const GANADAS = ['demo', 'implementacion', 'mantenimiento']
 const MAX_TRANSCRIPCION = 60_000 // caracteres (~15k tokens)
 
 /** Minúsculas y sin acentos, para comparar palabras. */
@@ -555,7 +556,7 @@ export class Hub {
     const cobrado = (cobros ?? []).reduce((t, c) => t + usd(c.monto as number, c.moneda), 0)
     const nuevos = prospectos.filter((p) => GANADAS.includes(p.etapa as string) && p.fecha_cierre && (p.fecha_cierre as string) >= inicioMes)
     const prospectosNuevos = prospectos.filter((p) => String(p.created_at ?? '').slice(0, 10) >= inicioMes).length
-    const abiertos = prospectos.filter((p) => ['contacto', 'reunion', 'demo', 'propuesta'].includes(p.etapa as string)).length
+    const abiertos = prospectos.filter((p) => ['contacto', 'propuesta'].includes(p.etapa as string)).length
     const activos = new Set(prospectos.filter((p) => ['implementacion', 'mantenimiento'].includes(p.etapa as string)).map((p) => p.id))
     const mrr = (aceptadas ?? []).filter((c) => activos.has(c.prospecto_id)).reduce((t, c) => t + usd(this.totales(c).mes, c.moneda), 0)
     // Por cobrar: implementación aceptada menos lo cobrado (sin abonos) de cada cliente
