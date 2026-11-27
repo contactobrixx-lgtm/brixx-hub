@@ -213,3 +213,23 @@
     animation: none;
   }
 }
+
+/* Fichas de un mismo cliente: 1 por línea en el celular, 2 en tablet y hasta 3 en la compu;
+   las que sobran se ven deslizando hacia el costado */
+.grupo-fichas {
+  --k: 1;
+}
+@media (min-width: 40rem) {
+  .grupo-fichas {
+    --k: 2;
+  }
+}
+@media (min-width: 80rem) {
+  .grupo-fichas {
+    --k: var(--k-xl);
+  }
+}
+.grupo-fichas > .fila > * {
+  flex: 0 0 calc((100% - (var(--k) - 1) * 1rem) / var(--k));
+  scroll-snap-align: start;
+}
