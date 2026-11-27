@@ -114,7 +114,7 @@ supabase/
 - `/ver/:id` — ficha abierta embebida en iframe (con botón "abrir en pestaña nueva").
 - `/pipeline` — kanban de prospectos.
 - `/videos/:id` — video explicativo: se arma (estado), se mira, se descarga, guion y borrar.
-- `/clientes` — carpetas de clientes (filtros Todos/Potenciales/Clientes/Perdidos + búsqueda); `/clientes/:id` — carpeta: objetivos, soluciones, hacé ahora, **propuestas** (`PropuestasCliente`: ver, link para el cliente, editar, nueva), intervenciones, datos, agentes y **videos** (siempre visible; generar solo si hay algo analizado).
+- `/clientes` — carpetas de clientes (filtros Todos/Potenciales/Clientes/Perdidos + búsqueda); `/clientes/:id` — carpeta: objetivos, soluciones, hacé ahora, **propuestas** (`PropuestasCliente`: ver, link para el cliente, editar, nueva), intervenciones, datos, agentes y **videos** (siempre visible; generar solo si hay algo analizado). Los **Entregables** (propuestas, demos y sistemas, agentes y videos) van en una franja a todo el ancho arriba de las dos columnas: hasta 3 por línea en la compu, 2 en tablet y 1 en el celular deslizando hacia el costado.
 
 ## Convenciones
 
