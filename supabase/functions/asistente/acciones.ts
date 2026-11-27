@@ -19,13 +19,12 @@ export interface AccionVisible {
 const VENCE_MIN = 30
 const ZONA = 'America/Argentina/Buenos_Aires'
 
-export const ETAPAS = ['contacto', 'reunion', 'demo', 'propuesta', 'cerrado', 'implementacion', 'mantenimiento', 'perdido'] as const
+// Flujo de 5 etapas (0035): contacto → propuesta → demo (aceptó la propuesta) → implementación → mantenimiento; más "perdido".
+export const ETAPAS = ['contacto', 'propuesta', 'demo', 'implementacion', 'mantenimiento', 'perdido'] as const
 const ETAPA_LABEL: Record<string, string> = {
   contacto: 'Contacto',
-  reunion: 'Reunión',
-  demo: 'Demo',
   propuesta: 'Propuesta',
-  cerrado: 'Cerrado',
+  demo: 'Demo',
   implementacion: 'Implementación',
   mantenimiento: 'Mantenimiento',
   perdido: 'Perdido',

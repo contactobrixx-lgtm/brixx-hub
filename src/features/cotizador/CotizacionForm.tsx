@@ -395,7 +395,7 @@ function FormInterno({ cotizacion: c, prospectoInicial, prospectos, servicios, t
         </div>
         {estado === 'aceptada' && c?.estado !== 'aceptada' && (
           <p className="rounded-[10px] bg-ok-tenue px-3.5 py-3 text-sm text-ok">
-            Al guardar, el prospecto pasa a "Cerrado" y su valor estimado se actualiza con el total.
+            Al guardar, el prospecto pasa a "Demo" y su valor estimado se actualiza con el total.
           </p>
         )}
 

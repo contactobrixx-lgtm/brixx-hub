@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { ETAPAS, ETAPAS_ABIERTAS, ETAPAS_GANADAS, type Etapa, type Moneda, type Prospecto } from '../types/db'
+import { ETAPAS_TABLERO, ETAPAS_ABIERTAS, ETAPAS_GANADAS, type Etapa, type Moneda, type Prospecto } from '../types/db'
 import { useMiembros, useProspectos } from '../features/pipeline/useProspectos'
 import { useDemosParaSelector } from '../features/fichas/useFichas'
 import { Tablero } from '../features/pipeline/Tablero'
@@ -70,7 +70,7 @@ export function PipelinePage() {
           titulo="Pipeline"
           subtitulo={`${abiertos.length} prospectos en curso${sumar(abiertos) ? ` · ${sumar(abiertos)}` : ''}${
             tasa != null ? ` · tasa de cierre ${tasa}%` : ''
-          }. Arrastrá las tarjetas entre etapas.`}
+          }. Arrastrá las tarjetas entre etapas.${perdidos ? ` Los perdidos (${perdidos}) están en Clientes.` : ''}`}
           acciones={
             <Button onClick={() => nuevo('contacto')}>
               <Plus className="size-[18px]" /> Agregar prospecto
@@ -78,8 +78,8 @@ export function PipelinePage() {
           }
         />
 
-        <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 xl:mx-0 xl:grid xl:grid-cols-8 xl:overflow-visible xl:px-0">
-          {ETAPAS.map((etapa) => {
+        <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0">
+          {ETAPAS_TABLERO.map((etapa) => {
             const items = visibles.filter((p) => p.etapa === etapa)
             const est = ESTILO_ETAPA[etapa]
             return (

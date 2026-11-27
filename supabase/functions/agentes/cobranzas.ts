@@ -2,7 +2,8 @@
 // y redacta un recordatorio amable para cada cliente. NO manda nada: el socio lo copia o lo abre en WhatsApp.
 import { ahoraAR, empezarInforme, marcarCorrida, MODELO_RAPIDO, nombreCliente, pensarJSON, terminarInforme, totales, type Contexto, type Fila } from './comun.ts'
 
-const GANADAS = ['cerrado', 'implementacion', 'mantenimiento']
+// Cliente ganado = aceptó la propuesta (demo) en adelante
+const GANADAS = ['demo', 'implementacion', 'mantenimiento']
 /** Días de gracia: el abono del mes se reclama a partir de este día */
 const DIA_ABONO = 5
 

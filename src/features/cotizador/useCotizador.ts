@@ -32,7 +32,7 @@ export function useCotizaciones() {
       if (ins.error) throw new Error(ins.error.message)
     }
 
-    // Aceptada → el prospecto pasa a "cerrado" con el valor de la cotización
+    // Aceptada → el prospecto pasa a "demo" (se diseñan las demos) con el valor de la cotización
     if (input.estado === 'aceptada' && input.prospecto_id) {
       const { implementacion } = totalesCotizacion({
         descuento_pct: input.descuento_pct,
@@ -40,7 +40,7 @@ export function useCotizaciones() {
       })
       const { data: p } = await supabase.from('prospectos').select('etapa').eq('id', input.prospecto_id).single()
       const cambios: Record<string, unknown> = { valor_estimado: implementacion, moneda: input.moneda }
-      if (p && ETAPAS_ABIERTAS.includes(p.etapa)) cambios.etapa = 'cerrado'
+      if (p && ETAPAS_ABIERTAS.includes(p.etapa)) cambios.etapa = 'demo'
       await supabase.from('prospectos').update(cambios).eq('id', input.prospecto_id)
     }
 

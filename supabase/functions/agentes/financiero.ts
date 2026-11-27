@@ -4,7 +4,8 @@
 import { ahoraAR, empezarInforme, marcarCorrida, nombreCliente, pensarJSON, terminarInforme, totales, type Contexto, type Fila } from './comun.ts'
 
 const ACTIVOS = ['implementacion', 'mantenimiento']
-const GANADAS = ['cerrado', 'implementacion', 'mantenimiento']
+// Cliente ganado = aceptó la propuesta (demo) en adelante
+const GANADAS = ['demo', 'implementacion', 'mantenimiento']
 
 /** "AAAA-MM" de los últimos n meses (el actual al final) */
 function meses(n: number, hoy: string): string[] {

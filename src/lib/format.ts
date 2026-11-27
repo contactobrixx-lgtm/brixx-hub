@@ -2,10 +2,8 @@ import type { CategoriaCosto, ConceptoCobro, Etapa, EstadoCotizacion, EstadoFich
 
 export const ETAPA_LABEL: Record<Etapa, string> = {
   contacto: 'Contacto',
-  reunion: 'Reunión',
-  demo: 'Demo',
   propuesta: 'Propuesta',
-  cerrado: 'Cerrado',
+  demo: 'Demo',
   implementacion: 'Implementación',
   mantenimiento: 'Mantenimiento',
   perdido: 'Perdido',

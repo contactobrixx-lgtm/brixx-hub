@@ -27,23 +27,20 @@ export interface Ficha {
 
 export type FichaInput = Omit<Ficha, 'id' | 'created_at' | 'updated_at' | 'en_linea' | 'chequeo_at' | 'chequeo_detalle'>
 
-export const ETAPAS = [
-  'contacto',
-  'reunion',
-  'demo',
-  'propuesta',
-  'cerrado',
-  'implementacion',
-  'mantenimiento',
-  'perdido',
-] as const
+/**
+ * Flujo de 5 etapas (0035): contacto → propuesta → demo (la propuesta se aceptó y se diseñan las demos)
+ * → implementacion → mantenimiento. "perdido" no es una columna del tablero: se marca desde la ficha.
+ */
+export const ETAPAS = ['contacto', 'propuesta', 'demo', 'implementacion', 'mantenimiento', 'perdido'] as const
 export type Etapa = (typeof ETAPAS)[number]
 export type Moneda = 'ARS' | 'USD'
 
-/** Etapas antes de cerrar (pipeline abierto). */
-export const ETAPAS_ABIERTAS: readonly Etapa[] = ['contacto', 'reunion', 'demo', 'propuesta']
-/** Etapas de un cliente ganado. */
-export const ETAPAS_GANADAS: readonly Etapa[] = ['cerrado', 'implementacion', 'mantenimiento']
+/** Las 5 columnas del tablero del pipeline (sin "perdido"). */
+export const ETAPAS_TABLERO: readonly Etapa[] = ['contacto', 'propuesta', 'demo', 'implementacion', 'mantenimiento']
+/** Etapas antes de que acepten la propuesta (pipeline abierto). */
+export const ETAPAS_ABIERTAS: readonly Etapa[] = ['contacto', 'propuesta']
+/** Etapas de un cliente ganado: desde que aceptó la propuesta (demo) en adelante. */
+export const ETAPAS_GANADAS: readonly Etapa[] = ['demo', 'implementacion', 'mantenimiento']
 /** Clientes activos (pagan o están en curso). */
 export const ETAPAS_ACTIVAS: readonly Etapa[] = ['implementacion', 'mantenimiento']
 

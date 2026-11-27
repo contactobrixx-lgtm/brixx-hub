@@ -3,7 +3,8 @@
 // que se repiten en reuniones e intervenciones. Los números se calculan acá; Claude saca las conclusiones.
 import { ahoraAR, empezarInforme, marcarCorrida, nombreCliente, pensarJSON, terminarInforme, totales, type Contexto, type Fila } from './comun.ts'
 
-const GANADAS = ['cerrado', 'implementacion', 'mantenimiento']
+// Cliente ganado = aceptó la propuesta (demo) en adelante
+const GANADAS = ['demo', 'implementacion', 'mantenimiento']
 
 const usd = (n: number) => `US$ ${Math.round(n).toLocaleString('es-AR')}`
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '—')

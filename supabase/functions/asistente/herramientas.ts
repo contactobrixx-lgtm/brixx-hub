@@ -125,7 +125,7 @@ export const HERRAMIENTAS_ACCIONES: Anthropic.Beta.BetaTool[] = [
     accion: { type: 'string', description: 'Qué hay que hacer, empezando con un verbo ("Mandarle la cotización").' },
     fecha: opcional(fecha),
   }),
-  herramienta('mover_etapa', `Prepara el cambio de etapa de un cliente en el pipeline.${PREPARA}`, {
+  herramienta('mover_etapa', `Prepara el cambio de etapa de un cliente en el pipeline. Flujo: contacto → propuesta (se le mandó) → demo (aceptó la propuesta y se diseñan las demos) → implementacion → mantenimiento; perdido si se cayó.${PREPARA}`, {
     cliente,
     etapa: { type: 'string', enum: [...ETAPAS] },
     motivo_perdida: opcional({ type: 'string', description: 'Solo si pasa a perdido.' }),
