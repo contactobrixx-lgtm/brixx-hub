@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Plus, Search } from 'lucide-react'
 import type { Ficha, Seccion } from '../types/db'
 import { useFichas } from '../features/fichas/useFichas'
@@ -11,6 +11,7 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { ErrorBox } from '../components/ui/ErrorBox'
 import { PantallaCarga } from '../components/ui/Spinner'
 import { Chip, Segmentado } from '../components/ui/Badge'
+import { cn } from '../components/ui/cn'
 
 type Filtro = 'vigentes' | 'archivados' | 'todos'
 
@@ -171,18 +172,30 @@ function Contenido({ seccion }: { seccion: Seccion }) {
       ) : visibles.length === 0 ? (
         <p className="py-16 text-center text-tenue">Ninguna ficha coincide con los filtros.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-flow-row-dense gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {bloques.map((b) =>
             Array.isArray(b) ? (
               <section
                 key={`grupo-${b[0].id}`}
-                className="col-span-full rounded-[20px] border border-borde-fuerte bg-elevada/40 p-3"
+                className={cn(
+                  'grupo-fichas min-w-0 rounded-[20px] border border-borde-fuerte bg-elevada/40 p-3',
+                  b.length === 2 ? 'sm:col-span-2' : 'sm:col-span-2 xl:col-span-3',
+                )}
+                style={{ '--k-xl': Math.min(b.length, 3) } as CSSProperties}
               >
                 <header className="flex items-baseline gap-2 px-2 pt-1 pb-3">
                   <h2 className="text-lg font-bold text-acento-texto">{b[0].cliente}</h2>
                   <span className="text-xs text-tenue">{b.length} webapps</span>
+                  <span
+                    className={cn(
+                      'ml-auto text-xs text-tenue',
+                      b.length === 2 ? 'sm:hidden' : b.length === 3 && 'xl:hidden',
+                    )}
+                  >
+                    Deslizá para ver más →
+                  </span>
                 </header>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{b.map(tarjeta)}</div>
+                <div className="fila flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1">{b.map(tarjeta)}</div>
               </section>
             ) : (
               tarjeta(b)
